@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#f4f4fb">
+  <title>WallRush — Block their way</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect x='8' y='14' width='84' height='30' rx='8' fill='%237c5cff'/><rect x='8' y='56' width='40' height='30' rx='8' fill='%237c5cff'/><rect x='56' y='56' width='36' height='30' rx='8' fill='%23b3a1ff'/></svg>">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div id="app">
+
+    <!-- ============ HOME ============ -->
+    <section class="screen active" id="screen-home">
+      <header class="home-head">
+        <div class="logo">
+          <div class="logo-mark"><span></span><span></span><span></span></div>
+          <h1>WallRush</h1>
+        </div>
+        <p class="tagline" data-i18n="tagline"></p>
+        <div class="online-pill"><span class="dot"></span><b id="online-count">0</b>&nbsp;<span data-i18n="online_count"></span></div>
+      </header>
+
+      <div class="cards">
+        <button class="card card-primary" id="btn-quick">
+          <div class="card-icon">⚡</div>
+          <div class="card-text"><b data-i18n="quick_match"></b><small data-i18n="quick_match_sub"></small></div>
+          <div class="card-arrow">›</div>
+        </button>
+        <div class="cards-row">
+          <button class="card card-violet" id="btn-online">
+            <div class="card-icon">🌐</div>
+            <div class="card-text"><b data-i18n="play_online"></b><small data-i18n="play_online_sub"></small></div>
+          </button>
+          <button class="card card-violet2" id="btn-friend">
+            <div class="card-icon">🤝</div>
+            <div class="card-text"><b data-i18n="play_friend"></b><small data-i18n="play_friend_sub"></small></div>
+          </button>
+        </div>
+        <button class="card card-light" id="btn-ai">
+          <div class="card-icon dark">🤖</div>
+          <div class="card-text"><b data-i18n="play_ai"></b><small data-i18n="play_ai_sub"></small></div>
+          <div class="card-arrow">›</div>
+        </button>
+        <button class="card card-light" id="btn-how">
+          <div class="card-icon dark">📖</div>
+          <div class="card-text"><b data-i18n="how_title"></b></div>
+          <div class="card-arrow">›</div>
+        </button>
+      </div>
+    </section>
+
+    <!-- ============ ROOMS (public lobby) ============ -->
+    <section class="screen" id="screen-rooms">
+      <header class="sub-head">
+        <button class="btn-back" data-back>‹</button>
+        <h2 data-i18n="rooms_title"></h2>
+      </header>
+      <div id="rooms-list" class="rooms-list"></div>
+      <button class="btn-big" id="btn-create-room" data-i18n="create_room"></button>
+    </section>
+
+    <!-- ============ FRIEND (private code) ============ -->
+    <section class="screen" id="screen-friend">
+      <header class="sub-head">
+        <button class="btn-back" data-back>‹</button>
+        <h2 data-i18n="friend_title"></h2>
+      </header>
+      <div class="friend-box">
+        <button class="btn-big" id="btn-friend-create" data-i18n="friend_create"></button>
+        <div class="divider">•</div>
+        <p class="hint" data-i18n="friend_enter"></p>
+        <input id="friend-code-input" class="input" maxlength="6" autocomplete="off" autocapitalize="characters" data-i18n-ph="code_placeholder">
+        <button class="btn-big btn-outline" id="btn-friend-join" data-i18n="friend_join"></button>
+      </div>
+    </section>
+
+    <!-- ============ WAITING ============ -->
+    <section class="screen" id="screen-waiting">
+      <div class="waiting-box">
+        <div class="spinner"></div>
+        <h2 data-i18n="waiting_opponent"></h2>
+        <div id="waiting-code" class="code-box" hidden>
+          <p class="hint" data-i18n="friend_code_hint"></p>
+          <div class="code" id="room-code-value"></div>
+        </div>
+        <button class="btn-big btn-outline" id="btn-cancel-wait" data-i18n="cancel"></button>
+      </div>
+    </section>
+
+    <!-- ============ GAME ============ -->
+    <section class="screen" id="screen-game">
+      <div class="game-top">
+        <div class="player-chip" id="chip-opp">
+          <div class="chip-ball"></div>
+          <div class="chip-info"><b id="opp-nick"></b><small><span id="opp-walls">10</span> 🧱</small></div>
+          <div class="chip-clock" id="opp-clock">2:00</div>
+        </div>
+      </div>
+
+      <div class="board-wrap">
+        <div class="zone-label zone-top" id="zone-top"></div>
+        <div id="board"></div>
+        <div class="zone-label zone-bottom" id="zone-bottom"></div>
+        <div id="emoji-pop" class="emoji-pop" hidden></div>
+        <div id="wall-confirm" class="wall-confirm" hidden>
+          <button id="wall-yes">✓</button>
+          <button id="wall-no">✕</button>
+        </div>
+      </div>
+
+      <div class="game-bottom">
+        <div class="player-chip me" id="chip-me">
+          <div class="chip-ball"></div>
+          <div class="chip-info"><b id="me-nick"></b><small><span id="me-walls">10</span> 🧱</small></div>
+          <div class="chip-clock" id="me-clock">2:00</div>
+        </div>
+        <div class="game-actions">
+          <div class="turn-banner" id="turn-banner"></div>
+          <div class="emoji-bar" id="emoji-bar">
+            <button data-emoji="😂">😂</button>
+            <button data-emoji="🫡">🫡</button>
+            <button data-emoji="🤝">🤝</button>
+            <button data-emoji="😡">😡</button>
+          </div>
+          <button class="btn-resign" id="btn-resign" data-i18n="resign"></button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ GAME OVER (overlay) ============ -->
+    <div class="overlay" id="overlay-gameover" hidden>
+      <div class="modal">
+        <div class="result-emoji" id="result-emoji">🏆</div>
+        <h2 id="result-title"></h2>
+        <p id="result-reason" class="hint"></p>
+        <div class="modal-buttons">
+          <button class="btn-big" id="btn-rematch" data-i18n="rematch"></button>
+          <button class="btn-big btn-outline" id="btn-to-menu" data-i18n="back_menu"></button>
+        </div>
+        <p id="rematch-status" class="hint" hidden></p>
+      </div>
+    </div>
+
+    <!-- ============ CONFIRM RESIGN ============ -->
+    <div class="overlay" id="overlay-resign" hidden>
+      <div class="modal">
+        <h2 data-i18n="resign_confirm"></h2>
+        <div class="modal-buttons row">
+          <button class="btn-big btn-danger" id="btn-resign-yes" data-i18n="yes"></button>
+          <button class="btn-big btn-outline" id="btn-resign-no" data-i18n="no"></button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ HOW TO PLAY ============ -->
+    <div class="overlay" id="overlay-how" hidden>
+      <div class="modal">
+        <h2 data-i18n="how_title"></h2>
+        <p class="hint how-text" data-i18n="how_text"></p>
+        <div class="modal-buttons">
+          <button class="btn-big" id="btn-how-close">OK</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ LEADERBOARD ============ -->
+    <section class="screen" id="screen-leaderboard">
+      <header class="sub-head center">
+        <h2>🏆 <span data-i18n="leaderboard_title"></span></h2>
+        <p class="hint" data-i18n="leaderboard_sub"></p>
+      </header>
+      <div id="lb-list" class="lb-list"></div>
+    </section>
+
+    <!-- ============ PROFILE ============ -->
+    <section class="screen" id="screen-profile">
+      <header class="sub-head center">
+        <h2 data-i18n="profile_title"></h2>
+      </header>
+
+      <div class="profile-card">
+        <div class="avatar" id="profile-avatar">U</div>
+        <h3 id="profile-nick">User0000</h3>
+        <div class="stats-row" id="profile-stats">
+          <div class="stat"><b id="stat-games">0</b><small data-i18n="stats_games"></small></div>
+          <div class="stat"><b id="stat-wins">0</b><small data-i18n="stats_wins"></small></div>
+          <div class="stat"><b id="stat-losses">0</b><small data-i18n="stats_losses"></small></div>
+        </div>
+        <p class="hint" id="guest-hint" data-i18n="guest_hint"></p>
+      </div>
+
+      <!-- guest: auth buttons -->
+      <div id="auth-buttons" class="auth-box">
+        <button class="btn-big" id="btn-show-login" data-i18n="login"></button>
+        <button class="btn-big btn-outline" id="btn-show-register" data-i18n="register"></button>
+      </div>
+
+      <!-- auth form -->
+      <div id="auth-form" class="auth-box" hidden>
+        <input class="input" id="auth-email" type="email" data-i18n-ph="email" autocomplete="email">
+        <input class="input" id="auth-password" type="password" data-i18n-ph="password" autocomplete="current-password">
+        <input class="input" id="auth-nick" data-i18n-ph="nick_label" maxlength="16" hidden>
+        <button class="btn-big" id="btn-auth-submit"></button>
+        <button class="btn-link" id="btn-auth-toggle"></button>
+        <button class="btn-link" id="btn-forgot" data-i18n="forgot"></button>
+        <button class="btn-link" id="btn-auth-cancel" data-i18n="cancel"></button>
+        <p class="auth-msg" id="auth-msg" hidden></p>
+      </div>
+
+      <div id="logged-box" class="auth-box" hidden>
+        <button class="btn-big btn-outline" id="btn-logout" data-i18n="logout"></button>
+      </div>
+
+      <div class="settings-box">
+        <div class="setting-row">
+          <span data-i18n="lang_label"></span>
+          <div class="lang-switch">
+            <button data-lang="ru" id="lang-ru">RU</button>
+            <button data-lang="en" id="lang-en">EN</button>
+          </div>
+        </div>
+        <div class="setting-row">
+          <span data-i18n="vibration"></span>
+          <label class="toggle"><input type="checkbox" id="vibro-toggle" checked><span></span></label>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ BOTTOM NAV ============ -->
+    <nav id="bottom-nav">
+      <button class="nav-btn active" data-screen="screen-home">
+        <span class="nav-ico">🏠</span><span data-i18n="nav_home"></span>
+      </button>
+      <button class="nav-btn" data-screen="screen-leaderboard">
+        <span class="nav-ico">🏆</span><span data-i18n="nav_leaderboard"></span>
+      </button>
+      <button class="nav-btn" data-screen="screen-profile">
+        <span class="nav-ico">👤</span><span data-i18n="nav_profile"></span>
+      </button>
+    </nav>
+
+    <div id="toast" hidden></div>
+  </div>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
