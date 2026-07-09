@@ -2,14 +2,28 @@
 // the game then runs in guest-only mode (no accounts, empty leaderboard).
 import { createClient } from '@supabase/supabase-js';
 
-const url = process.env.SUPABASE_URL || '';
-const serviceKey = process.env.SUPABASE_SERVICE_KEY || '';
+const url = (process.env.SUPABASE_URL || '').trim();
+const serviceKey = (process.env.SUPABASE_SERVICE_KEY || '').trim();
 
-export const dbEnabled = Boolean(url && serviceKey);
+// Never crash the game because of bad credentials: fall back to guest mode.
+let client = null;
+if (url && serviceKey) {
+  if (!/^https:\/\/.+\.supabase\.co\/?$/i.test(url)) {
+    console.error(`SUPABASE_URL looks wrong ("${url.slice(0, 30)}..."). ` +
+      'Expected like https://xxxx.supabase.co — accounts disabled, running in guest mode.');
+  } else {
+    try {
+      client = createClient(url, serviceKey, { auth: { persistSession: false } });
+    } catch (e) {
+      console.error('Supabase init failed:', e.message, '— running in guest mode.');
+    }
+  }
+} else {
+  console.log('SUPABASE_URL / SUPABASE_SERVICE_KEY not set — running in guest mode.');
+}
 
-export const supa = dbEnabled
-  ? createClient(url, serviceKey, { auth: { persistSession: false } })
-  : null;
+export const dbEnabled = Boolean(client);
+export const supa = client;
 
 // Verify a Supabase Auth JWT; returns { id } or null.
 export async function verifyUser(jwt) {

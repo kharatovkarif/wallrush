@@ -14,10 +14,11 @@ app.use(express.static(path.join(__dirname, '../public')));
 
 // Frontend bootstrap config (anon key is public by design in Supabase).
 app.get('/api/config', (req, res) => {
+  const anon = (process.env.SUPABASE_ANON_KEY || '').trim();
   res.json({
-    auth: dbEnabled && Boolean(process.env.SUPABASE_ANON_KEY),
-    supabaseUrl: process.env.SUPABASE_URL || '',
-    supabaseAnonKey: process.env.SUPABASE_ANON_KEY || '',
+    auth: dbEnabled && Boolean(anon),
+    supabaseUrl: (process.env.SUPABASE_URL || '').trim(),
+    supabaseAnonKey: anon,
   });
 });
 
