@@ -1,7 +1,7 @@
 // WallRush client app: screens, board UI, online play (WebSocket), AI mode, auth.
-import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=4';
-import { aiMove } from './ai.js?v=4';
-import { makeT } from './i18n.js?v=4';
+import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=5';
+import { aiMove } from './ai.js?v=5';
+import { makeT } from './i18n.js?v=5';
 
 /* ================= state ================= */
 const $ = (id) => document.getElementById(id);
@@ -388,130 +388,84 @@ setInterval(() => {
     (myTurn ? t('your_turn') : t('opp_turn')) + ` · ${Math.ceil(moveLeft / 1000)}s`;
 }, 250);
 
-/* ================= moves: tap = ball, hold & drag = wall ================= */
-let wallPreview = null; // {w (logical), valid}
+/* ============ moves: tap to move / tap empty → wall + ↻/✓ buttons ============ */
+// Tap-only interaction: the most reliable thing across every mobile browser.
+// No drag, no pointer capture, no touch-action dependency.
+let activeWall = null;  // { r, c, o } logical coords of the wall being placed
 let previewEl = null;
-let pointerState = null; // {x0, y0, dragging}
-
-function cancelWallPreview() {
-  wallPreview = null;
-  if (previewEl) { previewEl.remove(); previewEl = null; }
-}
 
 function isMyTurn() {
   return game && !game.over && game.state.winner === null && game.state.turn === game.myIndex;
 }
 
-// nearest wall slot to the pointer; orientation = whichever groove is closer
-function pointerToWall(px, py) {
+function cancelWallPreview() {
+  activeWall = null;
+  if (previewEl) { previewEl.remove(); previewEl = null; }
+  $('wall-tools').hidden = true;
+}
+
+// nearest wall slot to a board point; orientation = whichever groove is closer
+function nearestSlot(px, py) {
   const step = geo.u + geo.g;
   const clamp7 = (v) => Math.max(0, Math.min(7, v));
   const r = clamp7(Math.round((py - geo.pad - geo.u - geo.g / 2) / step));
   const c = clamp7(Math.round((px - geo.pad - geo.u - geo.g / 2) / step));
-  const gx = geo.pad + c * step + geo.u + geo.g / 2; // nearest vertical groove center
-  const gy = geo.pad + r * step + geo.u + geo.g / 2; // nearest horizontal groove center
+  const gx = geo.pad + c * step + geo.u + geo.g / 2;
+  const gy = geo.pad + r * step + geo.u + geo.g / 2;
   const o = Math.abs(px - gx) < Math.abs(py - gy) ? 'v' : 'h';
   return wallFromView({ o, r, c });
 }
 
-function updateWallPreview(px, py) {
-  const w = pointerToWall(px, py);
-  const valid = canPlaceWall(game.state, game.myIndex, w) && game.state.left[game.myIndex] > 0;
-  wallPreview = { w, valid };
+function renderWallPreview() {
+  if (!activeWall) return;
+  const valid = canPlaceWall(game.state, game.myIndex, activeWall) && game.state.left[game.myIndex] > 0;
   if (!previewEl) {
     previewEl = document.createElement('div');
-    previewEl.classList.add('preview');
     board.appendChild(previewEl);
   }
   previewEl.className = `wall preview ${myColor()} ${valid ? 'preview-ok' : 'preview-bad'}`;
-  const rect = wallRect(wallToView(w));
+  const rect = wallRect(wallToView(activeWall));
   previewEl.style.cssText = `left:${rect.x}px;top:${rect.y}px;width:${rect.w}px;height:${rect.h}px`;
+  $('wall-tools').hidden = false;
+  $('wall-place').disabled = !valid;
+  $('dbg').textContent = `стенка ${activeWall.o === 'h' ? '━' : '┃'} ${valid ? 'можно ✓' : 'нельзя'}`;
 }
 
-// Raw touch + mouse handling (pointer events + setPointerCapture proved
-// unreliable in some mobile browsers — the drag never registered). Touch is
-// king on phones; mouse events are the desktop fallback.
-
-function boardXY(clientX, clientY, isTouch) {
+// single reliable handler: fires on every tap/click, on desktop and mobile
+board.addEventListener('click', (e) => {
+  if (!isMyTurn()) { $('dbg').textContent = 'не твой ход'; return; }
   const bw = board.getBoundingClientRect();
-  const px = clientX - bw.left;
-  let py = clientY - bw.top;
-  if (isTouch) py -= geo.u * 0.6; // lift the preview above the fingertip so it's visible
-  return { px, py };
-}
+  const px = e.clientX - bw.left, py = e.clientY - bw.top;
 
-function inputStart(clientX, clientY, target, isTouch) {
-  if (!isMyTurn()) return;
-  const bw = board.getBoundingClientRect();
-  const rawX = clientX - bw.left, rawY = clientY - bw.top;
-  const cell = target?.closest?.('.cell');
-  const onLegal = Boolean(cell && cell.classList.contains('legal'));
-  pointerState = { x0: rawX, y0: rawY, onLegal, dragging: false, cell: onLegal ? cell : null, isTouch };
-  // pressed on an empty area → show the wall preview right away
-  if (!onLegal && game.state.left[game.myIndex] > 0) {
-    const { px, py } = boardXY(clientX, clientY, isTouch);
-    updateWallPreview(px, py);
-  }
-}
-
-function inputMove(clientX, clientY) {
-  if (!pointerState || !isMyTurn()) return;
-  const bw = board.getBoundingClientRect();
-  const rawX = clientX - bw.left, rawY = clientY - bw.top;
-  if (!pointerState.dragging &&
-      Math.hypot(rawX - pointerState.x0, rawY - pointerState.y0) > geo.u * 0.3) {
-    pointerState.dragging = true;
-  }
-  if ((pointerState.dragging || !pointerState.onLegal) && game.state.left[game.myIndex] > 0) {
-    const { px, py } = boardXY(clientX, clientY, pointerState.isTouch);
-    updateWallPreview(px, py);
-  }
-}
-
-function inputEnd() {
-  if (!pointerState) return;
-  const st = pointerState;
-  pointerState = null;
-  if (!isMyTurn()) { cancelWallPreview(); return; }
-
-  // tap on a highlighted cell (no drag) → move the ball
-  if (st.onLegal && !st.dragging) {
+  // tapped a highlighted move-cell → move the ball
+  const cell = e.target.closest?.('.cell');
+  if (cell && cell.classList.contains('legal')) {
     cancelWallPreview();
-    const lg = fromView(+st.cell.dataset.vr, +st.cell.dataset.vc);
+    const lg = fromView(+cell.dataset.vr, +cell.dataset.vc);
+    $('dbg').textContent = `ход ${lg.r},${lg.c}`;
     submitMove({ type: 'pawn', r: lg.r, c: lg.c });
     return;
   }
-  // release with a valid wall preview → place it
-  if (wallPreview?.valid) submitMove({ type: 'wall', ...wallPreview.w });
-  cancelWallPreview();
-}
 
-// --- touch (phones) ---
-board.addEventListener('touchstart', (e) => {
-  if (!isMyTurn()) return;
-  e.preventDefault();
-  const tt = e.changedTouches[0];
-  inputStart(tt.clientX, tt.clientY, document.elementFromPoint(tt.clientX, tt.clientY), true);
-}, { passive: false });
+  // tapped elsewhere → put (or move) a wall preview at the nearest slot
+  if (game.state.left[game.myIndex] <= 0) { $('dbg').textContent = 'стенки кончились'; return; }
+  activeWall = nearestSlot(px, py);
+  renderWallPreview();
+}, false);
 
-board.addEventListener('touchmove', (e) => {
-  e.preventDefault(); // stop the page from scrolling / pull-to-refresh
-  const tt = e.changedTouches[0];
-  inputMove(tt.clientX, tt.clientY);
-}, { passive: false });
-
-board.addEventListener('touchend', (e) => { e.preventDefault(); inputEnd(); }, { passive: false });
-board.addEventListener('touchcancel', () => { pointerState = null; cancelWallPreview(); });
-
-// --- mouse (desktop only; ignored when touch already handled it) ---
-let mouseDown = false;
-board.addEventListener('mousedown', (e) => {
-  if ('ontouchstart' in window) return;
-  mouseDown = true;
-  inputStart(e.clientX, e.clientY, e.target, false);
+$('wall-rotate').addEventListener('click', () => {
+  if (!activeWall) return;
+  activeWall = { ...activeWall, o: activeWall.o === 'h' ? 'v' : 'h' };
+  renderWallPreview();
 });
-window.addEventListener('mousemove', (e) => { if (mouseDown) inputMove(e.clientX, e.clientY); });
-window.addEventListener('mouseup', () => { if (mouseDown) { mouseDown = false; inputEnd(); } });
+$('wall-place').addEventListener('click', () => {
+  if (!activeWall) return;
+  if (!canPlaceWall(game.state, game.myIndex, activeWall) || game.state.left[game.myIndex] <= 0) return;
+  const w = activeWall;
+  cancelWallPreview();
+  submitMove({ type: 'wall', ...w });
+});
+$('wall-cancel').addEventListener('click', cancelWallPreview);
 
 function submitMove(move) {
   if (!isMyTurn()) return;

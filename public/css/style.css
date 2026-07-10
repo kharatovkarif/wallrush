@@ -206,6 +206,7 @@ body {
   content: ''; position: absolute; inset: 36%; border-radius: 50%;
   background: var(--violet); opacity: .55;
 }
+.dbg { color: var(--violet); font-weight: 700; }
 .pawn {
   position: absolute; border-radius: 50%; z-index: 5; pointer-events: none;
   box-shadow: inset -4px -6px 10px rgba(0,0,0,.28), 0 4px 8px rgba(0,0,0,.2);
@@ -214,7 +215,7 @@ body {
 .pawn.red { background: radial-gradient(circle at 32% 28%, #ff8a94, var(--red) 60%, #c62f40); }
 .pawn.blue { background: radial-gradient(circle at 32% 28%, #7aa5ff, var(--blue) 60%, #2453b8); }
 .wall {
-  position: absolute; border-radius: 6px; z-index: 4;
+  position: absolute; border-radius: 6px; z-index: 4; pointer-events: none;
   box-shadow: 0 2px 5px rgba(0,0,0,.25);
   animation: wallIn .2s ease;
 }
@@ -226,6 +227,19 @@ body {
 .wall.preview-bad { background: #b9b9c9 !important; opacity: .6; }
 
 .game-hint { text-align: center; font-size: 12px; color: var(--muted); padding: 2px 10px; }
+
+.wall-tools { display: flex; gap: 10px; justify-content: center; margin-top: 6px; }
+.wall-tools button {
+  flex: 1; max-width: 130px; display: flex; align-items: center; justify-content: center; gap: 8px;
+  padding: 13px 8px; border: none; border-radius: 14px; cursor: pointer;
+  background: var(--card); box-shadow: var(--shadow); color: var(--text);
+  font: inherit; font-weight: 700; transition: transform .1s ease;
+}
+.wall-tools button span { font-size: 22px; line-height: 1; }
+.wall-tools button small { font-size: 13px; }
+.wall-tools button:active { transform: scale(.94); }
+.wall-tools .wt-ok { background: var(--green); color: #fff; box-shadow: 0 6px 18px rgba(46,204,113,.4); }
+.wall-tools .wt-ok:disabled { background: #c7c7d4; box-shadow: none; }
 
 .game-actions { display: flex; align-items: center; gap: 10px; margin-top: 8px; }
 .turn-banner { flex: 1; font-weight: 700; font-size: 14px; color: var(--violet); }

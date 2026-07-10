@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#f4f4fb">
   <title>WallRush — Block their way</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect x='8' y='14' width='84' height='30' rx='8' fill='%237c5cff'/><rect x='8' y='56' width='40' height='30' rx='8' fill='%237c5cff'/><rect x='56' y='56' width='36' height='30' rx='8' fill='%23b3a1ff'/></svg>">
-  <link rel="stylesheet" href="css/style.css?v=4">
+  <link rel="stylesheet" href="css/style.css?v=5">
 </head>
 <body>
   <div id="app">
@@ -106,7 +106,13 @@
         <div id="emoji-pop" class="emoji-pop" hidden></div>
       </div>
 
-      <div class="game-hint" id="game-hint" data-i18n="gesture_hint"></div>
+      <div class="wall-tools" id="wall-tools" hidden>
+        <button id="wall-rotate"><span>↻</span><small data-i18n="wt_rotate"></small></button>
+        <button id="wall-place" class="wt-ok"><span>✓</span><small data-i18n="wt_place"></small></button>
+        <button id="wall-cancel"><span>✕</span><small data-i18n="wt_cancel"></small></button>
+      </div>
+
+      <div class="game-hint"><span id="game-hint" data-i18n="gesture_hint"></span> <span id="dbg" class="dbg"></span></div>
 
       <div class="game-bottom">
         <div class="player-chip me" id="chip-me">
@@ -242,6 +248,6 @@
     <div id="toast" hidden></div>
   </div>
 
-  <script type="module" src="js/app.js?v=4"></script>
+  <script type="module" src="js/app.js?v=5"></script>
 </body>
 </html>
