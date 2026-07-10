@@ -1,7 +1,7 @@
 // WallRush client app: screens, board UI, online play (WebSocket), AI mode, auth.
-import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=7';
-import { aiMove } from './ai.js?v=7';
-import { makeT } from './i18n.js?v=7';
+import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=8';
+import { aiMove } from './ai.js?v=8';
+import { makeT } from './i18n.js?v=8';
 
 /* ================= state ================= */
 const $ = (id) => document.getElementById(id);
@@ -715,10 +715,24 @@ $('btn-auth-submit').addEventListener('click', async () => {
   try {
     if (authMode === 'register') {
       if (!/^[A-Za-z0-9_а-яА-ЯёЁ]{3,16}$/.test(nick)) { authMsg(t('err_nick_bad')); return; }
-      localStorage.setItem('wr_pending_nick', nick);
-      const { data, error } = await supabase.auth.signUp({ email, password });
-      if (error) { authMsg(error.message); return; }
-      if (!data.session) { authMsg(t('confirm_sent'), true); return; }
+      // server-side signup: account is created already confirmed
+      const res = await fetch('/api/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password, nick }),
+      });
+      const data = await res.json();
+      if (data.error) {
+        const map = {
+          email_bad: t('err_email_bad'), email_taken: t('err_email_taken'),
+          password_short: t('err_password_short'),
+          nick_bad: t('err_nick_bad'), nick_taken: t('err_nick_taken'),
+        };
+        authMsg(map[data.error] || (data.detail ? `${t('err_generic')}: ${data.detail}` : t('err_generic')));
+        return;
+      }
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) { authMsg(t('auth_error')); return; }
       await afterLogin();
     } else if (authMode === 'login') {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
