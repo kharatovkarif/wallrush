@@ -10,7 +10,13 @@ import { dbEnabled, verifyUser, getProfile, createProfile, leaderboard } from '.
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
 app.use(express.json());
-app.use(express.static(path.join(__dirname, '../public')));
+// no-cache: browsers must revalidate every file, so deploys show up immediately
+// (ETag still gives cheap 304 responses when nothing changed)
+app.use(express.static(path.join(__dirname, '../public'), {
+  etag: true,
+  lastModified: true,
+  setHeaders: (res) => res.setHeader('Cache-Control', 'no-cache'),
+}));
 
 // Frontend bootstrap config (anon key is public by design in Supabase).
 app.get('/api/config', (req, res) => {
