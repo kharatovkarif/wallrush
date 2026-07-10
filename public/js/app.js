@@ -1,7 +1,7 @@
 // WallRush client app: screens, board UI, online play (WebSocket), AI mode, auth.
-import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=8';
-import { aiMove } from './ai.js?v=8';
-import { makeT } from './i18n.js?v=8';
+import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=9';
+import { aiMove } from './ai.js?v=9';
+import { makeT } from './i18n.js?v=9';
 
 /* ================= state ================= */
 const $ = (id) => document.getElementById(id);
@@ -401,7 +401,7 @@ function isMyTurn() {
 function cancelWallPreview() {
   activeWall = null;
   if (previewEl) { previewEl.remove(); previewEl = null; }
-  $('wall-tools').hidden = true;
+  $('wall-tools').classList.remove('shown');
 }
 
 // nearest wall slot to a board point; orientation = whichever groove is closer
@@ -426,14 +426,13 @@ function renderWallPreview() {
   previewEl.className = `wall preview ${myColor()} ${valid ? 'preview-ok' : 'preview-bad'}`;
   const rect = wallRect(wallToView(activeWall));
   previewEl.style.cssText = `left:${rect.x}px;top:${rect.y}px;width:${rect.w}px;height:${rect.h}px`;
-  $('wall-tools').hidden = false;
+  $('wall-tools').classList.add('shown');
   $('wall-place').disabled = !valid;
-  $('dbg').textContent = `стенка ${activeWall.o === 'h' ? '━' : '┃'} ${valid ? 'можно ✓' : 'нельзя'}`;
 }
 
 // single reliable handler: fires on every tap/click, on desktop and mobile
 board.addEventListener('click', (e) => {
-  if (!isMyTurn()) { $('dbg').textContent = 'не твой ход'; return; }
+  if (!isMyTurn()) return;
   const bw = board.getBoundingClientRect();
   const px = e.clientX - bw.left, py = e.clientY - bw.top;
 
@@ -442,13 +441,12 @@ board.addEventListener('click', (e) => {
   if (cell && cell.classList.contains('legal')) {
     cancelWallPreview();
     const lg = fromView(+cell.dataset.vr, +cell.dataset.vc);
-    $('dbg').textContent = `ход ${lg.r},${lg.c}`;
     submitMove({ type: 'pawn', r: lg.r, c: lg.c });
     return;
   }
 
   // tapped elsewhere → put (or move) a wall preview at the nearest slot
-  if (game.state.left[game.myIndex] <= 0) { $('dbg').textContent = 'стенки кончились'; return; }
+  if (game.state.left[game.myIndex] <= 0) return;
   activeWall = nearestSlot(px, py);
   renderWallPreview();
 }, false);

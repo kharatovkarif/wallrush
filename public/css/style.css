@@ -226,9 +226,14 @@ body {
 .wall.preview-ok { opacity: .75; outline: 2px dashed #fff; }
 .wall.preview-bad { background: #b9b9c9 !important; opacity: .6; }
 
-.game-hint { text-align: center; font-size: 12px; color: var(--muted); padding: 2px 10px; }
+.game-hint {
+  text-align: center; font-size: 12px; color: var(--muted); padding: 2px 10px;
+  min-height: 18px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
 
-.wall-tools { display: flex; gap: 10px; justify-content: center; margin-top: 6px; }
+/* the row keeps its height even when empty — the screen never jumps */
+.wall-tools { display: flex; gap: 10px; justify-content: center; margin-top: 6px; visibility: hidden; }
+.wall-tools.shown { visibility: visible; }
 .wall-tools button {
   flex: 1; max-width: 130px; display: flex; align-items: center; justify-content: center; gap: 8px;
   padding: 13px 8px; border: none; border-radius: 14px; cursor: pointer;
