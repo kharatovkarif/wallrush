@@ -1,6 +1,7 @@
 // Supabase clients. Everything degrades gracefully when env vars are absent:
 // the game then runs in guest-only mode (no accounts, empty leaderboard).
 import { createClient } from '@supabase/supabase-js';
+import { WebSocket as WsImpl } from 'ws'; // realtime transport for Node < 22 (no native WebSocket)
 
 // Values pasted from a phone often carry invisible junk (line breaks inside
 // the key, surrounding quotes, zero-width chars) — scrub it all out.
@@ -23,7 +24,10 @@ else if (!/^https:\/\/.+\.supabase\.co\/?$/i.test(url)) status = 'bad_url';
 else if (!serviceKey.startsWith('eyJ') && !serviceKey.startsWith('sb_secret_')) status = 'bad_service_key';
 else {
   try {
-    client = createClient(url, serviceKey, { auth: { persistSession: false } });
+    client = createClient(url, serviceKey, {
+      auth: { persistSession: false },
+      realtime: { transport: WsImpl },
+    });
   } catch (e) {
     console.error('Supabase init failed:', e.message);
     status = 'init_failed';
