@@ -1,7 +1,7 @@
 // WallRush client app: screens, board UI, online play (WebSocket), AI mode, auth.
-import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=3';
-import { aiMove } from './ai.js?v=3';
-import { makeT } from './i18n.js?v=3';
+import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=4';
+import { aiMove } from './ai.js?v=4';
+import { makeT } from './i18n.js?v=4';
 
 /* ================= state ================= */
 const $ = (id) => document.getElementById(id);
@@ -428,77 +428,90 @@ function updateWallPreview(px, py) {
   previewEl.style.cssText = `left:${rect.x}px;top:${rect.y}px;width:${rect.w}px;height:${rect.h}px`;
 }
 
-// keep mobile browsers from hijacking the gesture (scroll / pull-to-refresh)
-board.addEventListener('touchmove', (e) => e.preventDefault(), { passive: false });
+// Raw touch + mouse handling (pointer events + setPointerCapture proved
+// unreliable in some mobile browsers — the drag never registered). Touch is
+// king on phones; mouse events are the desktop fallback.
 
-function fingerPoint(e) {
+function boardXY(clientX, clientY, isTouch) {
   const bw = board.getBoundingClientRect();
-  const px = e.clientX - bw.left;
-  let py = e.clientY - bw.top;
-  if (e.pointerType === 'touch') py -= geo.u * 0.55; // lift preview above the finger
+  const px = clientX - bw.left;
+  let py = clientY - bw.top;
+  if (isTouch) py -= geo.u * 0.6; // lift the preview above the fingertip so it's visible
   return { px, py };
 }
 
-board.addEventListener('pointerdown', (e) => {
+function inputStart(clientX, clientY, target, isTouch) {
   if (!isMyTurn()) return;
-  e.preventDefault();
   const bw = board.getBoundingClientRect();
-  const cell = e.target.closest?.('.cell');
+  const rawX = clientX - bw.left, rawY = clientY - bw.top;
+  const cell = target?.closest?.('.cell');
   const onLegal = Boolean(cell && cell.classList.contains('legal'));
-  pointerState = {
-    x0: e.clientX - bw.left, y0: e.clientY - bw.top,
-    t0: Date.now(), onLegal, dragging: false,
-    cell: onLegal ? cell : null,
-  };
-  board.setPointerCapture(e.pointerId);
-  // pressed on a free spot → the wall preview appears right away
+  pointerState = { x0: rawX, y0: rawY, onLegal, dragging: false, cell: onLegal ? cell : null, isTouch };
+  // pressed on an empty area → show the wall preview right away
   if (!onLegal && game.state.left[game.myIndex] > 0) {
-    const { px, py } = fingerPoint(e);
+    const { px, py } = boardXY(clientX, clientY, isTouch);
     updateWallPreview(px, py);
   }
-});
+}
 
-board.addEventListener('pointermove', (e) => {
+function inputMove(clientX, clientY) {
   if (!pointerState || !isMyTurn()) return;
   const bw = board.getBoundingClientRect();
-  const rx = e.clientX - bw.left, ry = e.clientY - bw.top;
+  const rawX = clientX - bw.left, rawY = clientY - bw.top;
   if (!pointerState.dragging &&
-      Math.hypot(rx - pointerState.x0, ry - pointerState.y0) > geo.u * 0.4) {
+      Math.hypot(rawX - pointerState.x0, rawY - pointerState.y0) > geo.u * 0.3) {
     pointerState.dragging = true;
   }
-  // once dragging (or if the press started on a free spot) the preview follows the finger
   if ((pointerState.dragging || !pointerState.onLegal) && game.state.left[game.myIndex] > 0) {
-    const { px, py } = fingerPoint(e);
+    const { px, py } = boardXY(clientX, clientY, pointerState.isTouch);
     updateWallPreview(px, py);
   }
-});
+}
 
-board.addEventListener('pointerup', (e) => {
+function inputEnd() {
   if (!pointerState) return;
   const st = pointerState;
   pointerState = null;
   if (!isMyTurn()) { cancelWallPreview(); return; }
 
-  // quick tap on a highlighted cell = ball move
+  // tap on a highlighted cell (no drag) → move the ball
   if (st.onLegal && !st.dragging) {
     cancelWallPreview();
     const lg = fromView(+st.cell.dataset.vr, +st.cell.dataset.vc);
     submitMove({ type: 'pawn', r: lg.r, c: lg.c });
     return;
   }
-
-  // release = place the wall shown in the preview
-  const held = Date.now() - st.t0;
-  if (wallPreview?.valid && (st.dragging || held >= 150)) {
-    submitMove({ type: 'wall', ...wallPreview.w });
-  }
+  // release with a valid wall preview → place it
+  if (wallPreview?.valid) submitMove({ type: 'wall', ...wallPreview.w });
   cancelWallPreview();
-});
+}
 
-board.addEventListener('pointercancel', () => {
-  pointerState = null;
-  cancelWallPreview();
+// --- touch (phones) ---
+board.addEventListener('touchstart', (e) => {
+  if (!isMyTurn()) return;
+  e.preventDefault();
+  const tt = e.changedTouches[0];
+  inputStart(tt.clientX, tt.clientY, document.elementFromPoint(tt.clientX, tt.clientY), true);
+}, { passive: false });
+
+board.addEventListener('touchmove', (e) => {
+  e.preventDefault(); // stop the page from scrolling / pull-to-refresh
+  const tt = e.changedTouches[0];
+  inputMove(tt.clientX, tt.clientY);
+}, { passive: false });
+
+board.addEventListener('touchend', (e) => { e.preventDefault(); inputEnd(); }, { passive: false });
+board.addEventListener('touchcancel', () => { pointerState = null; cancelWallPreview(); });
+
+// --- mouse (desktop only; ignored when touch already handled it) ---
+let mouseDown = false;
+board.addEventListener('mousedown', (e) => {
+  if ('ontouchstart' in window) return;
+  mouseDown = true;
+  inputStart(e.clientX, e.clientY, e.target, false);
 });
+window.addEventListener('mousemove', (e) => { if (mouseDown) inputMove(e.clientX, e.clientY); });
+window.addEventListener('mouseup', () => { if (mouseDown) { mouseDown = false; inputEnd(); } });
 
 function submitMove(move) {
   if (!isMyTurn()) return;
