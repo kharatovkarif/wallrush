@@ -6,23 +6,26 @@ const url = (process.env.SUPABASE_URL || '').trim();
 const serviceKey = (process.env.SUPABASE_SERVICE_KEY || '').trim();
 
 // Never crash the game because of bad credentials: fall back to guest mode.
+// dbStatus tells the frontend WHY accounts are off, so it's debuggable from a phone.
 let client = null;
-if (url && serviceKey) {
-  if (!/^https:\/\/.+\.supabase\.co\/?$/i.test(url)) {
-    console.error(`SUPABASE_URL looks wrong ("${url.slice(0, 30)}..."). ` +
-      'Expected like https://xxxx.supabase.co — accounts disabled, running in guest mode.');
-  } else {
-    try {
-      client = createClient(url, serviceKey, { auth: { persistSession: false } });
-    } catch (e) {
-      console.error('Supabase init failed:', e.message, '— running in guest mode.');
-    }
+let status = 'ok';
+if (!url && !serviceKey) status = 'no_env';
+else if (!url) status = 'no_url';
+else if (!serviceKey) status = 'no_service_key';
+else if (!/^https:\/\/.+\.supabase\.co\/?$/i.test(url)) status = 'bad_url';
+else if (!serviceKey.startsWith('eyJ') && !serviceKey.startsWith('sb_secret_')) status = 'bad_service_key';
+else {
+  try {
+    client = createClient(url, serviceKey, { auth: { persistSession: false } });
+  } catch (e) {
+    console.error('Supabase init failed:', e.message);
+    status = 'init_failed';
   }
-} else {
-  console.log('SUPABASE_URL / SUPABASE_SERVICE_KEY not set — running in guest mode.');
 }
+if (status !== 'ok') console.error(`Supabase disabled (${status}) — running in guest mode.`);
 
 export const dbEnabled = Boolean(client);
+export const dbStatus = status;
 export const supa = client;
 
 // Verify a Supabase Auth JWT; returns { id } or null.

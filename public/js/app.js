@@ -1,7 +1,7 @@
 // WallRush client app: screens, board UI, online play (WebSocket), AI mode, auth.
-import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=5';
-import { aiMove } from './ai.js?v=5';
-import { makeT } from './i18n.js?v=5';
+import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=6';
+import { aiMove } from './ai.js?v=6';
+import { makeT } from './i18n.js?v=6';
 
 /* ================= state ================= */
 const $ = (id) => document.getElementById(id);
@@ -654,7 +654,8 @@ function updateProfileUI() {
   $('stat-losses').textContent = losses;
   const logged = Boolean(session && profile);
   $('guest-hint').hidden = logged;
-  $('auth-buttons').hidden = logged || !config.auth;
+  $('auth-buttons').hidden = logged; // always visible for guests, even if auth is broken —
+                                     // tapping then explains WHY it is unavailable
   $('logged-box').hidden = !logged;
   $('vibro-toggle').checked = vibroOn;
 }
@@ -689,8 +690,13 @@ function authMsg(text, ok = false) {
   el.hidden = false;
 }
 
-$('btn-show-login').addEventListener('click', () => openAuthForm('login'));
-$('btn-show-register').addEventListener('click', () => openAuthForm('register'));
+function ensureAuthAvailable() {
+  if (config.auth && supabase) return true;
+  toast(`${t('auth_unavailable')} [${config.dbStatus || 'offline'}]`);
+  return false;
+}
+$('btn-show-login').addEventListener('click', () => { if (ensureAuthAvailable()) openAuthForm('login'); });
+$('btn-show-register').addEventListener('click', () => { if (ensureAuthAvailable()) openAuthForm('register'); });
 $('btn-auth-toggle').addEventListener('click', () => openAuthForm(authMode === 'login' ? 'register' : 'login'));
 $('btn-auth-cancel').addEventListener('click', closeAuthForm);
 
@@ -810,7 +816,8 @@ async function boot() {
   } catch { config = { auth: false }; }
   if (config.auth) {
     try {
-      const mod = await import('https://esm.sh/@supabase/supabase-js@2');
+      // bundled locally (public/vendor) — no CDN needed; esm.sh is only a fallback
+      const mod = window.supabase || await import('https://esm.sh/@supabase/supabase-js@2');
       supabase = mod.createClient(config.supabaseUrl, config.supabaseAnonKey);
       supabase.auth.onAuthStateChange((event) => {
         if (event === 'PASSWORD_RECOVERY') {

@@ -5,7 +5,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { WebSocketServer } from 'ws';
 import { attachWs } from './rooms.js';
-import { dbEnabled, verifyUser, getProfile, createProfile, leaderboard } from './db.js';
+import { dbEnabled, dbStatus, verifyUser, getProfile, createProfile, leaderboard } from './db.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -23,6 +23,7 @@ app.get('/api/config', (req, res) => {
   const anon = (process.env.SUPABASE_ANON_KEY || '').trim();
   res.json({
     auth: dbEnabled && Boolean(anon),
+    dbStatus: !dbEnabled ? dbStatus : (anon ? 'ok' : 'no_anon_key'),
     supabaseUrl: (process.env.SUPABASE_URL || '').trim(),
     supabaseAnonKey: anon,
   });
