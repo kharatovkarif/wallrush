@@ -266,13 +266,13 @@ function positionPawn(i) {
 }
 
 function wallRect(vw) {
-  const thick = geo.g * 0.95;
+  const thick = geo.g * 1.7; // slightly overlaps cells — thick, competitor-style bars
   const len = 2 * geo.u + geo.g;
   const a = cellXY(vw.r, vw.c);
   if (vw.o === 'h') {
-    return { x: a.x, y: a.y + geo.u + (geo.g - thick) / 2, w: len, h: thick };
+    return { x: a.x, y: a.y + geo.u + geo.g / 2 - thick / 2, w: len, h: thick };
   }
-  return { x: a.x + geo.u + (geo.g - thick) / 2, y: a.y, w: thick, h: len };
+  return { x: a.x + geo.u + geo.g / 2 - thick / 2, y: a.y, w: thick, h: len };
 }
 
 function renderGame() {
@@ -280,16 +280,18 @@ function renderGame() {
   const s = game.state;
   const me = game.myIndex;
 
-  // walls
+  // walls (replay the pop-in animation only for newly added ones)
+  const prevWallCount = game._wallsRendered || 0;
   board.querySelectorAll('.wall:not(.preview)').forEach(el => el.remove());
   s.walls.forEach((w, idx) => {
     const el = document.createElement('div');
-    // wall color: who placed it (odd/even by capture order is unknown → color by owner stored)
     el.className = 'wall ' + (w.by === me ? myColor() : oppColor());
+    if (idx < prevWallCount) el.classList.add('no-anim');
     const rect = wallRect(wallToView(w));
     el.style.cssText = `left:${rect.x}px;top:${rect.y}px;width:${rect.w}px;height:${rect.h}px`;
     board.appendChild(el);
   });
+  game._wallsRendered = s.walls.length;
 
   // pawns: my pawn gets my color
   pawnEls[me].className = 'pawn ' + myColor();
@@ -321,6 +323,7 @@ function renderGame() {
   $('chip-me').classList.toggle('turn-active', myTurn);
   $('chip-opp').classList.toggle('turn-active', !myTurn && s.winner === null && !game.over);
   $('turn-banner').textContent = myTurn ? t('your_turn') : t('opp_turn');
+  updateModeBar();
   $('zone-top').textContent = t('zone_you');
   $('zone-top').classList.add('mine');
   $('zone-bottom').textContent = t('zone_opp');
@@ -374,10 +377,11 @@ setInterval(() => {
     (myTurn ? t('your_turn') : t('opp_turn')) + ` · ${Math.ceil(moveLeft / 1000)}s`;
 }, 250);
 
-/* ================= moves: pawn taps & wall drags ================= */
+/* ================= moves: mode bar (move / wall ─ / wall │) ================= */
+let wallMode = null;    // null = pawn move | 'h' | 'v'
 let wallPreview = null; // {w (logical), valid}
 let previewEl = null;
-let pointerState = null;
+let pointerDown = false;
 
 function cancelWallPreview() {
   wallPreview = null;
@@ -389,27 +393,42 @@ function isMyTurn() {
   return game && !game.over && game.state.winner === null && game.state.turn === game.myIndex;
 }
 
-function pointerToWall(px, py) {
-  const step = geo.u + geo.g;
-  const boundary = (v) => Math.round((v - geo.pad - geo.u - geo.g / 2) / step);
-  const clamp7 = (v) => Math.max(0, Math.min(7, v));
-  const kx = boundary(px); // vertical groove index (between col kx, kx+1)
-  const ky = boundary(py); // horizontal groove index
-  const gx = geo.pad + (kx + 1) * geo.u + (kx + 0.5) * geo.g; // groove center x
-  const gy = geo.pad + (ky + 1) * geo.u + (ky + 0.5) * geo.g;
-  const dV = Math.abs(px - gx), dH = Math.abs(py - gy);
-  let vw;
-  if (dV < dH) {
-    vw = { o: 'v', c: clamp7(kx), r: clamp7(boundary(py - step / 2) + 0) };
-    vw.r = clamp7(Math.round((py - geo.pad - geo.u - geo.g / 2) / step));
-  } else {
-    vw = { o: 'h', r: clamp7(ky), c: clamp7(Math.round((px - geo.pad - geo.u - geo.g / 2) / step)) };
+function setWallMode(mode) {
+  if (mode && game && game.state.left[game.myIndex] <= 0) {
+    toast(t('no_walls_left'));
+    mode = null;
   }
-  return wallFromView(vw);
+  wallMode = mode;
+  cancelWallPreview();
+  $('mode-move').classList.toggle('active', mode === null);
+  $('mode-wall-h').classList.toggle('active', mode === 'h');
+  $('mode-wall-v').classList.toggle('active', mode === 'v');
+  if (mode && !setWallMode.hinted) { toast(t('wall_mode_hint')); setWallMode.hinted = true; }
+}
+
+$('mode-move').addEventListener('click', () => setWallMode(null));
+$('mode-wall-h').addEventListener('click', () => setWallMode('h'));
+$('mode-wall-v').addEventListener('click', () => setWallMode('v'));
+
+function updateModeBar() {
+  const canWall = isMyTurn() && game.state.left[game.myIndex] > 0;
+  $('mode-wall-h').disabled = !canWall;
+  $('mode-wall-v').disabled = !canWall;
+  if (!canWall && wallMode) setWallMode(null);
+}
+
+// nearest wall slot of the chosen orientation to the pointer
+function pointerToWall(px, py, o) {
+  const step = geo.u + geo.g;
+  const clamp7 = (v) => Math.max(0, Math.min(7, v));
+  // slot (r, c): wall sits after row r (h) / after col c (v), spanning 2 cells
+  const r = clamp7(Math.round((py - geo.pad - geo.u - geo.g / 2) / step));
+  const c = clamp7(Math.round((px - geo.pad - geo.u - geo.g / 2) / step));
+  return wallFromView({ o, r, c });
 }
 
 function updateWallPreview(px, py) {
-  const w = pointerToWall(px, py);
+  const w = pointerToWall(px, py, wallMode);
   const valid = canPlaceWall(game.state, game.myIndex, w) && game.state.left[game.myIndex] > 0;
   wallPreview = { w, valid };
   if (!previewEl) {
@@ -423,7 +442,8 @@ function updateWallPreview(px, py) {
 }
 
 function showWallConfirm() {
-  if (!wallPreview?.valid) { cancelWallPreview(); return; }
+  if (!wallPreview) return;
+  if (!wallPreview.valid) return; // keep the grey preview so the player can retry elsewhere
   const rect = wallRect(wallToView(wallPreview.w));
   const conf = $('wall-confirm');
   conf.hidden = false;
@@ -437,56 +457,47 @@ function showWallConfirm() {
 
 board.addEventListener('pointerdown', (e) => {
   if (!isMyTurn()) return;
-  const bw = board.getBoundingClientRect();
-  pointerState = { x0: e.clientX - bw.left, y0: e.clientY - bw.top, dragging: false };
+  pointerDown = true;
   board.setPointerCapture(e.pointerId);
+  if (wallMode) {
+    const bw = board.getBoundingClientRect();
+    $('wall-confirm').hidden = true;
+    updateWallPreview(e.clientX - bw.left, e.clientY - bw.top);
+  }
 });
 
 board.addEventListener('pointermove', (e) => {
-  if (!pointerState || !isMyTurn()) return;
+  if (!pointerDown || !isMyTurn() || !wallMode) return;
   const bw = board.getBoundingClientRect();
-  const px = e.clientX - bw.left, py = e.clientY - bw.top;
-  if (!pointerState.dragging) {
-    const dist = Math.hypot(px - pointerState.x0, py - pointerState.y0);
-    if (dist > geo.u * 0.35) {
-      pointerState.dragging = true;
-      $('wall-confirm').hidden = true;
-    }
-  }
-  if (pointerState.dragging && game.state.left[game.myIndex] > 0) {
-    updateWallPreview(px, py);
-  }
+  updateWallPreview(e.clientX - bw.left, e.clientY - bw.top);
 });
 
 board.addEventListener('pointerup', (e) => {
-  if (!pointerState) return;
-  const wasDragging = pointerState.dragging;
-  pointerState = null;
+  if (!pointerDown) return;
+  pointerDown = false;
   if (!isMyTurn()) { cancelWallPreview(); return; }
 
-  if (wasDragging) {
+  if (wallMode) { // wall mode: finger released → offer to confirm this slot
     showWallConfirm();
     return;
   }
-  // tap: pawn move on a legal cell
+  // move mode: tap a highlighted cell to move the ball
   const el = document.elementFromPoint(e.clientX, e.clientY);
   const cell = el?.closest?.('.cell');
   if (cell && cell.classList.contains('legal')) {
-    cancelWallPreview();
     const lg = fromView(+cell.dataset.vr, +cell.dataset.vc);
     submitMove({ type: 'pawn', r: lg.r, c: lg.c });
-  } else if (wallPreview) {
-    cancelWallPreview();
   }
 });
 
 $('wall-yes').addEventListener('click', () => {
   if (wallPreview?.valid) {
     submitMove({ type: 'wall', ...wallPreview.w });
+    setWallMode(null); // back to move mode after placing
   }
   cancelWallPreview();
 });
-$('wall-no').addEventListener('click', cancelWallPreview);
+$('wall-no').addEventListener('click', () => setWallMode(null));
 
 function submitMove(move) {
   if (!isMyTurn()) return;
@@ -538,6 +549,7 @@ function startAiGame() {
   };
   game.state.turn = Math.random() < 0.5 ? 0 : 1;
   $('overlay-gameover').hidden = true;
+  setWallMode(null);
   show('screen-game');
   buildBoard();
   renderGame();
@@ -559,7 +571,7 @@ function startOnlineGame(msg) {
   $('overlay-gameover').hidden = true;
   $('btn-rematch').style.display = '';
   $('rematch-status').hidden = true;
-  cancelWallPreview();
+  setWallMode(null);
   show('screen-game');
   buildBoard();
   renderGame();

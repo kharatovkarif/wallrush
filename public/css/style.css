@@ -219,6 +219,7 @@ body {
   animation: wallIn .2s ease;
 }
 @keyframes wallIn { from { transform: scale(.6); opacity: 0; } }
+.wall.no-anim { animation: none; }
 .wall.red { background: linear-gradient(180deg, #ff6a76, #d63a4c); }
 .wall.blue { background: linear-gradient(180deg, #6a97ff, #2f5fd0); }
 .wall.preview-ok { opacity: .75; outline: 2px dashed #fff; }
@@ -233,6 +234,22 @@ body {
 }
 #wall-yes { background: var(--green); }
 #wall-no { background: #b1b1c4; }
+
+.mode-bar { display: flex; gap: 8px; margin-top: 4px; }
+.mode-btn {
+  flex: 1; display: flex; align-items: center; justify-content: center; gap: 7px;
+  padding: 11px 6px; border-radius: 14px; border: 2px solid transparent; cursor: pointer;
+  background: var(--card); box-shadow: var(--shadow);
+  font: inherit; font-size: 13px; font-weight: 700; color: var(--muted);
+  transition: transform .12s ease, border-color .12s ease;
+}
+.mode-btn:active { transform: scale(.96); }
+.mode-btn.active { border-color: var(--violet); color: var(--violet); background: #f1ecff; }
+.mode-btn:disabled { opacity: .4; }
+.mb-ico { display: inline-block; }
+.ico-wall-h { width: 24px; height: 7px; border-radius: 4px; background: linear-gradient(180deg, var(--violet2), var(--violet-dark)); }
+.ico-wall-v { width: 7px; height: 24px; border-radius: 4px; background: linear-gradient(180deg, var(--violet2), var(--violet-dark)); }
+.mode-btn.active .ico-wall-h, .mode-btn.active .ico-wall-v { background: var(--violet); }
 
 .game-actions { display: flex; align-items: center; gap: 10px; margin-top: 8px; }
 .turn-banner { flex: 1; font-weight: 700; font-size: 14px; color: var(--violet); }
