@@ -6,7 +6,19 @@ import { makeT } from './i18n.js';
 /* ================= state ================= */
 const $ = (id) => document.getElementById(id);
 
-let lang = localStorage.getItem('wr_lang') || (navigator.language?.startsWith('ru') ? 'ru' : 'en');
+// first visit: CIS system language or CIS timezone → RU, otherwise EN (user can change it in the profile)
+function detectLang() {
+  const saved = localStorage.getItem('wr_lang');
+  if (saved === 'ru' || saved === 'en') return saved;
+  const cisLangs = ['ru', 'uk', 'be', 'kk', 'ky', 'uz', 'tg', 'az', 'hy', 'ka', 'tk'];
+  const langs = navigator.languages?.length ? navigator.languages : [navigator.language || ''];
+  if (langs.some(l => cisLangs.includes(String(l).slice(0, 2).toLowerCase()))) return 'ru';
+  const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
+  const cisTz = /Moscow|Kaliningrad|Samara|Volgograd|Saratov|Astrakhan|Kirov|Ulyanovsk|Yekaterinburg|Omsk|Novosibirsk|Barnaul|Tomsk|Novokuznetsk|Krasnoyarsk|Irkutsk|Chita|Yakutsk|Khandyga|Vladivostok|Ust-Nera|Magadan|Sakhalin|Srednekolymsk|Kamchatka|Anadyr|Minsk|Kiev|Kyiv|Uzhgorod|Zaporozhye|Simferopol|Chisinau|Tiraspol|Almaty|Astana|Qostanay|Aqtobe|Aqtau|Atyrau|Oral|Qyzylorda|Tashkent|Samarkand|Bishkek|Dushanbe|Ashgabat|Baku|Yerevan|Tbilisi/i;
+  if (cisTz.test(tz)) return 'ru';
+  return 'en';
+}
+let lang = detectLang();
 let t = makeT(lang);
 let vibroOn = localStorage.getItem('wr_vibro') !== '0';
 
@@ -323,7 +335,6 @@ function renderGame() {
   $('chip-me').classList.toggle('turn-active', myTurn);
   $('chip-opp').classList.toggle('turn-active', !myTurn && s.winner === null && !game.over);
   $('turn-banner').textContent = myTurn ? t('your_turn') : t('opp_turn');
-  updateModeBar();
   $('zone-top').textContent = t('zone_you');
   $('zone-top').classList.add('mine');
   $('zone-bottom').textContent = t('zone_opp');
@@ -377,58 +388,34 @@ setInterval(() => {
     (myTurn ? t('your_turn') : t('opp_turn')) + ` · ${Math.ceil(moveLeft / 1000)}s`;
 }, 250);
 
-/* ================= moves: mode bar (move / wall ─ / wall │) ================= */
-let wallMode = null;    // null = pawn move | 'h' | 'v'
+/* ================= moves: tap = ball, hold & drag = wall ================= */
 let wallPreview = null; // {w (logical), valid}
 let previewEl = null;
-let pointerDown = false;
+let pointerState = null; // {x0, y0, dragging}
 
 function cancelWallPreview() {
   wallPreview = null;
   if (previewEl) { previewEl.remove(); previewEl = null; }
-  $('wall-confirm').hidden = true;
 }
 
 function isMyTurn() {
   return game && !game.over && game.state.winner === null && game.state.turn === game.myIndex;
 }
 
-function setWallMode(mode) {
-  if (mode && game && game.state.left[game.myIndex] <= 0) {
-    toast(t('no_walls_left'));
-    mode = null;
-  }
-  wallMode = mode;
-  cancelWallPreview();
-  $('mode-move').classList.toggle('active', mode === null);
-  $('mode-wall-h').classList.toggle('active', mode === 'h');
-  $('mode-wall-v').classList.toggle('active', mode === 'v');
-  if (mode && !setWallMode.hinted) { toast(t('wall_mode_hint')); setWallMode.hinted = true; }
-}
-
-$('mode-move').addEventListener('click', () => setWallMode(null));
-$('mode-wall-h').addEventListener('click', () => setWallMode('h'));
-$('mode-wall-v').addEventListener('click', () => setWallMode('v'));
-
-function updateModeBar() {
-  const canWall = isMyTurn() && game.state.left[game.myIndex] > 0;
-  $('mode-wall-h').disabled = !canWall;
-  $('mode-wall-v').disabled = !canWall;
-  if (!canWall && wallMode) setWallMode(null);
-}
-
-// nearest wall slot of the chosen orientation to the pointer
-function pointerToWall(px, py, o) {
+// nearest wall slot to the pointer; orientation = whichever groove is closer
+function pointerToWall(px, py) {
   const step = geo.u + geo.g;
   const clamp7 = (v) => Math.max(0, Math.min(7, v));
-  // slot (r, c): wall sits after row r (h) / after col c (v), spanning 2 cells
   const r = clamp7(Math.round((py - geo.pad - geo.u - geo.g / 2) / step));
   const c = clamp7(Math.round((px - geo.pad - geo.u - geo.g / 2) / step));
+  const gx = geo.pad + c * step + geo.u + geo.g / 2; // nearest vertical groove center
+  const gy = geo.pad + r * step + geo.u + geo.g / 2; // nearest horizontal groove center
+  const o = Math.abs(px - gx) < Math.abs(py - gy) ? 'v' : 'h';
   return wallFromView({ o, r, c });
 }
 
 function updateWallPreview(px, py) {
-  const w = pointerToWall(px, py, wallMode);
+  const w = pointerToWall(px, py);
   const valid = canPlaceWall(game.state, game.myIndex, w) && game.state.left[game.myIndex] > 0;
   wallPreview = { w, valid };
   if (!previewEl) {
@@ -441,47 +428,44 @@ function updateWallPreview(px, py) {
   previewEl.style.cssText = `left:${rect.x}px;top:${rect.y}px;width:${rect.w}px;height:${rect.h}px`;
 }
 
-function showWallConfirm() {
-  if (!wallPreview) return;
-  if (!wallPreview.valid) return; // keep the grey preview so the player can retry elsewhere
-  const rect = wallRect(wallToView(wallPreview.w));
-  const conf = $('wall-confirm');
-  conf.hidden = false;
-  const bw = board.getBoundingClientRect();
-  const wrapRect = board.parentElement.getBoundingClientRect();
-  const cx = bw.left - wrapRect.left + rect.x + rect.w / 2;
-  const cy = bw.top - wrapRect.top + rect.y + (rect.h > rect.w ? rect.h / 2 : rect.h + 8);
-  conf.style.left = Math.max(8, Math.min(wrapRect.width - 110, cx - 51)) + 'px';
-  conf.style.top = Math.min(wrapRect.height - 56, cy + 10) + 'px';
-}
-
 board.addEventListener('pointerdown', (e) => {
   if (!isMyTurn()) return;
-  pointerDown = true;
+  const bw = board.getBoundingClientRect();
+  pointerState = { x0: e.clientX - bw.left, y0: e.clientY - bw.top, dragging: false, touch: e.pointerType === 'touch' };
   board.setPointerCapture(e.pointerId);
-  if (wallMode) {
-    const bw = board.getBoundingClientRect();
-    $('wall-confirm').hidden = true;
-    updateWallPreview(e.clientX - bw.left, e.clientY - bw.top);
-  }
 });
 
 board.addEventListener('pointermove', (e) => {
-  if (!pointerDown || !isMyTurn() || !wallMode) return;
+  if (!pointerState || !isMyTurn()) return;
   const bw = board.getBoundingClientRect();
-  updateWallPreview(e.clientX - bw.left, e.clientY - bw.top);
+  const px = e.clientX - bw.left;
+  let py = e.clientY - bw.top;
+  if (!pointerState.dragging) {
+    if (Math.hypot(px - pointerState.x0, py - pointerState.y0) > geo.u * 0.45) {
+      pointerState.dragging = true;
+    }
+  }
+  if (pointerState.dragging && game.state.left[game.myIndex] > 0) {
+    if (pointerState.touch) py -= geo.u * 0.9; // lift preview above the finger
+    updateWallPreview(px, py);
+  }
 });
 
 board.addEventListener('pointerup', (e) => {
-  if (!pointerDown) return;
-  pointerDown = false;
+  if (!pointerState) return;
+  const wasDragging = pointerState.dragging;
+  pointerState = null;
   if (!isMyTurn()) { cancelWallPreview(); return; }
 
-  if (wallMode) { // wall mode: finger released → offer to confirm this slot
-    showWallConfirm();
+  if (wasDragging) { // release = place the wall right away (if the spot is legal)
+    if (wallPreview?.valid) {
+      submitMove({ type: 'wall', ...wallPreview.w });
+    }
+    cancelWallPreview();
     return;
   }
-  // move mode: tap a highlighted cell to move the ball
+  // simple tap: move the ball to a highlighted cell
+  cancelWallPreview();
   const el = document.elementFromPoint(e.clientX, e.clientY);
   const cell = el?.closest?.('.cell');
   if (cell && cell.classList.contains('legal')) {
@@ -490,14 +474,10 @@ board.addEventListener('pointerup', (e) => {
   }
 });
 
-$('wall-yes').addEventListener('click', () => {
-  if (wallPreview?.valid) {
-    submitMove({ type: 'wall', ...wallPreview.w });
-    setWallMode(null); // back to move mode after placing
-  }
+board.addEventListener('pointercancel', () => {
+  pointerState = null;
   cancelWallPreview();
 });
-$('wall-no').addEventListener('click', () => setWallMode(null));
 
 function submitMove(move) {
   if (!isMyTurn()) return;
@@ -549,7 +529,7 @@ function startAiGame() {
   };
   game.state.turn = Math.random() < 0.5 ? 0 : 1;
   $('overlay-gameover').hidden = true;
-  setWallMode(null);
+  cancelWallPreview();
   show('screen-game');
   buildBoard();
   renderGame();
@@ -571,7 +551,7 @@ function startOnlineGame(msg) {
   $('overlay-gameover').hidden = true;
   $('btn-rematch').style.display = '';
   $('rematch-status').hidden = true;
-  setWallMode(null);
+  cancelWallPreview();
   show('screen-game');
   buildBoard();
   renderGame();
