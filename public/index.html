@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#f4f4fb">
   <title>WallRush — Block their way</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect x='8' y='14' width='84' height='30' rx='8' fill='%237c5cff'/><rect x='8' y='56' width='40' height='30' rx='8' fill='%237c5cff'/><rect x='56' y='56' width='36' height='30' rx='8' fill='%23b3a1ff'/></svg>">
-  <link rel="stylesheet" href="css/style.css?v=9">
+  <link rel="stylesheet" href="css/style.css?v=10">
 </head>
 <body>
   <div id="app">
@@ -91,10 +91,24 @@
 
     <!-- ============ GAME ============ -->
     <section class="screen" id="screen-game">
-      <div class="game-top">
-        <div class="player-chip" id="chip-opp">
+      <div class="game-head">
+        <div class="g-logo">
+          <div class="logo-mark sm"><span></span><span></span><span></span></div>
+          <b>WallRush</b>
+        </div>
+        <button class="btn-giveup" id="btn-resign">⚑ <span data-i18n="resign"></span></button>
+      </div>
+
+      <div class="vs-row">
+        <div class="p-pill" id="chip-me">
           <div class="chip-ball"></div>
-          <div class="chip-info"><b id="opp-nick"></b><small><span id="opp-walls">10</span> 🧱</small></div>
+          <div class="pill-info"><b id="me-nick"></b><small><span id="me-walls">10</span> 🧱</small></div>
+          <div class="chip-clock" id="me-clock">2:00</div>
+        </div>
+        <div class="vs-badge">VS</div>
+        <div class="p-pill" id="chip-opp">
+          <div class="chip-ball"></div>
+          <div class="pill-info"><b id="opp-nick"></b><small><span id="opp-walls">10</span> 🧱</small></div>
           <div class="chip-clock" id="opp-clock">2:00</div>
         </div>
       </div>
@@ -114,31 +128,35 @@
 
       <div class="game-hint"><span id="game-hint" data-i18n="gesture_hint"></span></div>
 
-      <div class="game-bottom">
-        <div class="player-chip me" id="chip-me">
-          <div class="chip-ball"></div>
-          <div class="chip-info"><b id="me-nick"></b><small><span id="me-walls">10</span> 🧱</small></div>
-          <div class="chip-clock" id="me-clock">2:00</div>
-        </div>
-        <div class="game-actions">
-          <div class="turn-banner" id="turn-banner"></div>
-          <div class="emoji-bar" id="emoji-bar">
-            <button data-emoji="😂">😂</button>
-            <button data-emoji="🫡">🫡</button>
-            <button data-emoji="🤝">🤝</button>
-            <button data-emoji="😡">😡</button>
-          </div>
-          <button class="btn-resign" id="btn-resign" data-i18n="resign"></button>
+      <div class="game-bottom2">
+        <div class="turn-pill" id="turn-banner"></div>
+        <div class="emoji-bar" id="emoji-bar">
+          <button data-emoji="😂">😂</button>
+          <button data-emoji="🫡">🫡</button>
+          <button data-emoji="🤝">🤝</button>
+          <button data-emoji="😡">😡</button>
         </div>
       </div>
     </section>
 
     <!-- ============ GAME OVER (overlay) ============ -->
     <div class="overlay" id="overlay-gameover" hidden>
-      <div class="modal">
+      <div class="confetti" id="confetti"></div>
+      <div class="modal win-modal">
         <div class="result-emoji" id="result-emoji">🏆</div>
-        <h2 id="result-title"></h2>
+        <h1 class="result-title" id="result-title"></h1>
         <p id="result-reason" class="hint"></p>
+        <div class="result-stats">
+          <div class="rs-side">
+            <div class="rs-ball" id="rs-ball-me"></div>
+            <b id="rs-nick-me"></b><small id="rs-tag-me"></small>
+          </div>
+          <div class="rs-mid">VS</div>
+          <div class="rs-side">
+            <div class="rs-ball" id="rs-ball-opp"></div>
+            <b id="rs-nick-opp"></b><small id="rs-tag-opp"></small>
+          </div>
+        </div>
         <div class="modal-buttons">
           <button class="btn-big" id="btn-rematch" data-i18n="rematch"></button>
           <button class="btn-big btn-outline" id="btn-to-menu" data-i18n="back_menu"></button>
@@ -248,7 +266,7 @@
     <div id="toast" hidden></div>
   </div>
 
-  <script src="vendor/supabase.js?v=9" defer></script>
-  <script type="module" src="js/app.js?v=9"></script>
+  <script src="vendor/supabase.js?v=10" defer></script>
+  <script type="module" src="js/app.js?v=10"></script>
 </body>
 </html>

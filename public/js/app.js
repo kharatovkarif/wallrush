@@ -1,7 +1,7 @@
 // WallRush client app: screens, board UI, online play (WebSocket), AI mode, auth.
-import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=9';
-import { aiMove } from './ai.js?v=9';
-import { makeT } from './i18n.js?v=9';
+import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=10';
+import { aiMove } from './ai.js?v=10';
+import { makeT } from './i18n.js?v=10';
 
 /* ================= state ================= */
 const $ = (id) => document.getElementById(id);
@@ -246,6 +246,34 @@ function buildBoard() {
   computeGeo();
   board.innerHTML = '';
   cellEls = [];
+
+  // goal zone tints (top = my goal, bottom = opponent's)
+  const innerW = geo.size - 2 * geo.pad;
+  const tintTop = document.createElement('div');
+  tintTop.id = 'tint-top';
+  tintTop.className = 'zone-tint top';
+  tintTop.style.cssText = `left:${geo.pad}px;top:${geo.pad}px;width:${innerW}px;height:${geo.u}px`;
+  board.appendChild(tintTop);
+  const tintBottom = document.createElement('div');
+  tintBottom.id = 'tint-bottom';
+  tintBottom.className = 'zone-tint bottom';
+  tintBottom.style.cssText = `left:${geo.pad}px;top:${geo.pad + 8 * (geo.u + geo.g)}px;width:${innerW}px;height:${geo.u}px`;
+  board.appendChild(tintBottom);
+
+  // thin pencil grid on the groove centres
+  const step = geo.u + geo.g;
+  for (let k = 0; k < N - 1; k++) {
+    const c = geo.pad + k * step + geo.u + geo.g / 2;
+    const v = document.createElement('div');
+    v.className = 'grid-line';
+    v.style.cssText = `left:${c}px;top:${geo.pad}px;width:1.5px;height:${geo.size - 2 * geo.pad}px`;
+    board.appendChild(v);
+    const h = document.createElement('div');
+    h.className = 'grid-line';
+    h.style.cssText = `left:${geo.pad}px;top:${c}px;width:${geo.size - 2 * geo.pad}px;height:1.5px`;
+    board.appendChild(h);
+  }
+
   for (let r = 0; r < N; r++) {
     for (let c = 0; c < N; c++) {
       const el = document.createElement('div');
@@ -297,7 +325,7 @@ function renderGame() {
   board.querySelectorAll('.wall:not(.preview)').forEach(el => el.remove());
   s.walls.forEach((w, idx) => {
     const el = document.createElement('div');
-    el.className = 'wall ' + (w.by === me ? myColor() : oppColor());
+    el.className = 'wall'; // all walls are the same glossy dark capsules
     if (idx < prevWallCount) el.classList.add('no-anim');
     const rect = wallRect(wallToView(w));
     el.style.cssText = `left:${rect.x}px;top:${rect.y}px;width:${rect.w}px;height:${rect.h}px`;
@@ -305,21 +333,25 @@ function renderGame() {
   });
   game._wallsRendered = s.walls.length;
 
-  // pawns: my pawn gets my color
-  pawnEls[me].className = 'pawn ' + myColor();
+  const myTurn = s.turn === me && s.winner === null && !game.over;
+
+  // pawns: my pawn gets my color; glowing ring when it's my turn
+  pawnEls[me].className = 'pawn ' + myColor() + (myTurn ? ' glow' : '');
   pawnEls[1 - me].className = 'pawn ' + oppColor();
   positionPawn(0);
   positionPawn(1);
 
-  // goal zones + legal cells
-  const myTurn = s.turn === me && s.winner === null && !game.over;
+  // move hints are colored like my ball
+  board.classList.toggle('my-blue', myColor() === 'blue');
+  board.classList.toggle('my-red', myColor() === 'red');
+  $('tint-top')?.classList.add(myColor());
+  $('tint-bottom')?.classList.add(oppColor());
+
   const legal = myTurn ? pawnMoves(s, me) : [];
   for (const el of cellEls) {
     const vr = +el.dataset.vr, vc = +el.dataset.vc;
     const lg = fromView(vr, vc);
     el.className = 'cell';
-    if (lg.r === goalRow(me)) el.classList.add('goal-mine');
-    if (lg.r === goalRow(1 - me)) el.classList.add('goal-opp');
     if (legal.some(m => m.r === lg.r && m.c === lg.c)) el.classList.add('legal');
   }
 
@@ -328,16 +360,17 @@ function renderGame() {
   $('opp-nick').textContent = game.oppNick;
   $('me-walls').textContent = s.left[me];
   $('opp-walls').textContent = s.left[1 - me];
-  $('chip-me').querySelector('.chip-ball').style.background = '';
-  $('chip-me').querySelector('.chip-ball').className = 'chip-ball pawn-mini ' + myColor();
-  $('chip-opp').querySelector('.chip-ball').className = 'chip-ball pawn-mini ' + oppColor();
+  $('chip-me').className = 'p-pill ' + myColor() + (myTurn ? ' turn-active' : '');
+  $('chip-opp').className = 'p-pill ' + oppColor() +
+    (!myTurn && s.winner === null && !game.over ? ' turn-active' : '');
+  $('chip-me').querySelector('.chip-ball').className = 'chip-ball ' + myColor();
+  $('chip-opp').querySelector('.chip-ball').className = 'chip-ball ' + oppColor();
   applyChipBallColors();
-  $('chip-me').classList.toggle('turn-active', myTurn);
-  $('chip-opp').classList.toggle('turn-active', !myTurn && s.winner === null && !game.over);
   $('turn-banner').textContent = myTurn ? t('your_turn') : t('opp_turn');
-  $('zone-top').textContent = t('zone_you');
-  $('zone-top').classList.add('mine');
-  $('zone-bottom').textContent = t('zone_opp');
+  $('zone-top').textContent = '▲ ' + myNick().toUpperCase();
+  $('zone-top').className = 'zone-label zone-top ' + myColor();
+  $('zone-bottom').textContent = '▼ ' + String(game.oppNick).toUpperCase();
+  $('zone-bottom').className = 'zone-label zone-bottom ' + oppColor();
 }
 
 function myColor() { return game.myIndex === 0 ? 'blue' : 'red'; }
@@ -347,8 +380,8 @@ function applyChipBallColors() {
   document.querySelectorAll('.chip-ball').forEach(el => {
     const isRed = el.classList.contains('red');
     el.style.background = isRed
-      ? 'radial-gradient(circle at 32% 28%, #ff8a94, #ff4d5e 60%, #c62f40)'
-      : 'radial-gradient(circle at 32% 28%, #7aa5ff, #3d7bff 60%, #2453b8)';
+      ? 'radial-gradient(circle at 32% 26%, #ffb9c0, #e33d52 62%, #a91f33)'
+      : 'radial-gradient(circle at 32% 26%, #b6d2ff, #2f6df6 62%, #1a48b8)';
   });
 }
 
@@ -423,7 +456,7 @@ function renderWallPreview() {
     previewEl = document.createElement('div');
     board.appendChild(previewEl);
   }
-  previewEl.className = `wall preview ${myColor()} ${valid ? 'preview-ok' : 'preview-bad'}`;
+  previewEl.className = `wall preview ${valid ? 'preview-ok' : 'preview-bad'}`;
   const rect = wallRect(wallToView(activeWall));
   previewEl.style.cssText = `left:${rect.x}px;top:${rect.y}px;width:${rect.w}px;height:${rect.h}px`;
   $('wall-tools').classList.add('shown');
@@ -558,11 +591,38 @@ function onGameOver(iWon, reason) {
     $('result-emoji').textContent = iWon ? '🏆' : '😔';
     $('result-title').textContent = iWon ? t('game_win') : t('game_lose');
     $('result-reason').textContent = t(reasonKey);
+    document.querySelector('.win-modal').classList.toggle('lose', !iWon);
+    // players strip
+    $('rs-ball-me').className = 'rs-ball ' + myColor();
+    $('rs-ball-opp').className = 'rs-ball ' + oppColor();
+    $('rs-nick-me').textContent = myNick();
+    $('rs-nick-opp').textContent = game?.oppNick || '';
+    $('rs-tag-me').textContent = iWon ? 'WIN' : 'LOSS';
+    $('rs-tag-me').className = iWon ? 'win' : 'loss';
+    $('rs-tag-opp').textContent = iWon ? 'LOSS' : 'WIN';
+    $('rs-tag-opp').className = iWon ? 'loss' : 'win';
+    spawnConfetti(iWon);
     $('btn-rematch').style.display = '';
     $('rematch-status').hidden = true;
     $('overlay-gameover').hidden = false;
   }, 600);
   vibrate(iWon ? [40, 60, 40, 60, 80] : 60);
+}
+
+function spawnConfetti(on) {
+  const box = $('confetti');
+  box.innerHTML = '';
+  if (!on) return;
+  const colors = ['#2f6df6', '#ffb340', '#ff5c7a', '#21c07a', '#9b7bff', '#ff8a5c'];
+  for (let i = 0; i < 42; i++) {
+    const p = document.createElement('span');
+    p.style.left = Math.random() * 100 + '%';
+    p.style.background = colors[i % colors.length];
+    p.style.animationDuration = (2.4 + Math.random() * 2.4) + 's';
+    p.style.animationDelay = (Math.random() * 1.8) + 's';
+    p.style.transform = `rotate(${Math.random() * 360}deg)`;
+    box.appendChild(p);
+  }
 }
 
 $('btn-rematch').addEventListener('click', () => {
