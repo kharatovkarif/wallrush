@@ -1,7 +1,7 @@
 // WallRush client app: screens, board UI, online play (WebSocket), AI mode, auth.
-import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=6';
-import { aiMove } from './ai.js?v=6';
-import { makeT } from './i18n.js?v=6';
+import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=7';
+import { aiMove } from './ai.js?v=7';
+import { makeT } from './i18n.js?v=7';
 
 /* ================= state ================= */
 const $ = (id) => document.getElementById(id);
@@ -692,7 +692,7 @@ function authMsg(text, ok = false) {
 
 function ensureAuthAvailable() {
   if (config.auth && supabase) return true;
-  toast(`${t('auth_unavailable')} [${config.dbStatus || 'offline'}]`);
+  toast(`${t('auth_unavailable')} [${config.dbStatus || 'offline'}]${config.dbDetail ? ' — ' + config.dbDetail : ''}`);
   return false;
 }
 $('btn-show-login').addEventListener('click', () => { if (ensureAuthAvailable()) openAuthForm('login'); });

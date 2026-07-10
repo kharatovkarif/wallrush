@@ -5,7 +5,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { WebSocketServer } from 'ws';
 import { attachWs } from './rooms.js';
-import { dbEnabled, dbStatus, verifyUser, getProfile, createProfile, leaderboard } from './db.js';
+import { dbEnabled, dbStatus, dbDetail, cleanEnv, verifyUser, getProfile, createProfile, leaderboard } from './db.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -20,11 +20,12 @@ app.use(express.static(path.join(__dirname, '../public'), {
 
 // Frontend bootstrap config (anon key is public by design in Supabase).
 app.get('/api/config', (req, res) => {
-  const anon = (process.env.SUPABASE_ANON_KEY || '').trim();
+  const anon = cleanEnv(process.env.SUPABASE_ANON_KEY);
   res.json({
     auth: dbEnabled && Boolean(anon),
     dbStatus: !dbEnabled ? dbStatus : (anon ? 'ok' : 'no_anon_key'),
-    supabaseUrl: (process.env.SUPABASE_URL || '').trim(),
+    dbDetail,
+    supabaseUrl: cleanEnv(process.env.SUPABASE_URL),
     supabaseAnonKey: anon,
   });
 });
