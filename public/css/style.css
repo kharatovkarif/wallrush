@@ -233,6 +233,10 @@ body {
   touch-action: none;
 }
 .grid-line { position: absolute; background: #d6dbe8; z-index: 1; pointer-events: none; border-radius: 1px; }
+.grid-dot {
+  position: absolute; z-index: 1; pointer-events: none; border-radius: 50%;
+  background: #c6cddf; box-shadow: inset 0 1px 1.5px rgba(90, 105, 145, .45);
+}
 .zone-tint { position: absolute; z-index: 0; pointer-events: none; border-radius: 8px; }
 .zone-tint.blue { background: linear-gradient(180deg, rgba(59, 120, 231, .18), rgba(59, 120, 231, .04)); }
 .zone-tint.red { background: linear-gradient(0deg, rgba(216, 64, 77, .15), rgba(216, 64, 77, .03)); }

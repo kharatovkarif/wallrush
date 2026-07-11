@@ -5,12 +5,15 @@ import { pawnMoves, canPlaceWall, distToGoal, goalRow, isBlocked, N } from './en
 function myBestStep(state, p) {
   const dist = distToGoal(state.walls, goalRow(p));
   const moves = pawnMoves(state, p);
-  let best = null, bestD = Infinity;
+  let bestD = Infinity;
   for (const m of moves) {
     const d = dist[m.r * N + m.c];
-    if (d !== -1 && d < bestD) { bestD = d; best = m; }
+    if (d !== -1 && d < bestD) bestD = d;
   }
-  return { move: best || moves[0], dist: bestD };
+  // several steps are often equally good — pick one at random so games differ
+  const best = moves.filter(m => dist[m.r * N + m.c] === bestD);
+  const move = best.length ? best[Math.floor(Math.random() * best.length)] : moves[0];
+  return { move, dist: bestD };
 }
 
 // Trace one shortest path for player p (cells), to focus wall candidates.
@@ -27,7 +30,7 @@ function shortestPathCells(state, p) {
       .filter(m => dist[m.r * N + m.c] === dist[cur.r * N + cur.c] - 1)
       .filter(m => !isBlockedStep(state.walls, cur, m));
     if (!opts.length) break;
-    cur = opts[0];
+    cur = opts[Math.floor(Math.random() * opts.length)];
   }
   cells.push(cur);
   return cells;
@@ -42,10 +45,10 @@ function isBlockedStep(walls, a, b) { return isBlocked(walls, a.r, a.c, b.r, b.c
 //  blunder — chance to make a random pawn step (easy only)
 //  pathLen — how far along the opponent's path to look for wall spots
 export const AI_LEVELS = {
-  easy:     { lazy: 0.55, topK: 5, needNear: 2, needFar: 3, blunder: 0.30, pathLen: 5 },
-  normal:   { lazy: 0.25, topK: 3, needNear: 1, needFar: 2, blunder: 0,    pathLen: 8 },
-  hard:     { lazy: 0.15, topK: 2, needNear: 1, needFar: 2, blunder: 0,    pathLen: 10, race: true },
-  hardcore: { lazy: 0,    topK: 1, needNear: 1, needFar: 2, blunder: 0,    pathLen: 12, race: true },
+  easy:     { lazy: 0.75, topK: 6, needNear: 3, needFar: 4, blunder: 0.45, pathLen: 4 },
+  normal:   { lazy: 0.30, topK: 3, needNear: 1, needFar: 2, blunder: 0.08, pathLen: 8 },
+  hard:     { lazy: 0.10, topK: 2, needNear: 1, needFar: 2, blunder: 0,    pathLen: 10, race: true },
+  hardcore: { lazy: 0,    topK: 0, needNear: 1, needFar: 2, blunder: 0,    pathLen: 14, race: true },
 };
 
 function bestWall(state, p, cfg) {
@@ -82,7 +85,10 @@ function bestWall(state, p, cfg) {
   }
   scored.sort((a, b) => b.gain - a.gain);
   if (!scored.length) return null;
-  const top = scored.slice(0, cfg.topK);
+  // topK 0 → only walls tied with the very best gain (strongest, still varied)
+  const top = cfg.topK === 0
+    ? scored.filter(s => s.gain === scored[0].gain)
+    : scored.slice(0, cfg.topK);
   return top[Math.floor(Math.random() * top.length)];
 }
 

@@ -1,7 +1,7 @@
 // WallRush client app: screens, board UI, online play (WebSocket), AI mode, auth.
-import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=12';
-import { aiMove } from './ai.js?v=12';
-import { makeT } from './i18n.js?v=12';
+import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=13';
+import { aiMove } from './ai.js?v=13';
+import { makeT } from './i18n.js?v=13';
 
 /* ================= state ================= */
 const $ = (id) => document.getElementById(id);
@@ -262,8 +262,9 @@ function buildBoard() {
 
   // thin pencil grid on the groove centres
   const step = geo.u + geo.g;
+  const groove = (k) => geo.pad + k * step + geo.u + geo.g / 2;
   for (let k = 0; k < N - 1; k++) {
-    const c = geo.pad + k * step + geo.u + geo.g / 2;
+    const c = groove(k);
     const v = document.createElement('div');
     v.className = 'grid-line';
     v.style.cssText = `left:${c}px;top:${geo.pad}px;width:1.5px;height:${geo.size - 2 * geo.pad}px`;
@@ -272,6 +273,16 @@ function buildBoard() {
     h.className = 'grid-line';
     h.style.cssText = `left:${geo.pad}px;top:${c}px;width:${geo.size - 2 * geo.pad}px;height:1.5px`;
     board.appendChild(h);
+  }
+  // little peg holes at the crossings — the spots where walls snap in
+  const dotR = Math.max(2.5, geo.g * 0.45);
+  for (let i = 0; i < N - 1; i++) {
+    for (let j = 0; j < N - 1; j++) {
+      const d = document.createElement('div');
+      d.className = 'grid-dot';
+      d.style.cssText = `left:${groove(j) - dotR}px;top:${groove(i) - dotR}px;width:${dotR * 2}px;height:${dotR * 2}px`;
+      board.appendChild(d);
+    }
   }
 
   for (let r = 0; r < N; r++) {
@@ -306,13 +317,14 @@ function positionPawn(i) {
 }
 
 function wallRect(vw) {
-  const thick = geo.g * 1.7; // slightly overlaps cells — thick, competitor-style bars
-  const len = 2 * geo.u + geo.g;
+  const thick = geo.g * 1.05;             // slim: stays inside the groove
+  const inset = geo.u * 0.06;             // ends exactly at the two cells, not past them
+  const len = 2 * geo.u + geo.g - 2 * inset;
   const a = cellXY(vw.r, vw.c);
   if (vw.o === 'h') {
-    return { x: a.x, y: a.y + geo.u + geo.g / 2 - thick / 2, w: len, h: thick };
+    return { x: a.x + inset, y: a.y + geo.u + geo.g / 2 - thick / 2, w: len, h: thick };
   }
-  return { x: a.x + geo.u + geo.g / 2 - thick / 2, y: a.y, w: thick, h: len };
+  return { x: a.x + geo.u + geo.g / 2 - thick / 2, y: a.y + inset, w: thick, h: len };
 }
 
 function renderGame() {
