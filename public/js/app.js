@@ -1,7 +1,7 @@
 // WallRush client app: screens, board UI, online play (WebSocket), AI mode, auth.
-import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=14';
-import { aiMove } from './ai.js?v=14';
-import { makeT } from './i18n.js?v=14';
+import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=15';
+import { aiMove } from './ai.js?v=15';
+import { makeT } from './i18n.js?v=15';
 
 /* ================= state ================= */
 const $ = (id) => document.getElementById(id);
