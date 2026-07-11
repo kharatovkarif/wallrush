@@ -1,5 +1,5 @@
-// WallRush medium-strength AI. Plays greedy shortest-path with occasional
-// wall placements; deliberately imperfect so an average player can win.
+// WallRush AI with difficulty levels. Greedy shortest-path plus wall
+// placements; lower levels are deliberately imperfect.
 import { pawnMoves, canPlaceWall, distToGoal, goalRow, isBlocked, N } from './engine.js';
 
 function myBestStep(state, p) {
@@ -35,7 +35,20 @@ function shortestPathCells(state, p) {
 
 function isBlockedStep(walls, a, b) { return isBlocked(walls, a.r, a.c, b.r, b.c); }
 
-function bestWall(state, p) {
+// per-level knobs:
+//  lazy   — chance to just walk instead of thinking about walls
+//  topK   — pick a wall among the K best (1 = always the strongest)
+//  needNear/needFar — minimum path-gain required to spend a wall
+//  blunder — chance to make a random pawn step (easy only)
+//  pathLen — how far along the opponent's path to look for wall spots
+export const AI_LEVELS = {
+  easy:     { lazy: 0.55, topK: 5, needNear: 2, needFar: 3, blunder: 0.30, pathLen: 5 },
+  normal:   { lazy: 0.25, topK: 3, needNear: 1, needFar: 2, blunder: 0,    pathLen: 8 },
+  hard:     { lazy: 0.15, topK: 2, needNear: 1, needFar: 2, blunder: 0,    pathLen: 10, race: true },
+  hardcore: { lazy: 0,    topK: 1, needNear: 1, needFar: 2, blunder: 0,    pathLen: 12, race: true },
+};
+
+function bestWall(state, p, cfg) {
   const opp = 1 - p;
   const before = distToGoal(state.walls, goalRow(opp));
   const beforeMy = distToGoal(state.walls, goalRow(p));
@@ -46,7 +59,7 @@ function bestWall(state, p) {
 
   const path = shortestPathCells(state, opp);
   const cand = new Map();
-  for (const cell of path.slice(0, 8)) {
+  for (const cell of path.slice(0, cfg.pathLen)) {
     for (let dr = -1; dr <= 0; dr++) {
       for (let dc = -1; dc <= 0; dc++) {
         for (const o of ['h', 'v']) {
@@ -69,27 +82,45 @@ function bestWall(state, p) {
   }
   scored.sort((a, b) => b.gain - a.gain);
   if (!scored.length) return null;
-  // medium strength: pick among the top 3, not always the best
-  const top = scored.slice(0, 3);
+  const top = scored.slice(0, cfg.topK);
   return top[Math.floor(Math.random() * top.length)];
 }
 
 // Decide AI's move for the player whose turn it is.
-export function aiMove(state) {
+export function aiMove(state, level = 'normal') {
+  const cfg = AI_LEVELS[level] || AI_LEVELS.normal;
   const p = state.turn;
   const opp = 1 - p;
   const my = myBestStep(state, p);
   const oppDist = distToGoal(state.walls, goalRow(opp))[state.pawns[opp].r * N + state.pawns[opp].c];
 
-  // 25% of the time just walk — deliberate imperfection
-  const lazy = Math.random() < 0.25;
+  // easy levels sometimes wander off the shortest path
+  if (cfg.blunder && Math.random() < cfg.blunder) {
+    const moves = pawnMoves(state, p);
+    const m = moves[Math.floor(Math.random() * moves.length)];
+    return { type: 'pawn', r: m.r, c: m.c };
+  }
+
+  if (cfg.race) {
+    // race-aware: walls are considered only when the opponent is a real
+    // threat, and stepping already gains a tempo — so a wall must set the
+    // opponent back by 2+ net moves (1+ when he is about to finish)
+    const threat = oppDist <= my.dist + 1 || oppDist <= 4;
+    if (threat && state.left[p] > 0 && Math.random() >= cfg.lazy) {
+      const wall = bestWall(state, p, cfg);
+      const need = oppDist <= 2 ? cfg.needNear : cfg.needFar;
+      if (wall && wall.gain >= need) return { type: 'wall', ...wall.w };
+    }
+    if (my.move) return { type: 'pawn', r: my.move.r, c: my.move.c };
+  }
+
+  const lazy = Math.random() < cfg.lazy;
   const shouldConsiderWall = !lazy && state.left[p] > 0 &&
     (oppDist <= my.dist + 1 || oppDist <= 3);
 
   if (shouldConsiderWall) {
-    const wall = bestWall(state, p);
-    // require a meaningful gain; be stricter when opponent is still far
-    const need = oppDist <= 3 ? 1 : 2;
+    const wall = bestWall(state, p, cfg);
+    const need = oppDist <= 3 ? cfg.needNear : cfg.needFar;
     if (wall && wall.gain >= need) {
       return { type: 'wall', ...wall.w };
     }

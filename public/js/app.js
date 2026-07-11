@@ -1,7 +1,7 @@
 // WallRush client app: screens, board UI, online play (WebSocket), AI mode, auth.
-import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=11';
-import { aiMove } from './ai.js?v=11';
-import { makeT } from './i18n.js?v=11';
+import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=12';
+import { aiMove } from './ai.js?v=12';
+import { makeT } from './i18n.js?v=12';
 
 /* ================= state ================= */
 const $ = (id) => document.getElementById(id);
@@ -559,7 +559,7 @@ function scheduleAiMove() {
     if (!game || game.mode !== 'ai' || game.over) return;
     const s = game.state;
     if (s.turn !== 1 - game.myIndex) return;
-    const move = aiMove(s);
+    const move = aiMove(s, game.aiLevel);
     if (applyMove(s, move)) {
       if (move.type === 'wall') s.walls[s.walls.length - 1].by = 1 - game.myIndex;
       renderGame();
@@ -569,12 +569,13 @@ function scheduleAiMove() {
   }, 500 + Math.random() * 700);
 }
 
-function startAiGame() {
+function startAiGame(level = 'normal') {
   game = {
     mode: 'ai',
+    aiLevel: level,
     state: initialState(),
     myIndex: 0,
-    oppNick: '🤖 AI',
+    oppNick: '🤖 ' + t('ai_' + level),
     clocks: null,
     over: false,
   };
@@ -587,7 +588,10 @@ function startAiGame() {
   if (game.state.turn === 1) scheduleAiMove();
 }
 
-$('btn-ai').addEventListener('click', startAiGame);
+$('btn-ai').addEventListener('click', () => show('screen-ai'));
+for (const lvl of ['easy', 'normal', 'hard', 'hardcore']) {
+  $('ai-' + lvl).addEventListener('click', () => startAiGame(lvl));
+}
 
 /* ================= online game ================= */
 function startOnlineGame(msg) {
@@ -659,7 +663,7 @@ function spawnConfetti(on) {
 
 $('btn-rematch').addEventListener('click', () => {
   if (!game) return;
-  if (game.mode === 'ai') { startAiGame(); return; }
+  if (game.mode === 'ai') { startAiGame(game.aiLevel); return; }
   wsSend({ t: 'rematch', yes: true });
   $('rematch-status').hidden = false;
   $('rematch-status').textContent = t('rematch_wait');

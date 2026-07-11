@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#f4f4fb">
   <title>WallRush — Block their way</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect x='8' y='14' width='84' height='30' rx='8' fill='%237c5cff'/><rect x='8' y='56' width='40' height='30' rx='8' fill='%237c5cff'/><rect x='56' y='56' width='36' height='30' rx='8' fill='%23b3a1ff'/></svg>">
-  <link rel="stylesheet" href="css/style.css?v=11">
+  <link rel="stylesheet" href="css/style.css?v=12">
 </head>
 <body>
   <div id="app">
@@ -73,6 +73,36 @@
         <p class="hint" data-i18n="friend_enter"></p>
         <input id="friend-code-input" class="input" maxlength="6" autocomplete="off" autocapitalize="characters" data-i18n-ph="code_placeholder">
         <button class="btn-big btn-outline" id="btn-friend-join" data-i18n="friend_join"></button>
+      </div>
+    </section>
+
+    <!-- ============ AI DIFFICULTY ============ -->
+    <section class="screen" id="screen-ai">
+      <header class="sub-head">
+        <button class="btn-back" data-back>‹</button>
+        <h2 data-i18n="ai_title"></h2>
+      </header>
+      <div class="cards">
+        <button class="card card-light" id="ai-easy">
+          <div class="card-icon lvl-easy">🙂</div>
+          <div class="card-text"><b data-i18n="ai_easy"></b><small data-i18n="ai_easy_sub"></small></div>
+          <div class="card-arrow">›</div>
+        </button>
+        <button class="card card-light" id="ai-normal">
+          <div class="card-icon lvl-normal">😎</div>
+          <div class="card-text"><b data-i18n="ai_normal"></b><small data-i18n="ai_normal_sub"></small></div>
+          <div class="card-arrow">›</div>
+        </button>
+        <button class="card card-light" id="ai-hard">
+          <div class="card-icon lvl-hard">🔥</div>
+          <div class="card-text"><b data-i18n="ai_hard"></b><small data-i18n="ai_hard_sub"></small></div>
+          <div class="card-arrow">›</div>
+        </button>
+        <button class="card card-light" id="ai-hardcore">
+          <div class="card-icon lvl-hardcore">💀</div>
+          <div class="card-text"><b data-i18n="ai_hardcore"></b><small data-i18n="ai_hardcore_sub"></small></div>
+          <div class="card-arrow">›</div>
+        </button>
       </div>
     </section>
 
@@ -266,7 +296,7 @@
     <div id="toast" hidden></div>
   </div>
 
-  <script src="vendor/supabase.js?v=11" defer></script>
-  <script type="module" src="js/app.js?v=11"></script>
+  <script src="vendor/supabase.js?v=12" defer></script>
+  <script type="module" src="js/app.js?v=12"></script>
 </body>
 </html>

@@ -84,6 +84,10 @@ body {
   background: rgba(255,255,255,.25);
 }
 .card-icon.dark { background: #eeeaff; }
+.card-icon.lvl-easy { background: #ddf7e8; }
+.card-icon.lvl-normal { background: #dfeaff; }
+.card-icon.lvl-hard { background: #ffe9d6; }
+.card-icon.lvl-hardcore { background: #2a3050; }
 .card-text { flex: 1; display: flex; flex-direction: column; gap: 2px; }
 .card-text b { font-size: 17px; }
 .card-text small { color: var(--muted); font-size: 13px; }
