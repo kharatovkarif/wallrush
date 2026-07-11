@@ -1,7 +1,7 @@
 // WallRush client app: screens, board UI, online play (WebSocket), AI mode, auth.
-import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=10';
-import { aiMove } from './ai.js?v=10';
-import { makeT } from './i18n.js?v=10';
+import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=11';
+import { aiMove } from './ai.js?v=11';
+import { makeT } from './i18n.js?v=11';
 
 /* ================= state ================= */
 const $ = (id) => document.getElementById(id);
@@ -360,6 +360,10 @@ function renderGame() {
   $('opp-nick').textContent = game.oppNick;
   $('me-walls').textContent = s.left[me];
   $('opp-walls').textContent = s.left[1 - me];
+  $('dock-walls').textContent = s.left[me];
+  const canDrag = myTurn && s.left[me] > 0;
+  $('drag-h').classList.toggle('disabled', !canDrag);
+  $('drag-v').classList.toggle('disabled', !canDrag);
   $('chip-me').className = 'p-pill ' + myColor() + (myTurn ? ' turn-active' : '');
   $('chip-opp').className = 'p-pill ' + oppColor() +
     (!myTurn && s.winner === null && !game.over ? ' turn-active' : '');
@@ -421,82 +425,110 @@ setInterval(() => {
     (myTurn ? t('your_turn') : t('opp_turn')) + ` · ${Math.ceil(moveLeft / 1000)}s`;
 }, 250);
 
-/* ============ moves: tap to move / tap empty → wall + ↻/✓ buttons ============ */
-// Tap-only interaction: the most reliable thing across every mobile browser.
-// No drag, no pointer capture, no touch-action dependency.
-let activeWall = null;  // { r, c, o } logical coords of the wall being placed
+/* ============ moves: tap a cell to move · drag a wall from the dock ============ */
 let previewEl = null;
+let dragWall = null; // 'h' | 'v' while a wall is being dragged from the dock
+let dragValid = false;
+let dragSlot = null; // logical wall coords under the finger
 
 function isMyTurn() {
   return game && !game.over && game.state.winner === null && game.state.turn === game.myIndex;
 }
 
 function cancelWallPreview() {
-  activeWall = null;
+  dragWall = null;
+  dragSlot = null;
+  dragValid = false;
   if (previewEl) { previewEl.remove(); previewEl = null; }
-  $('wall-tools').classList.remove('shown');
 }
 
-// nearest wall slot to a board point; orientation = whichever groove is closer
-function nearestSlot(px, py) {
+// nearest wall slot to a board point, orientation is fixed by the dragged handle
+function nearestSlot(px, py, o) {
   const step = geo.u + geo.g;
   const clamp7 = (v) => Math.max(0, Math.min(7, v));
   const r = clamp7(Math.round((py - geo.pad - geo.u - geo.g / 2) / step));
   const c = clamp7(Math.round((px - geo.pad - geo.u - geo.g / 2) / step));
-  const gx = geo.pad + c * step + geo.u + geo.g / 2;
-  const gy = geo.pad + r * step + geo.u + geo.g / 2;
-  const o = Math.abs(px - gx) < Math.abs(py - gy) ? 'v' : 'h';
   return wallFromView({ o, r, c });
 }
 
-function renderWallPreview() {
-  if (!activeWall) return;
-  const valid = canPlaceWall(game.state, game.myIndex, activeWall) && game.state.left[game.myIndex] > 0;
+function updateDragPreview(clientX, clientY, isTouch) {
+  const bw = board.getBoundingClientRect();
+  const px = clientX - bw.left;
+  let py = clientY - bw.top;
+  if (isTouch) py -= geo.u * 0.8; // keep the wall visible above the finger
+  // outside the board → hide the preview but keep dragging
+  if (px < -geo.u || py < -geo.u || px > bw.width + geo.u || py > bw.height + geo.u) {
+    if (previewEl) { previewEl.remove(); previewEl = null; }
+    dragSlot = null;
+    return;
+  }
+  dragSlot = nearestSlot(Math.max(0, Math.min(bw.width, px)), Math.max(0, Math.min(bw.height, py)), dragWall);
+  dragValid = canPlaceWall(game.state, game.myIndex, dragSlot) && game.state.left[game.myIndex] > 0;
   if (!previewEl) {
     previewEl = document.createElement('div');
     board.appendChild(previewEl);
   }
-  previewEl.className = `wall preview ${valid ? 'preview-ok' : 'preview-bad'}`;
-  const rect = wallRect(wallToView(activeWall));
+  previewEl.className = `wall preview ${dragValid ? 'preview-ok' : 'preview-bad'}`;
+  const rect = wallRect(wallToView(dragSlot));
   previewEl.style.cssText = `left:${rect.x}px;top:${rect.y}px;width:${rect.w}px;height:${rect.h}px`;
-  $('wall-tools').classList.add('shown');
-  $('wall-place').disabled = !valid;
 }
 
-// single reliable handler: fires on every tap/click, on desktop and mobile
-board.addEventListener('click', (e) => {
-  if (!isMyTurn()) return;
-  const bw = board.getBoundingClientRect();
-  const px = e.clientX - bw.left, py = e.clientY - bw.top;
+function finishDrag() {
+  if (dragWall && dragSlot && dragValid) {
+    const w = dragSlot;
+    cancelWallPreview();
+    submitMove({ type: 'wall', ...w });
+  } else {
+    cancelWallPreview();
+  }
+}
 
-  // tapped a highlighted move-cell → move the ball
+function startDrag(o) {
+  if (!isMyTurn() || game.state.left[game.myIndex] <= 0) return false;
+  dragWall = o;
+  dragSlot = null;
+  dragValid = false;
+  vibrate(12);
+  return true;
+}
+
+for (const [id, o] of [['drag-h', 'h'], ['drag-v', 'v']]) {
+  const el = $(id);
+  el.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    if (startDrag(o)) {
+      const tt = e.changedTouches[0];
+      updateDragPreview(tt.clientX, tt.clientY, true);
+    }
+  }, { passive: false });
+  el.addEventListener('mousedown', (e) => {
+    if ('ontouchstart' in window) return;
+    e.preventDefault();
+    startDrag(o);
+  });
+}
+
+document.addEventListener('touchmove', (e) => {
+  if (!dragWall) return;
+  e.preventDefault();
+  const tt = e.changedTouches[0];
+  updateDragPreview(tt.clientX, tt.clientY, true);
+}, { passive: false });
+document.addEventListener('touchend', () => { if (dragWall) finishDrag(); });
+document.addEventListener('touchcancel', () => { if (dragWall) cancelWallPreview(); });
+
+window.addEventListener('mousemove', (e) => { if (dragWall) updateDragPreview(e.clientX, e.clientY, false); });
+window.addEventListener('mouseup', () => { if (dragWall) finishDrag(); });
+
+// tap a highlighted cell → move the ball
+board.addEventListener('click', (e) => {
+  if (!isMyTurn() || dragWall) return;
   const cell = e.target.closest?.('.cell');
   if (cell && cell.classList.contains('legal')) {
-    cancelWallPreview();
     const lg = fromView(+cell.dataset.vr, +cell.dataset.vc);
     submitMove({ type: 'pawn', r: lg.r, c: lg.c });
-    return;
   }
-
-  // tapped elsewhere → put (or move) a wall preview at the nearest slot
-  if (game.state.left[game.myIndex] <= 0) return;
-  activeWall = nearestSlot(px, py);
-  renderWallPreview();
 }, false);
-
-$('wall-rotate').addEventListener('click', () => {
-  if (!activeWall) return;
-  activeWall = { ...activeWall, o: activeWall.o === 'h' ? 'v' : 'h' };
-  renderWallPreview();
-});
-$('wall-place').addEventListener('click', () => {
-  if (!activeWall) return;
-  if (!canPlaceWall(game.state, game.myIndex, activeWall) || game.state.left[game.myIndex] <= 0) return;
-  const w = activeWall;
-  cancelWallPreview();
-  submitMove({ type: 'wall', ...w });
-});
-$('wall-cancel').addEventListener('click', cancelWallPreview);
 
 function submitMove(move) {
   if (!isMyTurn()) return;

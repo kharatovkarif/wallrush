@@ -273,20 +273,29 @@ body {
   min-height: 18px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 
-/* the row keeps its height even when empty — the screen never jumps */
-.wall-tools { display: flex; gap: 10px; justify-content: center; margin-top: 6px; visibility: hidden; }
-.wall-tools.shown { visibility: visible; }
-.wall-tools button {
-  flex: 1; max-width: 130px; display: flex; align-items: center; justify-content: center; gap: 8px;
-  padding: 13px 8px; border: none; border-radius: 14px; cursor: pointer;
-  background: var(--card); box-shadow: var(--shadow); color: var(--text);
-  font: inherit; font-weight: 700; transition: transform .1s ease;
+/* wall dock: grab a wall (─ or │) and drag it onto the board */
+.wall-dock {
+  display: flex; align-items: center; justify-content: center; gap: 12px;
+  background: var(--card); border-radius: 18px; padding: 9px 14px; margin: 4px auto 0;
+  max-width: 320px; box-shadow: var(--shadow);
 }
-.wall-tools button span { font-size: 22px; line-height: 1; }
-.wall-tools button small { font-size: 13px; }
-.wall-tools button:active { transform: scale(.94); }
-.wall-tools .wt-ok { background: linear-gradient(160deg, #4f8bff, var(--blue)); color: #fff; box-shadow: 0 8px 18px rgba(47, 109, 246, .45); }
-.wall-tools .wt-ok:disabled { background: #c7cdda; box-shadow: none; }
+.dock-count { font-weight: 800; font-size: 15px; color: var(--text); display: flex; align-items: center; gap: 5px; }
+.dock-handle {
+  border: none; cursor: grab; width: 74px; height: 52px; border-radius: 14px;
+  background: linear-gradient(180deg, #ffffff, #eef1f8);
+  box-shadow: 0 5px 12px rgba(50, 70, 130, .18), inset 0 1px 0 #fff, inset 0 -2px 4px rgba(140, 155, 190, .25);
+  display: grid; place-items: center; touch-action: none;
+  transition: transform .12s ease, opacity .15s ease;
+}
+.dock-handle:active { transform: scale(.93); cursor: grabbing; }
+.dock-handle.disabled { opacity: .35; pointer-events: none; }
+.dh-bar {
+  border-radius: 999px;
+  background: linear-gradient(180deg, #48547e 0%, #2b3355 45%, #161c34 100%);
+  box-shadow: 0 3px 6px rgba(12, 18, 40, .45), inset 0 2px 2px rgba(255,255,255,.3);
+}
+.dh-bar.h { width: 42px; height: 12px; }
+.dh-bar.v { width: 12px; height: 34px; }
 
 .game-bottom2 { display: flex; align-items: center; gap: 10px; margin-top: 4px; }
 .turn-pill {
