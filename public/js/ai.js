@@ -1,5 +1,8 @@
-// WallRush AI with difficulty levels. Greedy shortest-path plus wall
-// placements; lower levels are deliberately imperfect.
+// WallRush AI with difficulty levels.
+// Race-aware: it compares "just run" vs "place a wall" by the resulting
+// distance margin (opponent's shortest path minus mine). A wall is a real
+// tempo win only when it lengthens the opponent's path by 2+ (it costs the
+// AI one move). Lower levels blunder, get lazy, and pick weaker walls.
 import { pawnMoves, canPlaceWall, distToGoal, goalRow, isBlocked, N } from './engine.js';
 
 function myBestStep(state, p) {
@@ -16,7 +19,6 @@ function myBestStep(state, p) {
   return { move, dist: bestD };
 }
 
-// Trace one shortest path for player p (cells), to focus wall candidates.
 function shortestPathCells(state, p) {
   const dist = distToGoal(state.walls, goalRow(p));
   const cells = [];
@@ -28,7 +30,7 @@ function shortestPathCells(state, p) {
       .map(([dr, dc]) => ({ r: cur.r + dr, c: cur.c + dc }))
       .filter(m => m.r >= 0 && m.r < N && m.c >= 0 && m.c < N)
       .filter(m => dist[m.r * N + m.c] === dist[cur.r * N + cur.c] - 1)
-      .filter(m => !isBlockedStep(state.walls, cur, m));
+      .filter(m => !isBlocked(state.walls, cur.r, cur.c, m.r, m.c));
     if (!opts.length) break;
     cur = opts[Math.floor(Math.random() * opts.length)];
   }
@@ -36,41 +38,36 @@ function shortestPathCells(state, p) {
   return cells;
 }
 
-function isBlockedStep(walls, a, b) { return isBlocked(walls, a.r, a.c, b.r, b.c); }
-
-// per-level knobs:
-//  lazy   — chance to just walk instead of thinking about walls
-//  topK   — pick a wall among the K best (1 = always the strongest)
-//  needNear/needFar — minimum path-gain required to spend a wall
-//  blunder — chance to make a random pawn step (easy only)
-//  pathLen — how far along the opponent's path to look for wall spots
+// per-level knobs
 export const AI_LEVELS = {
-  easy:     { lazy: 0.75, topK: 6, needNear: 3, needFar: 4, blunder: 0.45, pathLen: 4 },
-  normal:   { lazy: 0.30, topK: 3, needNear: 1, needFar: 2, blunder: 0.08, pathLen: 8 },
-  hard:     { lazy: 0.10, topK: 2, needNear: 1, needFar: 2, blunder: 0,    pathLen: 10, race: true },
-  hardcore: { lazy: 0,    topK: 0, needNear: 1, needFar: 2, blunder: 0,    pathLen: 14, race: true },
+  easy:     { blunder: 0.45, lazy: 0.70, topK: 6, needFar: 3, pathLen: 4 },
+  normal:   { blunder: 0.10, lazy: 0.35, topK: 3, needFar: 2, pathLen: 8 },
+  hard:     { blunder: 0.00, lazy: 0.10, topK: 2, needFar: 2, pathLen: 12, race: true },
+  hardcore: { blunder: 0.00, lazy: 0.00, topK: 1, needFar: 2, pathLen: 99, race: true, aggressive: true, full: true },
 };
 
+// Best wall for player p (returns {w, gain} or null). gain = how many extra
+// moves it forces on the opponent minus any extra moves it costs the AI.
 function bestWall(state, p, cfg) {
   const opp = 1 - p;
-  const before = distToGoal(state.walls, goalRow(opp));
-  const beforeMy = distToGoal(state.walls, goalRow(p));
-  const oppPos = state.pawns[opp];
-  const myPos = state.pawns[p];
-  const dOpp0 = before[oppPos.r * N + oppPos.c];
-  const dMy0 = beforeMy[myPos.r * N + myPos.c];
+  const oppPos = state.pawns[opp], myPos = state.pawns[p];
+  const dOpp0 = distToGoal(state.walls, goalRow(opp))[oppPos.r * N + oppPos.c];
+  const dMy0 = distToGoal(state.walls, goalRow(p))[myPos.r * N + myPos.c];
 
-  const path = shortestPathCells(state, opp);
   const cand = new Map();
-  for (const cell of path.slice(0, cfg.pathLen)) {
-    for (let dr = -1; dr <= 0; dr++) {
-      for (let dc = -1; dc <= 0; dc++) {
-        for (const o of ['h', 'v']) {
-          const w = { r: cell.r + dr, c: cell.c + dc, o };
-          if (w.r < 0 || w.r > N - 2 || w.c < 0 || w.c > N - 2) continue;
-          cand.set(`${w.r},${w.c},${w.o}`, w);
-        }
-      }
+  if (cfg.full) {
+    for (let r = 0; r < N - 1; r++)
+      for (let c = 0; c < N - 1; c++)
+        for (const o of ['h', 'v']) cand.set(`${r},${c},${o}`, { r, c, o });
+  } else {
+    for (const cell of shortestPathCells(state, opp).slice(0, cfg.pathLen)) {
+      for (let dr = -1; dr <= 0; dr++)
+        for (let dc = -1; dc <= 0; dc++)
+          for (const o of ['h', 'v']) {
+            const w = { r: cell.r + dr, c: cell.c + dc, o };
+            if (w.r < 0 || w.r > N - 2 || w.c < 0 || w.c > N - 2) continue;
+            cand.set(`${w.r},${w.c},${w.o}`, w);
+          }
     }
   }
 
@@ -83,56 +80,46 @@ function bestWall(state, p, cfg) {
     const gain = (dOpp - dOpp0) - (dMy - dMy0);
     if (gain > 0) scored.push({ w, gain });
   }
-  scored.sort((a, b) => b.gain - a.gain);
   if (!scored.length) return null;
-  // topK 0 → only walls tied with the very best gain (strongest, still varied)
-  const top = cfg.topK === 0
-    ? scored.filter(s => s.gain === scored[0].gain)
-    : scored.slice(0, cfg.topK);
-  return top[Math.floor(Math.random() * top.length)];
+  scored.sort((a, b) => b.gain - a.gain);
+  const top = scored.filter(s => s.gain === scored[0].gain);          // all ties with the best gain
+  const pool = cfg.topK <= 1 ? top : scored.slice(0, cfg.topK);
+  return pool[Math.floor(Math.random() * pool.length)];
 }
 
-// Decide AI's move for the player whose turn it is.
+// Decide the AI's move for the player whose turn it is.
 export function aiMove(state, level = 'normal') {
   const cfg = AI_LEVELS[level] || AI_LEVELS.normal;
-  const p = state.turn;
-  const opp = 1 - p;
+  const p = state.turn, opp = 1 - p;
   const my = myBestStep(state, p);
   const oppDist = distToGoal(state.walls, goalRow(opp))[state.pawns[opp].r * N + state.pawns[opp].c];
 
-  // easy levels sometimes wander off the shortest path
+  // low levels wander off the shortest path sometimes
   if (cfg.blunder && Math.random() < cfg.blunder) {
     const moves = pawnMoves(state, p);
     const m = moves[Math.floor(Math.random() * moves.length)];
     return { type: 'pawn', r: m.r, c: m.c };
   }
 
-  if (cfg.race) {
-    // race-aware: walls are considered only when the opponent is a real
-    // threat, and stepping already gains a tempo — so a wall must set the
-    // opponent back by 2+ net moves (1+ when he is about to finish)
-    const threat = oppDist <= my.dist + 1 || oppDist <= 4;
-    if (threat && state.left[p] > 0 && Math.random() >= cfg.lazy) {
-      const wall = bestWall(state, p, cfg);
-      const need = oppDist <= 2 ? cfg.needNear : cfg.needFar;
-      if (wall && wall.gain >= need) return { type: 'wall', ...wall.w };
-    }
-    if (my.move) return { type: 'pawn', r: my.move.r, c: my.move.c };
-  }
-
-  const lazy = Math.random() < cfg.lazy;
-  const shouldConsiderWall = !lazy && state.left[p] > 0 &&
-    (oppDist <= my.dist + 1 || oppDist <= 3);
-
-  if (shouldConsiderWall) {
+  const consider = state.left[p] > 0 && Math.random() >= cfg.lazy;
+  if (consider) {
     const wall = bestWall(state, p, cfg);
-    const need = oppDist <= 3 ? cfg.needNear : cfg.needFar;
-    if (wall && wall.gain >= need) {
-      return { type: 'wall', ...wall.w };
+    if (wall) {
+      if (cfg.race) {
+        // A gain>=2 wall is a real tempo win — always take it. Otherwise, when
+        // I'm not strictly ahead in the race, disrupt aggressively with any
+        // wall (gain>=1); when clearly ahead, just run to the goal.
+        const behindOrTied = my.dist >= oppDist;
+        if (wall.gain >= 2) return { type: 'wall', ...wall.w };
+        if (behindOrTied && wall.gain >= 1) return { type: 'wall', ...wall.w };
+      } else {
+        const threat = oppDist <= my.dist + 1 || oppDist <= 3;
+        const need = oppDist <= 3 ? Math.max(1, cfg.needFar - 1) : cfg.needFar;
+        if (threat && wall.gain >= need) return { type: 'wall', ...wall.w };
+      }
     }
   }
   if (my.move) return { type: 'pawn', r: my.move.r, c: my.move.c };
-  // should never happen (path always exists), but fail safe
   const moves = pawnMoves(state, p);
   const m = moves[Math.floor(Math.random() * moves.length)];
   return { type: 'pawn', r: m.r, c: m.c };

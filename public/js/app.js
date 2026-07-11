@@ -1,7 +1,7 @@
 // WallRush client app: screens, board UI, online play (WebSocket), AI mode, auth.
-import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=13';
-import { aiMove } from './ai.js?v=13';
-import { makeT } from './i18n.js?v=13';
+import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=14';
+import { aiMove } from './ai.js?v=14';
+import { makeT } from './i18n.js?v=14';
 
 /* ================= state ================= */
 const $ = (id) => document.getElementById(id);
@@ -247,48 +247,11 @@ function buildBoard() {
   board.innerHTML = '';
   cellEls = [];
 
-  // goal zone tints (top = my goal, bottom = opponent's)
-  const innerW = geo.size - 2 * geo.pad;
-  const tintTop = document.createElement('div');
-  tintTop.id = 'tint-top';
-  tintTop.className = 'zone-tint top';
-  tintTop.style.cssText = `left:${geo.pad}px;top:${geo.pad}px;width:${innerW}px;height:${geo.u}px`;
-  board.appendChild(tintTop);
-  const tintBottom = document.createElement('div');
-  tintBottom.id = 'tint-bottom';
-  tintBottom.className = 'zone-tint bottom';
-  tintBottom.style.cssText = `left:${geo.pad}px;top:${geo.pad + 8 * (geo.u + geo.g)}px;width:${innerW}px;height:${geo.u}px`;
-  board.appendChild(tintBottom);
-
-  // thin pencil grid on the groove centres
-  const step = geo.u + geo.g;
-  const groove = (k) => geo.pad + k * step + geo.u + geo.g / 2;
-  for (let k = 0; k < N - 1; k++) {
-    const c = groove(k);
-    const v = document.createElement('div');
-    v.className = 'grid-line';
-    v.style.cssText = `left:${c}px;top:${geo.pad}px;width:1.5px;height:${geo.size - 2 * geo.pad}px`;
-    board.appendChild(v);
-    const h = document.createElement('div');
-    h.className = 'grid-line';
-    h.style.cssText = `left:${geo.pad}px;top:${c}px;width:${geo.size - 2 * geo.pad}px;height:1.5px`;
-    board.appendChild(h);
-  }
-  // little peg holes at the crossings — the spots where walls snap in
-  const dotR = Math.max(2.5, geo.g * 0.45);
-  for (let i = 0; i < N - 1; i++) {
-    for (let j = 0; j < N - 1; j++) {
-      const d = document.createElement('div');
-      d.className = 'grid-dot';
-      d.style.cssText = `left:${groove(j) - dotR}px;top:${groove(i) - dotR}px;width:${dotR * 2}px;height:${dotR * 2}px`;
-      board.appendChild(d);
-    }
-  }
-
+  // rounded cells like the competitor: red end-zone on top, blue on the bottom
   for (let r = 0; r < N; r++) {
     for (let c = 0; c < N; c++) {
       const el = document.createElement('div');
-      el.className = 'cell';
+      el.className = 'cell' + (r === 0 ? ' goal-top' : r === N - 1 ? ' goal-bottom' : '');
       const { x, y } = cellXY(r, c);
       el.style.cssText = `left:${x}px;top:${y}px;width:${geo.u}px;height:${geo.u}px`;
       el.dataset.vr = r;
@@ -356,15 +319,13 @@ function renderGame() {
   // move hints are colored like my ball
   board.classList.toggle('my-blue', myColor() === 'blue');
   board.classList.toggle('my-red', myColor() === 'red');
-  $('tint-top')?.classList.add(myColor());
-  $('tint-bottom')?.classList.add(oppColor());
 
   const legal = myTurn ? pawnMoves(s, me) : [];
   for (const el of cellEls) {
     const vr = +el.dataset.vr, vc = +el.dataset.vc;
     const lg = fromView(vr, vc);
-    el.className = 'cell';
-    if (legal.some(m => m.r === lg.r && m.c === lg.c)) el.classList.add('legal');
+    const isLegal = legal.some(m => m.r === lg.r && m.c === lg.c);
+    el.classList.toggle('legal', isLegal);
   }
 
   // HUD
