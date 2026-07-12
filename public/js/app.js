@@ -1,7 +1,7 @@
 // WallRush client app: screens, board UI, online play (WebSocket), AI mode, auth.
-import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=17';
-import { aiMove } from './ai.js?v=17';
-import { makeT } from './i18n.js?v=17';
+import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=18';
+import { aiMove } from './ai.js?v=18';
+import { makeT } from './i18n.js?v=18';
 
 /* ================= state ================= */
 const $ = (id) => document.getElementById(id);
@@ -539,7 +539,8 @@ function scheduleAiMove() {
       vibrate(10);
       if (s.winner !== null) onGameOver(s.winner === game.myIndex, 'goal');
     }
-  }, 500 + Math.random() * 700);
+    // the engine level spends its own thinking time, so keep the pre-delay short
+  }, game.aiLevel === 'hardcore' ? 150 + Math.random() * 200 : 500 + Math.random() * 700);
 }
 
 function startAiGame(level = 'normal') {
