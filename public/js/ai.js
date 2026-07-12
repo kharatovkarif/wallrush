@@ -1,16 +1,16 @@
 // WallRush AI.
-// Difficulty is a skill dial: the chance of playing the "strong" move vs a
-// weak one. The strong move is a real look-ahead:
-//   - easy/normal/hard: one-ply race evaluation (run vs. wall by distance)
-//   - hardcore: minimax (alpha-beta) several moves deep — it simulates every
-//     sensible line of play and picks the one that keeps you from ever winning.
+// Difficulty is a skill dial: the chance of playing the strong move vs a weak
+// one. easy/normal/hard use a fast look-ahead; hardcore runs a real search
+// engine (alpha-beta negamax + transposition table + iterative deepening) that
+// looks many moves ahead — it examines the opponent's replies to every line and
+// only plays into positions it can hold, so a human practically cannot win.
 import { pawnMoves, canPlaceWall, distToGoal, goalRow, cloneState, applyMove, N } from './engine.js';
 
 export const AI_LEVELS = {
-  easy:     { skill: 0.34 },              // ~20% AI win
-  normal:   { skill: 0.50 },              // ~50%
-  hard:     { skill: 0.67 },              // ~80%
-  hardcore: { skill: 1.00, deep: true },  // ~100% — look-ahead, near-unbeatable
+  easy:     { skill: 0.34 },                 // ~20% AI win
+  normal:   { skill: 0.50 },                 // ~50%
+  hard:     { skill: 0.67 },                 // ~80%
+  hardcore: { skill: 1.00, engine: true },   // deep search — near-unbeatable
 };
 
 function pawnDist(state, p) {
@@ -23,8 +23,8 @@ function myBestStep(state, p) {
   let bestD = Infinity;
   for (const m of moves) { const d = dist[m.r * N + m.c]; if (d !== -1 && d < bestD) bestD = d; }
   const best = moves.filter(m => dist[m.r * N + m.c] === bestD);
-  const move = (best.length ? best : moves)[Math.floor(Math.random() * (best.length || moves.length))];
-  return { move, dist: bestD };
+  const pool = best.length ? best : moves;
+  return { move: pool[Math.floor(Math.random() * pool.length)], dist: bestD };
 }
 
 function shortestPathCells(state, p) {
@@ -39,18 +39,18 @@ function shortestPathCells(state, p) {
       .filter(m => m.r >= 0 && m.r < N && m.c >= 0 && m.c < N)
       .filter(m => dist[m.r * N + m.c] === dist[cur.r * N + cur.c] - 1);
     if (!opts.length) break;
-    cur = opts[Math.floor(Math.random() * opts.length)];
+    cur = opts[0];
   }
   return cells;
 }
 
-// Legal wall candidates that matter: slots hugging the opponent's shortest
-// path (to block) and the AI's own path (to defend). Capped for speed.
+// Legal wall candidates that matter, each with its path-length gain, sorted best
+// first (good move ordering makes alpha-beta prune hard so the search goes deep).
 function candidateWalls(state, p, cap) {
   if (state.left[p] <= 0) return [];
   const set = new Map();
   const add = (cells, span) => {
-    for (const cell of cells.slice(0, span)) {
+    for (const cell of cells.slice(0, span))
       for (let dr = -1; dr <= 0; dr++)
         for (let dc = -1; dc <= 0; dc++)
           for (const o of ['h', 'v']) {
@@ -58,10 +58,17 @@ function candidateWalls(state, p, cap) {
             if (w.r < 0 || w.r > N - 2 || w.c < 0 || w.c > N - 2) continue;
             set.set(`${w.r},${w.c},${w.o}`, w);
           }
-    }
   };
-  add(shortestPathCells(state, 1 - p), 6);
-  add(shortestPathCells(state, p), 3);
+  add(shortestPathCells(state, 1 - p), 8);
+  add(shortestPathCells(state, p), 4);
+  // extend existing walls (choke points)
+  for (const e of state.walls)
+    for (const o of ['h', 'v'])
+      for (const d of [-2, -1, 1, 2]) {
+        const w = o === 'h' ? { r: e.r, c: e.c + d, o } : { r: e.r + d, c: e.c, o };
+        if (w.r < 0 || w.r > N - 2 || w.c < 0 || w.c > N - 2) continue;
+        set.set(`${w.r},${w.c},${w.o}`, w);
+      }
 
   const opp = 1 - p, oppPos = state.pawns[opp], myPos = state.pawns[p];
   const dOpp0 = distToGoal(state.walls, goalRow(opp))[oppPos.r * N + oppPos.c];
@@ -75,65 +82,119 @@ function candidateWalls(state, p, cap) {
     scored.push({ w, gain });
   }
   scored.sort((a, b) => b.gain - a.gain);
-  return scored.slice(0, cap); // [{w, gain}]
+  return scored.slice(0, cap);
 }
 
-/* ---------- shallow (1-ply) strong move: easy / normal / hard ---------- */
+/* ---------- shallow strong move: easy / normal / hard ---------- */
 function greedyMove(state, p) {
-  const opp = 1 - p;
   const my = myBestStep(state, p);
-  const oppDist = pawnDist(state, opp);
-  if (state.left[p] > 0) {
-    const walls = candidateWalls(state, p, 8);
-    if (walls.length) {
-      const { w, gain } = walls[0];                       // highest-gain wall (correct gain)
-      const behindOrTied = my.dist >= oppDist;
-      if (gain >= 2 || (behindOrTied && gain >= 1)) return { type: 'wall', ...w };
-    }
+  const oppDist = pawnDist(state, 1 - p);
+  const walls = candidateWalls(state, p, 8);
+  if (walls.length) {
+    const { w, gain } = walls[0];
+    const behindOrTied = my.dist >= oppDist;
+    if (gain >= 2 || (behindOrTied && gain >= 1)) return { type: 'wall', ...w };
   }
   return { type: 'pawn', r: my.move.r, c: my.move.c };
 }
 
-/* ---------- hardcore: look-ahead with a strong opponent model ----------
-   For each of my sensible moves, assume the opponent replies with its own
-   best (greedy race) move, then score the resulting race margin. Pick the
-   move that leaves me best off after that reply. This beats the plain
-   1-ply greedy because it foresees the opponent's answer. */
-const WIN = 1e6;
+/* ================= deep search engine (hardcore) ================= */
+const MATE = 1e6;
 
-function evalRel(state, p) {
+// Static evaluation from the side-to-move's perspective. The race is decided by
+// distance; the side on move reaches ~one step sooner, so it gets a tempo bonus.
+function evalPos(state) {
+  const p = state.turn, opp = 1 - p;
   const myD = pawnDist(state, p);
-  const oppD = pawnDist(state, 1 - p);
-  // whoever is to move effectively reaches one step sooner → tempo term
-  const tempo = state.turn === p ? 0.5 : -0.5;
-  return (oppD - myD + tempo) * 8 + (state.left[p] - state.left[1 - p]) * 0.6;
+  const oppD = pawnDist(state, opp);
+  return (oppD - myD) * 10 + 5 + (state.left[p] - state.left[opp]) * 2;
 }
 
-function deepMove(state, p) {
-  const opp = 1 - p;
-  const my = myBestStep(state, p);
-  const moves = [{ type: 'pawn', r: my.move.r, c: my.move.c }];
-  for (const { w } of candidateWalls(state, p, 10)) moves.push({ type: 'wall', ...w });
+function keyOf(state) {
+  const w = state.walls.map(x => `${x.r}${x.c}${x.o}`).sort().join('');
+  const pw = state.pawns;
+  return `${pw[0].r}${pw[0].c}${pw[1].r}${pw[1].c}${state.turn}${state.left[0]}${state.left[1]}|${w}`;
+}
 
-  let bestScore = -Infinity;
-  const scored = [];
-  for (const move of moves) {
+function orderedMoves(state, p, wallCap) {
+  const my = myBestStep(state, p);
+  const moves = [{ type: 'pawn', r: my.move.r, c: my.move.c, _p: 3 }];
+  for (const m of pawnMoves(state, p)) {
+    if (m.r === my.move.r && m.c === my.move.c) continue;
+    moves.push({ type: 'pawn', r: m.r, c: m.c, _p: 1 });
+  }
+  if (state.left[p] > 0) for (const { w, gain } of candidateWalls(state, p, wallCap)) {
+    moves.push({ type: 'wall', ...w, _p: 2 + Math.min(gain, 3) });
+  }
+  moves.sort((a, b) => b._p - a._p);
+  return moves;
+}
+
+let TT, nodes, deadline;
+
+function negamax(state, depth, alpha, beta, rootDepth) {
+  if (Date.now() > deadline) throw 'timeout';
+  const alpha0 = alpha;
+  const key = keyOf(state) + ':' + depth;
+  const hit = TT.get(key);
+  if (hit !== undefined) {
+    if (hit.flag === 0) return hit.score;
+    if (hit.flag < 0 && hit.score <= alpha) return hit.score;
+    if (hit.flag > 0 && hit.score >= beta) return hit.score;
+  }
+  if (depth === 0) return evalPos(state);
+
+  const p = state.turn;
+  const wallCap = depth >= 4 ? 12 : depth >= 2 ? 8 : 4;
+  let best = -Infinity;
+  for (const move of orderedMoves(state, p, wallCap)) {
+    nodes++;
     const c = cloneState(state);
     applyMove(c, move);
     let score;
-    if (c.winner === p) {
-      score = WIN;                                  // this move wins outright
-    } else {
-      const reply = greedyMove(c, opp);             // opponent's best answer
-      const c2 = cloneState(c);
-      applyMove(c2, reply);
-      score = c2.winner === opp ? -WIN : evalRel(c2, p);
-    }
-    scored.push({ move, score });
-    if (score > bestScore) bestScore = score;
+    if (c.winner === p) score = MATE - (rootDepth - depth);   // sooner win is better
+    else score = -negamax(c, depth - 1, -beta, -alpha, rootDepth);
+    if (score > best) best = score;
+    if (best > alpha) alpha = best;
+    if (alpha >= beta) break;
   }
-  const top = scored.filter(s => s.score >= bestScore - 0.001);
-  return top[Math.floor(Math.random() * top.length)].move;
+  const flag = best <= alpha0 ? -1 : best >= beta ? 1 : 0;
+  TT.set(key, { score: best, flag });
+  return best;
+}
+
+function searchRoot(state, depth) {
+  const p = state.turn;
+  let alpha = -Infinity;
+  const scored = [];
+  for (const move of orderedMoves(state, p, 14)) {
+    const c = cloneState(state);
+    applyMove(c, move);
+    let score;
+    if (c.winner === p) score = MATE;
+    else score = -negamax(c, depth - 1, -Infinity, -alpha, depth);
+    scored.push({ move, score });
+    if (score > alpha) alpha = score;
+  }
+  scored.sort((a, b) => b.score - a.score);
+  const top = scored.filter(s => s.score >= scored[0].score - 0.001);
+  return { move: top[Math.floor(Math.random() * top.length)].move, score: scored[0].score };
+}
+
+function engineMove(state, p, budgetMs, maxDepth) {
+  TT = new Map(); nodes = 0;
+  deadline = Date.now() + (budgetMs || 550);
+  let best = greedyMove(state, p);
+  for (let depth = 2; depth <= (maxDepth || 20); depth += 2) {
+    try {
+      const res = searchRoot(state, depth);
+      best = res.move;
+      if (res.score >= MATE - 1000) break; // proven forced win — no need to go deeper
+    } catch (e) {
+      break; // ran out of time; keep best from the last completed depth
+    }
+  }
+  return best;
 }
 
 /* ---------- weak move for the skill dial ---------- */
@@ -149,11 +210,12 @@ function weakMove(state, p) {
   return { type: 'pawn', r: m.r, c: m.c };
 }
 
-export function aiMove(state, level = 'normal') {
+export function aiMove(state, level = 'normal', opts = {}) {
   const cfg = AI_LEVELS[level] || AI_LEVELS.normal;
   const p = state.turn;
   if (Math.random() < cfg.skill) {
-    return cfg.deep ? deepMove(state, p) : greedyMove(state, p);
+    if (cfg.engine) return engineMove(state, p, opts.budgetMs, opts.maxDepth);
+    return greedyMove(state, p);
   }
   return weakMove(state, p);
 }
