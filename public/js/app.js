@@ -66,6 +66,47 @@ let wsToken = sessionStorage.getItem('wr_ws_token') || null;
 let game = null; // { mode:'ai'|'online', state, myIndex, oppNick, clocks, over }
 let aiTimer = null;
 
+/* ---- AI runs in a Web Worker so the UI never freezes while it thinks ---- */
+let aiWorker = null;      // null = not created yet, false = unavailable
+let aiReqId = 0;
+const aiPending = new Map();
+
+function getAiWorker() {
+  if (aiWorker === false) return null;
+  if (!aiWorker) {
+    try {
+      aiWorker = new Worker('js/ai-worker.js?v=21', { type: 'module' });
+      aiWorker.onmessage = (e) => {
+        const cb = aiPending.get(e.data.id);
+        aiPending.delete(e.data.id);
+        if (cb) cb(e.data.move);
+      };
+      aiWorker.onerror = () => { aiWorker = false; };
+    } catch {
+      aiWorker = false;
+      return null;
+    }
+  }
+  return aiWorker;
+}
+
+function aiMoveAsync(state, level, opts) {
+  return new Promise((resolve) => {
+    const w = getAiWorker();
+    if (!w) { setTimeout(() => resolve(aiMove(state, level, opts)), 30); return; }
+    const id = ++aiReqId;
+    aiPending.set(id, resolve);
+    w.postMessage({ id, state, level, opts });
+    // safety net: if the worker died mid-request, compute on the main thread
+    setTimeout(() => {
+      if (aiPending.has(id)) {
+        aiPending.delete(id);
+        resolve(aiMove(state, level, opts));
+      }
+    }, 4000);
+  });
+}
+
 /* ================= helpers ================= */
 function vibrate(pattern) {
   if (vibroOn && navigator.vibrate) navigator.vibrate(pattern);
@@ -565,12 +606,14 @@ function notePos(s) {
 function scheduleAiMove() {
   clearTimeout(aiTimer);
   const hardcore = game.aiLevel === 'hardcore';
-  aiTimer = setTimeout(() => {
+  aiTimer = setTimeout(async () => {
     if (!game || game.mode !== 'ai' || game.over) return;
+    const g = game;
     const s = game.state;
     if (s.turn !== 1 - game.myIndex) return;
     const t0 = Date.now();
-    const move = aiMove(s, game.aiLevel, { recent: game.seen || [] });
+    const move = await aiMoveAsync(s, game.aiLevel, { recent: game.seen || [] });
+    if (game !== g || !move) return; // the game was left/restarted meanwhile
     const finish = () => {
       if (!game || game.mode !== 'ai' || game.over) return;
       if (applyMove(s, move)) {
