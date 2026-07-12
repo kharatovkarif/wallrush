@@ -28,6 +28,25 @@ function applyTheme() {
 }
 applyTheme();
 
+// per-device id for visitor tracking (guests included)
+let deviceId = localStorage.getItem('wr_device');
+if (!deviceId) {
+  deviceId = (crypto.randomUUID ? crypto.randomUUID() : 'd' + Date.now() + '-' + Math.random().toString(36).slice(2, 10));
+  localStorage.setItem('wr_device', deviceId);
+}
+function logVisit(game = false) {
+  try {
+    fetch('/api/visit', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(session ? { Authorization: `Bearer ${session.access_token}` } : {}),
+      },
+      body: JSON.stringify({ device: deviceId, nick: myNick(), game }),
+    }).catch(() => {});
+  } catch {}
+}
+
 let guestNick = sessionStorage.getItem('wr_nick');
 if (!guestNick) {
   guestNick = 'User' + (1000 + Math.floor(Math.random() * 9000));
@@ -524,6 +543,7 @@ function submitMove(move) {
   } else {
     const s = game.state;
     if (!applyMove(s, move)) return;
+    notePos(s);
     if (move.type === 'wall') s.walls[s.walls.length - 1].by = game.myIndex;
     renderGame();
     if (s.winner !== null) { onGameOver(s.winner === game.myIndex, 'goal'); return; }
@@ -532,6 +552,16 @@ function submitMove(move) {
 }
 
 /* ================= AI mode ================= */
+function posKey(s) {
+  return `${s.pawns[0].r},${s.pawns[0].c}|${s.pawns[1].r},${s.pawns[1].c}|${s.left[0]},${s.left[1]}`;
+}
+
+function notePos(s) {
+  if (!game || game.mode !== 'ai') return;
+  (game.seen = game.seen || []).push(posKey(s));
+  if (game.seen.length > 16) game.seen.shift();
+}
+
 function scheduleAiMove() {
   clearTimeout(aiTimer);
   const hardcore = game.aiLevel === 'hardcore';
@@ -540,10 +570,11 @@ function scheduleAiMove() {
     const s = game.state;
     if (s.turn !== 1 - game.myIndex) return;
     const t0 = Date.now();
-    const move = aiMove(s, game.aiLevel);
+    const move = aiMove(s, game.aiLevel, { recent: game.seen || [] });
     const finish = () => {
       if (!game || game.mode !== 'ai' || game.over) return;
       if (applyMove(s, move)) {
+        notePos(s);
         if (move.type === 'wall') s.walls[s.walls.length - 1].by = 1 - game.myIndex;
         renderGame();
         vibrate(10);
@@ -567,8 +598,10 @@ function startAiGame(level = 'normal') {
     over: false,
   };
   game.state.turn = Math.random() < 0.5 ? 0 : 1;
+  game.seen = []; // recent positions, so hardcore never shuffles back and forth
   $('overlay-gameover').hidden = true;
   cancelWallPreview();
+  logVisit(true);
   show('screen-game');
   buildBoard();
   renderGame();
@@ -594,6 +627,7 @@ function startOnlineGame(msg) {
   $('btn-rematch').style.display = '';
   $('rematch-status').hidden = true;
   cancelWallPreview();
+  logVisit(true);
   show('screen-game');
   buildBoard();
   renderGame();
@@ -927,6 +961,7 @@ window.addEventListener('resize', () => {
 
 async function boot() {
   applyI18n();
+  logVisit(false);
   updateProfileUI();
   connectWs();
   try {

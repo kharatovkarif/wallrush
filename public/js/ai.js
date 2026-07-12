@@ -316,6 +316,11 @@ function wallMovesF(fs, p, cap, withGain) {
   return res.slice(0, cap);
 }
 
+function fsKey(fs) {
+  const p0 = fs.pos[0], p1 = fs.pos[1];
+  return `${(p0 / 9) | 0},${p0 % 9}|${(p1 / 9) | 0},${p1 % 9}|${fs.left[0]},${fs.left[1]}`;
+}
+
 function evalF(fs) {
   const p = fs.turn;
   return (distOfF(fs, 1 - p) - distOfF(fs, p)) * 10 + 5 + (fs.left[p] - fs.left[1 - p]) * 2;
@@ -378,11 +383,15 @@ function negaF(fs, depth, alpha, beta, rootDepth) {
   return best;
 }
 
-function searchRootF(fs, depth) {
+function searchRootF(fs, depth, recent) {
   const p = fs.turn;
   const goal = p === 0 ? 0 : 8;
   const dm = distMapF(fs, goal);
   const pmoves = pawnMovesF(fs, p).sort((a, b) => dm[a] - dm[b]);
+  // dm aliases a shared buffer that deeper searches overwrite — snapshot the
+  // progress of each pawn move NOW, before any recursion
+  const progOf = new Map();
+  for (const m of pmoves) progOf.set(m, dm[fs.pos[p]] - dm[m]);
   const wmoves = wallMovesF(fs, p, 16, true);
 
   let alpha = -Infinity;
@@ -400,7 +409,13 @@ function searchRootF(fs, depth) {
       unmakePawn(fs, p, from);
     }
     if (timedOut) return;
-    scored.push({ mv, isWall, s, prog: isWall ? 0 : (dm[fs.pos[p]] - dm[mv]) });
+    // hard penalty for recreating a recent position — no back-and-forth, ever
+    if (recent && !isWall) {
+      const save = fs.pos[p]; fs.pos[p] = mv;
+      if (recent.has(fsKey(fs))) s -= 40;
+      fs.pos[p] = save;
+    }
+    scored.push({ mv, isWall, s, prog: isWall ? 0 : (progOf.get(mv) || 0) });
     if (s > alpha) alpha = s;
   };
   if (pmoves.length) consider(pmoves[0], false);
@@ -427,7 +442,6 @@ function engineMove(state, p, budgetMs, maxDepth) {
       if (res.score >= MATE - 1000) break;
     }
   }
-  if (!best) return greedyMove(state, p);
   const { pick } = best;
   if (pick.isWall) return { type: 'wall', o: pick.mv.o === 0 ? 'h' : 'v', r: pick.mv.r, c: pick.mv.c };
   return { type: 'pawn', r: (pick.mv / 9) | 0, c: pick.mv % 9 };
@@ -450,7 +464,7 @@ export function aiMove(state, level = 'normal', opts = {}) {
   const cfg = AI_LEVELS[level] || AI_LEVELS.normal;
   const p = state.turn;
   if (Math.random() < cfg.skill) {
-    if (cfg.engine) return engineMove(state, p, opts.budgetMs ?? cfg.budget, opts.maxDepth);
+    if (cfg.engine) return engineMove(state, p, opts.budgetMs ?? cfg.budget, opts.maxDepth, opts.recent);
     return greedyMove(state, p);
   }
   return weakMove(state, p);

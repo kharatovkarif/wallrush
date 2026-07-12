@@ -105,6 +105,40 @@ app.post('/api/register', async (req, res) => {
   res.json({ ok: true });
 });
 
+// Visitor tracking: every device (guests included) is logged with first/last
+// visit, visit count, games started and last known nick.
+app.post('/api/visit', async (req, res) => {
+  res.json({ ok: true }); // never block the client on analytics
+  if (!dbEnabled) return;
+  try {
+    const device = String(req.body?.device || '');
+    if (!/^[A-Za-z0-9-]{8,64}$/.test(device)) return;
+    const nick = String(req.body?.nick || '').slice(0, 32) || null;
+    const game = Boolean(req.body?.game);
+    const user = await verifyUser(bearer(req));
+    const { data: ex } = await supa.from('visitors')
+      .select('visits, games').eq('device_id', device).maybeSingle();
+    if (ex) {
+      await supa.from('visitors').update({
+        last_seen: new Date().toISOString(),
+        visits: ex.visits + (game ? 0 : 1),
+        games: ex.games + (game ? 1 : 0),
+        ...(nick ? { last_nick: nick } : {}),
+        ...(user ? { user_id: user.id } : {}),
+      }).eq('device_id', device);
+    } else {
+      await supa.from('visitors').insert({
+        device_id: device,
+        last_nick: nick,
+        games: game ? 1 : 0,
+        user_id: user ? user.id : null,
+      });
+    }
+  } catch (e) {
+    console.error('visit log failed:', e.message);
+  }
+});
+
 // Login by nick: resolve a nickname to the account email.
 app.post('/api/resolve-login', async (req, res) => {
   if (!dbEnabled) return res.status(503).json({ error: 'db_off' });
