@@ -10,7 +10,7 @@ export const AI_LEVELS = {
   easy:     { skill: 0.34 },                 // ~20% AI win
   normal:   { skill: 0.50 },                 // ~50%
   hard:     { skill: 0.67 },                 // ~80%
-  hardcore: { skill: 1.00, engine: true },   // deep search — near-unbeatable
+  hardcore: { skill: 1.00, engine: true, budget: 1300 }, // deep search, full 1.3s of thinking per move
 };
 
 function pawnDist(state, p) {
@@ -450,7 +450,7 @@ export function aiMove(state, level = 'normal', opts = {}) {
   const cfg = AI_LEVELS[level] || AI_LEVELS.normal;
   const p = state.turn;
   if (Math.random() < cfg.skill) {
-    if (cfg.engine) return engineMove(state, p, opts.budgetMs, opts.maxDepth);
+    if (cfg.engine) return engineMove(state, p, opts.budgetMs ?? cfg.budget, opts.maxDepth);
     return greedyMove(state, p);
   }
   return weakMove(state, p);

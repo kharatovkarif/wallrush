@@ -105,6 +105,18 @@ app.post('/api/register', async (req, res) => {
   res.json({ ok: true });
 });
 
+// Login by nick: resolve a nickname to the account email.
+app.post('/api/resolve-login', async (req, res) => {
+  if (!dbEnabled) return res.status(503).json({ error: 'db_off' });
+  const nick = String(req.body?.nick || '').trim();
+  if (!nick || nick.length > 32) return res.status(400).json({ error: 'not_found' });
+  const { data: prof } = await supa.from('profiles').select('id').ilike('nick', nick).maybeSingle();
+  if (!prof) return res.status(404).json({ error: 'not_found' });
+  const { data: u, error } = await supa.auth.admin.getUserById(prof.id);
+  if (error || !u?.user?.email) return res.status(404).json({ error: 'not_found' });
+  res.json({ email: u.user.email });
+});
+
 app.get('/healthz', (req, res) => res.send('ok'));
 
 const server = http.createServer(app);

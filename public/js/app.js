@@ -1,7 +1,7 @@
 // WallRush client app: screens, board UI, online play (WebSocket), AI mode, auth.
-import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=18';
-import { aiMove } from './ai.js?v=18';
-import { makeT } from './i18n.js?v=18';
+import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=19';
+import { aiMove } from './ai.js?v=19';
+import { makeT } from './i18n.js?v=19';
 
 /* ================= state ================= */
 const $ = (id) => document.getElementById(id);
@@ -21,6 +21,12 @@ function detectLang() {
 let lang = detectLang();
 let t = makeT(lang);
 let vibroOn = localStorage.getItem('wr_vibro') !== '0';
+
+// theme: light by default, dark if the user switched it in the profile
+function applyTheme() {
+  document.documentElement.dataset.theme = localStorage.getItem('wr_theme') === 'dark' ? 'dark' : 'light';
+}
+applyTheme();
 
 let guestNick = sessionStorage.getItem('wr_nick');
 if (!guestNick) {
@@ -528,19 +534,26 @@ function submitMove(move) {
 /* ================= AI mode ================= */
 function scheduleAiMove() {
   clearTimeout(aiTimer);
+  const hardcore = game.aiLevel === 'hardcore';
   aiTimer = setTimeout(() => {
     if (!game || game.mode !== 'ai' || game.over) return;
     const s = game.state;
     if (s.turn !== 1 - game.myIndex) return;
+    const t0 = Date.now();
     const move = aiMove(s, game.aiLevel);
-    if (applyMove(s, move)) {
-      if (move.type === 'wall') s.walls[s.walls.length - 1].by = 1 - game.myIndex;
-      renderGame();
-      vibrate(10);
-      if (s.winner !== null) onGameOver(s.winner === game.myIndex, 'goal');
-    }
-    // the engine level spends its own thinking time, so keep the pre-delay short
-  }, game.aiLevel === 'hardcore' ? 150 + Math.random() * 200 : 500 + Math.random() * 700);
+    const finish = () => {
+      if (!game || game.mode !== 'ai' || game.over) return;
+      if (applyMove(s, move)) {
+        if (move.type === 'wall') s.walls[s.walls.length - 1].by = 1 - game.myIndex;
+        renderGame();
+        vibrate(10);
+        if (s.winner !== null) onGameOver(s.winner === game.myIndex, 'goal');
+      }
+    };
+    // hardcore always answers after exactly ~1.3s: thinking time + padding
+    const pad = hardcore ? Math.max(0, 1300 - (Date.now() - t0)) : 0;
+    aiTimer = setTimeout(finish, pad);
+  }, hardcore ? 120 : 500 + Math.random() * 700);
 }
 
 function startAiGame(level = 'normal') {
@@ -720,6 +733,8 @@ function updateProfileUI() {
   $('stat-games').textContent = wins + losses;
   $('stat-wins').textContent = wins;
   $('stat-losses').textContent = losses;
+  $('stat-rate').textContent = (wins + losses) > 0 ? Math.round(100 * wins / (wins + losses)) + '%' : '—';
+  $('theme-toggle').checked = localStorage.getItem('wr_theme') === 'dark';
   const logged = Boolean(session && profile);
   $('guest-hint').hidden = logged;
   $('auth-buttons').hidden = logged; // always visible for guests, even if auth is broken —
@@ -732,6 +747,11 @@ let authMode = 'login'; // 'login' | 'register' | 'nick' | 'reset'
 
 function openAuthForm(mode) {
   authMode = mode;
+  // login accepts nick OR email; registration pre-fills a suggested nick
+  $('auth-email').placeholder = mode === 'login' ? t('email_or_nick') : t('email');
+  if (mode === 'register' && !$('auth-nick').value) {
+    $('auth-nick').value = 'Player' + (100 + Math.floor(Math.random() * 900));
+  }
   $('auth-buttons').hidden = true;
   $('auth-form').hidden = false;
   $('auth-msg').hidden = true;
@@ -803,7 +823,18 @@ $('btn-auth-submit').addEventListener('click', async () => {
       if (error) { authMsg(t('auth_error')); return; }
       await afterLogin();
     } else if (authMode === 'login') {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      let loginEmail = email;
+      if (email && !email.includes('@')) { // a nick was typed — resolve it to the email
+        const r = await fetch('/api/resolve-login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ nick: email }),
+        });
+        const d = await r.json();
+        if (d.error) { authMsg(t('err_login_not_found')); return; }
+        loginEmail = d.email;
+      }
+      const { error } = await supabase.auth.signInWithPassword({ email: loginEmail, password });
       if (error) { authMsg(t('auth_error')); return; }
       await afterLogin();
     } else if (authMode === 'nick') {
@@ -882,6 +913,11 @@ $('vibro-toggle').addEventListener('change', (e) => {
   vibroOn = e.target.checked;
   localStorage.setItem('wr_vibro', vibroOn ? '1' : '0');
   if (vibroOn) vibrate(20);
+});
+
+$('theme-toggle').addEventListener('change', (e) => {
+  localStorage.setItem('wr_theme', e.target.checked ? 'dark' : 'light');
+  applyTheme();
 });
 
 /* ================= boot ================= */
