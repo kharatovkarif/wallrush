@@ -259,12 +259,20 @@ body {
 .pawn.blue { background: radial-gradient(circle at 32% 26%, #b6d2ff 4%, #6d9bf8 30%, #2f6df6 62%, #1a48b8); }
 .pawn.glow { box-shadow: 0 0 0 4px rgba(255,255,255,.95), 0 0 18px 6px rgba(120, 150, 220, .55), inset -4px -7px 10px rgba(0,0,0,.35), 0 6px 10px rgba(20,35,80,.35); }
 
-/* walls: glossy dark navy capsules (both players) */
+/* walls: glossy capsules in the owner's color (blue = player 0, red = player 1) */
 .wall {
   position: absolute; border-radius: 999px; z-index: 4; pointer-events: none;
   background: linear-gradient(180deg, #48547e 0%, #2b3355 45%, #161c34 100%);
   box-shadow: 0 5px 9px rgba(12, 18, 40, .5), inset 0 2px 2px rgba(255,255,255,.3);
   animation: wallIn .2s ease;
+}
+.wall.blue {
+  background: linear-gradient(180deg, #7aa3fb 0%, #2f6df6 45%, #1a48b8 100%);
+  box-shadow: 0 5px 9px rgba(18, 45, 120, .45), inset 0 2px 2px rgba(255,255,255,.35);
+}
+.wall.red {
+  background: linear-gradient(180deg, #f2808f 0%, #e33d52 45%, #ad1f33 100%);
+  box-shadow: 0 5px 9px rgba(130, 20, 35, .45), inset 0 2px 2px rgba(255,255,255,.35);
 }
 @keyframes wallIn { from { transform: scale(.6); opacity: 0; } }
 .wall.no-anim { animation: none; }

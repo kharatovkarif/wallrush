@@ -1,7 +1,7 @@
 // WallRush client app: screens, board UI, online play (WebSocket), AI mode, auth.
-import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=24';
-import { aiMove } from './ai.js?v=24';
-import { makeT } from './i18n.js?v=24';
+import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=25';
+import { aiMove } from './ai.js?v=25';
+import { makeT } from './i18n.js?v=25';
 
 /* ================= state ================= */
 const $ = (id) => document.getElementById(id);
@@ -110,7 +110,7 @@ function getAiWorker() {
   if (aiWorker === false) return null;
   if (!aiWorker) {
     try {
-      aiWorker = new Worker('js/ai-worker.js?v=24', { type: 'module' });
+      aiWorker = new Worker('js/ai-worker.js?v=25', { type: 'module' });
       aiWorker.onmessage = (e) => {
         const cb = aiPending.get(e.data.id);
         aiPending.delete(e.data.id);
@@ -404,7 +404,8 @@ function renderGame() {
   board.querySelectorAll('.wall:not(.preview)').forEach(el => el.remove());
   s.walls.forEach((w, idx) => {
     const el = document.createElement('div');
-    el.className = 'wall'; // all walls are the same glossy dark capsules
+    // wall wears the color of whoever placed it (player 0 blue, player 1 red)
+    el.className = 'wall ' + (w.by === 0 ? 'blue' : w.by === 1 ? 'red' : '');
     if (idx < prevWallCount) el.classList.add('no-anim');
     const rect = wallRect(wallToView(w));
     el.style.cssText = `left:${rect.x}px;top:${rect.y}px;width:${rect.w}px;height:${rect.h}px`;
@@ -545,7 +546,7 @@ function updateDragPreview(clientX, clientY, isTouch) {
     previewEl = document.createElement('div');
     board.appendChild(previewEl);
   }
-  previewEl.className = `wall preview ${dragValid ? 'preview-ok' : 'preview-bad'}`;
+  previewEl.className = `wall preview ${myColor()} ${dragValid ? 'preview-ok' : 'preview-bad'}`;
   const rect = wallRect(wallToView(dragSlot));
   previewEl.style.cssText = `left:${rect.x}px;top:${rect.y}px;width:${rect.w}px;height:${rect.h}px`;
 }
