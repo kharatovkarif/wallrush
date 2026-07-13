@@ -1,7 +1,7 @@
 // WallRush client app: screens, board UI, online play (WebSocket), AI mode, auth.
-import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=22';
-import { aiMove } from './ai.js?v=22';
-import { makeT } from './i18n.js?v=22';
+import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=23';
+import { aiMove } from './ai.js?v=23';
+import { makeT } from './i18n.js?v=23';
 
 /* ================= state ================= */
 const $ = (id) => document.getElementById(id);
@@ -23,9 +23,10 @@ let t = makeT(lang);
 let vibroOn = localStorage.getItem('wr_vibro') !== '0';
 let soundOn = localStorage.getItem('wr_sound') !== '0';
 
-// short "tick" on every move, like a chess clock (WebAudio, no files needed)
+// move sounds, like a chess clock (WebAudio, no files needed):
+// pawn = short high "tick", wall = lower wooden "knock"
 let audioCtx = null;
-function tick(mine) {
+function tick(mine, wall = false) {
   if (!soundOn) return;
   try {
     audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
@@ -33,14 +34,26 @@ function tick(mine) {
     const t0 = audioCtx.currentTime;
     const o = audioCtx.createOscillator();
     const g = audioCtx.createGain();
-    o.type = 'triangle';
-    o.frequency.value = mine ? 660 : 500; // my move rings higher than theirs
-    g.gain.setValueAtTime(0.0001, t0);
-    g.gain.exponentialRampToValueAtTime(0.22, t0 + 0.008);
-    g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.09);
-    o.connect(g).connect(audioCtx.destination);
-    o.start(t0);
-    o.stop(t0 + 0.1);
+    if (wall) {
+      o.type = 'sine';
+      o.frequency.setValueAtTime(mine ? 340 : 270, t0);
+      o.frequency.exponentialRampToValueAtTime(mine ? 180 : 140, t0 + 0.1); // falling thud
+      g.gain.setValueAtTime(0.0001, t0);
+      g.gain.exponentialRampToValueAtTime(0.3, t0 + 0.006);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.14);
+      o.connect(g).connect(audioCtx.destination);
+      o.start(t0);
+      o.stop(t0 + 0.15);
+    } else {
+      o.type = 'triangle';
+      o.frequency.value = mine ? 660 : 500; // my move rings higher than theirs
+      g.gain.setValueAtTime(0.0001, t0);
+      g.gain.exponentialRampToValueAtTime(0.22, t0 + 0.008);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.09);
+      o.connect(g).connect(audioCtx.destination);
+      o.start(t0);
+      o.stop(t0 + 0.1);
+    }
   } catch { /* no audio — fine */ }
 }
 
@@ -97,7 +110,7 @@ function getAiWorker() {
   if (aiWorker === false) return null;
   if (!aiWorker) {
     try {
-      aiWorker = new Worker('js/ai-worker.js?v=22', { type: 'module' });
+      aiWorker = new Worker('js/ai-worker.js?v=23', { type: 'module' });
       aiWorker.onmessage = (e) => {
         const cb = aiPending.get(e.data.id);
         aiPending.delete(e.data.id);
@@ -231,11 +244,12 @@ function handleWsMessage(msg) {
       if (game?.mode === 'online') {
         // turn passed to me ⇒ this state carries the opponent's move
         const oppMoved = msg.state.turn === game.myIndex && game.state?.turn !== game.myIndex;
+        const oppWalled = msg.state.walls.length > (game.state?.walls.length ?? 0);
         game.state = msg.state;
         game.clocks = { ...msg.clocks, recvAt: Date.now() };
         cancelWallPreview();
         renderGame();
-        if (oppMoved) { vibrate(12); tick(false); }
+        if (oppMoved) { vibrate(12); tick(false, oppWalled); }
       }
       break;
     case 'game_over':
@@ -584,19 +598,43 @@ window.addEventListener('mousemove', (e) => { if (dragWall) updateDragPreview(e.
 window.addEventListener('mouseup', () => { if (dragWall) finishDrag(); });
 
 // tap a highlighted cell → move the ball
-board.addEventListener('click', (e) => {
-  if (!isMyTurn() || dragWall) return;
-  const cell = e.target.closest?.('.cell');
+function tapCell(target) {
+  if (!isMyTurn() || dragWall) return false;
+  const cell = target?.closest?.('.cell');
   if (cell && cell.classList.contains('legal')) {
     const lg = fromView(+cell.dataset.vr, +cell.dataset.vc);
     submitMove({ type: 'pawn', r: lg.r, c: lg.c });
+    return true;
   }
-}, false);
+  return false;
+}
+
+// react on touchend directly: mobile browsers fire `click` with a delay,
+// and the move must land the instant the finger lifts
+let cellTouch = null;
+board.addEventListener('touchstart', (e) => {
+  if (e.touches.length === 1 && !dragWall) {
+    const tt = e.touches[0];
+    cellTouch = { x: tt.clientX, y: tt.clientY };
+  } else cellTouch = null;
+}, { passive: true });
+board.addEventListener('touchend', (e) => {
+  const start = cellTouch;
+  cellTouch = null;
+  if (!start || dragWall) return;
+  const tt = e.changedTouches[0];
+  if (Math.abs(tt.clientX - start.x) > 14 || Math.abs(tt.clientY - start.y) > 14) return; // was a scroll
+  if (tapCell(document.elementFromPoint(tt.clientX, tt.clientY))) {
+    e.preventDefault(); // swallow the delayed synthetic click so the move isn't sent twice
+  }
+}, { passive: false });
+
+board.addEventListener('click', (e) => { tapCell(e.target); }, false);
 
 function submitMove(move) {
   if (!isMyTurn()) return;
   vibrate(move.type === 'wall' ? 25 : 15);
-  tick(true);
+  tick(true, move.type === 'wall');
   if (game.mode === 'online') {
     wsSend({ t: 'move', move });
     // optimistic apply for snappy UI; server state will overwrite
@@ -646,7 +684,7 @@ function scheduleAiMove() {
         if (move.type === 'wall') s.walls[s.walls.length - 1].by = 1 - game.myIndex;
         renderGame();
         vibrate(10);
-        tick(false);
+        tick(false, move.type === 'wall');
         if (s.winner !== null) onGameOver(s.winner === game.myIndex, 'goal');
       }
     };
