@@ -5,7 +5,7 @@ import { verifyUser, getProfile, recordResult, recordBotResult } from './db.js';
 import { initBots, fakeOnline, notifyUserWaiting } from './bots.js';
 import crypto from 'crypto';
 
-const BANK_MS = 120_000;      // 2:00 per player per game
+const BANK_MS = 300_000;      // 5:00 per player per game
 const MOVE_MS = 30_000;       // max per move
 const GRACE_MS = 30_000;      // reconnect window
 const EMOJIS = ['😂', '🫡', '🤝', '😡'];
