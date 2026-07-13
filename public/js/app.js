@@ -1,7 +1,7 @@
 // WallRush client app: screens, board UI, online play (WebSocket), AI mode, auth.
-import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=25';
-import { aiMove } from './ai.js?v=25';
-import { makeT } from './i18n.js?v=25';
+import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=26';
+import { aiMove } from './ai.js?v=26';
+import { makeT } from './i18n.js?v=26';
 
 /* ================= state ================= */
 const $ = (id) => document.getElementById(id);
@@ -110,7 +110,7 @@ function getAiWorker() {
   if (aiWorker === false) return null;
   if (!aiWorker) {
     try {
-      aiWorker = new Worker('js/ai-worker.js?v=25', { type: 'module' });
+      aiWorker = new Worker('js/ai-worker.js?v=26', { type: 'module' });
       aiWorker.onmessage = (e) => {
         const cb = aiPending.get(e.data.id);
         aiPending.delete(e.data.id);
@@ -351,11 +351,30 @@ function buildBoard() {
   board.innerHTML = '';
   cellEls = [];
 
-  // rounded cells like the competitor: red end-zone on top, blue on the bottom
+  // competitor look: tinted end-zone bands under a thin pencil grid,
+  // cells stay as invisible tap targets
+  const bandH = geo.pad + geo.u + geo.g / 2;
+  for (const pos of ['top', 'bottom']) {
+    const b = document.createElement('div');
+    b.className = 'zone-band ' + pos;
+    b.style.cssText = (pos === 'top' ? 'top:0;' : 'bottom:0;') + `left:0;width:100%;height:${bandH}px`;
+    board.appendChild(b);
+  }
+  for (let i = 1; i < N; i++) {
+    const at = geo.pad + i * (geo.u + geo.g) - geo.g / 2;
+    const v = document.createElement('div');
+    v.className = 'grid-line';
+    v.style.cssText = `left:${at}px;top:${geo.pad / 2}px;width:1px;height:${geo.size - geo.pad}px`;
+    const h = document.createElement('div');
+    h.className = 'grid-line';
+    h.style.cssText = `left:${geo.pad / 2}px;top:${at}px;width:${geo.size - geo.pad}px;height:1px`;
+    board.append(v, h);
+  }
+
   for (let r = 0; r < N; r++) {
     for (let c = 0; c < N; c++) {
       const el = document.createElement('div');
-      el.className = 'cell' + (r === 0 ? ' goal-top' : r === N - 1 ? ' goal-bottom' : '');
+      el.className = 'cell';
       const { x, y } = cellXY(r, c);
       el.style.cssText = `left:${x}px;top:${y}px;width:${geo.u}px;height:${geo.u}px`;
       el.dataset.vr = r;
@@ -449,10 +468,16 @@ function renderGame() {
   $('chip-opp').querySelector('.chip-ball').className = 'chip-ball ' + oppColor();
   applyChipBallColors();
   $('turn-banner').textContent = myTurn ? t('your_turn') : t('opp_turn');
-  $('zone-top').textContent = '▲ ' + myNick().toUpperCase();
-  $('zone-top').className = 'zone-label zone-top ' + myColor();
-  $('zone-bottom').textContent = '▼ ' + String(game.oppNick).toUpperCase();
-  $('zone-bottom').className = 'zone-label zone-bottom ' + oppColor();
+  // like the competitor: each end is tinted with its OWNER's color —
+  // opponent's home on top, mine at the bottom (that's also my start)
+  $('zone-top').textContent = '▲ ' + String(game.oppNick).toUpperCase();
+  $('zone-top').className = 'zone-label zone-top ' + oppColor();
+  $('zone-bottom').textContent = '▼ ' + myNick().toUpperCase();
+  $('zone-bottom').className = 'zone-label zone-bottom ' + myColor();
+  const bandTop = board.querySelector('.zone-band.top');
+  const bandBottom = board.querySelector('.zone-band.bottom');
+  if (bandTop) bandTop.className = 'zone-band top ' + oppColor();
+  if (bandBottom) bandBottom.className = 'zone-band bottom ' + myColor();
 }
 
 function myColor() { return game.myIndex === 0 ? 'blue' : 'red'; }

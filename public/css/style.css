@@ -232,13 +232,20 @@ body {
     inset 0 2px 6px rgba(120, 135, 175, .25);
   touch-action: none;
 }
-.cell {
-  position: absolute; z-index: 2; border-radius: 24%;
-  background: #eaedf6;
-  box-shadow: inset 0 0 0 1.5px #dde1ee, inset 0 -2px 3px rgba(120, 132, 170, .1);
-}
-.cell.goal-top { background: #f9e0e5; box-shadow: inset 0 0 0 1.5px #f2ccd4; }
-.cell.goal-bottom { background: #dde8fb; box-shadow: inset 0 0 0 1.5px #cbdcf7; }
+/* pencil grid over one continuous surface, like the competitor */
+.grid-line { position: absolute; z-index: 1; pointer-events: none; background: rgba(95, 115, 165, .30); }
+
+/* translucent end zones with a bright bar on the board edge */
+.zone-band { position: absolute; z-index: 0; pointer-events: none; }
+.zone-band.top { border-radius: 13px 13px 0 0; }
+.zone-band.bottom { border-radius: 0 0 13px 13px; }
+.zone-band.top.red { background: linear-gradient(180deg, rgba(227, 61, 82, .30), rgba(227, 61, 82, .10) 65%, transparent); box-shadow: inset 0 3px 0 rgba(227, 61, 82, .85); }
+.zone-band.top.blue { background: linear-gradient(180deg, rgba(47, 109, 246, .30), rgba(47, 109, 246, .10) 65%, transparent); box-shadow: inset 0 3px 0 rgba(47, 109, 246, .85); }
+.zone-band.bottom.red { background: linear-gradient(0deg, rgba(227, 61, 82, .30), rgba(227, 61, 82, .10) 65%, transparent); box-shadow: inset 0 -3px 0 rgba(227, 61, 82, .85); }
+.zone-band.bottom.blue { background: linear-gradient(0deg, rgba(47, 109, 246, .30), rgba(47, 109, 246, .10) 65%, transparent); box-shadow: inset 0 -3px 0 rgba(47, 109, 246, .85); }
+
+/* cells are invisible tap targets on top of the grid */
+.cell { position: absolute; z-index: 2; background: transparent; }
 .cell.legal { cursor: pointer; }
 /* legal moves = little glossy balls of your colour */
 .cell.legal::after {
@@ -252,11 +259,16 @@ body {
 
 .pawn {
   position: absolute; border-radius: 50%; z-index: 5; pointer-events: none;
-  box-shadow: inset -4px -7px 10px rgba(0,0,0,.35), inset 3px 5px 8px rgba(255,255,255,.4), 0 6px 10px rgba(20, 35, 80, .35);
+  box-shadow: inset -4px -8px 12px rgba(0,0,0,.4), inset 2px 4px 6px rgba(255,255,255,.25), 0 8px 12px rgba(10, 20, 50, .45);
   transition: left .28s cubic-bezier(.5,1.6,.4,1), top .28s cubic-bezier(.5,1.6,.4,1);
 }
-.pawn.red { background: radial-gradient(circle at 32% 26%, #ffb9c0 4%, #f06a77 30%, #e33d52 62%, #a91f33); }
-.pawn.blue { background: radial-gradient(circle at 32% 26%, #b6d2ff 4%, #6d9bf8 30%, #2f6df6 62%, #1a48b8); }
+/* crisp specular highlight, like a billiard ball */
+.pawn::after {
+  content: ''; position: absolute; left: 20%; top: 12%; width: 30%; height: 24%; border-radius: 50%;
+  background: radial-gradient(ellipse at center, rgba(255,255,255,.95), rgba(255,255,255,0) 72%);
+}
+.pawn.red { background: radial-gradient(circle at 31% 24%, #ffd0d5 0%, #f57784 22%, #e33d52 55%, #8f1626 100%); }
+.pawn.blue { background: radial-gradient(circle at 31% 24%, #cfe1ff 0%, #6f9cf9 22%, #2f6df6 55%, #143a8f 100%); }
 .pawn.glow { box-shadow: 0 0 0 4px rgba(255,255,255,.95), 0 0 18px 6px rgba(120, 150, 220, .55), inset -4px -7px 10px rgba(0,0,0,.35), 0 6px 10px rgba(20,35,80,.35); }
 
 /* walls: glossy capsules in the owner's color (blue = player 0, red = player 1) */
@@ -485,7 +497,8 @@ html[data-theme="dark"] body {
     var(--bg);
 }
 html[data-theme="dark"] #board {
-  background: linear-gradient(168deg, #232839, #1b2030 70%, #171c2b);
+  /* deep navy like the competitor's board */
+  background: linear-gradient(168deg, #272e4a, #1d2340 70%, #171c33);
   box-shadow:
     0 0 0 11px var(--bezel),
     0 0 0 12px #232a3e,
@@ -493,9 +506,7 @@ html[data-theme="dark"] #board {
     0 26px 46px rgba(0, 0, 0, .55),
     inset 0 2px 6px rgba(0, 0, 0, .4);
 }
-html[data-theme="dark"] .cell { background: #262c42; box-shadow: inset 0 0 0 1.5px #2e3550, inset 0 -2px 3px rgba(0,0,0,.25); }
-html[data-theme="dark"] .cell.goal-top { background: #3a2531; box-shadow: inset 0 0 0 1.5px #4d2c3a; }
-html[data-theme="dark"] .cell.goal-bottom { background: #22304d; box-shadow: inset 0 0 0 1.5px #2a3d63; }
+html[data-theme="dark"] .grid-line { background: rgba(185, 200, 235, .17); }
 html[data-theme="dark"] .wall,
 html[data-theme="dark"] .dh-bar {
   background: linear-gradient(180deg, #6b779f 0%, #4a5478 45%, #333c5c 100%);
