@@ -507,10 +507,18 @@ html[data-theme="dark"] #board {
     inset 0 2px 6px rgba(0, 0, 0, .4);
 }
 html[data-theme="dark"] .grid-line { background: rgba(185, 200, 235, .17); }
-html[data-theme="dark"] .wall,
 html[data-theme="dark"] .dh-bar {
   background: linear-gradient(180deg, #6b779f 0%, #4a5478 45%, #333c5c 100%);
   box-shadow: 0 5px 9px rgba(0, 0, 0, .5), inset 0 2px 2px rgba(255,255,255,.25);
+}
+/* owner colors must survive the dark theme too */
+html[data-theme="dark"] .wall.blue {
+  background: linear-gradient(180deg, #7aa3fb 0%, #2f6df6 45%, #1a48b8 100%);
+  box-shadow: 0 5px 9px rgba(0, 0, 0, .5), inset 0 2px 2px rgba(255,255,255,.35);
+}
+html[data-theme="dark"] .wall.red {
+  background: linear-gradient(180deg, #f2808f 0%, #e33d52 45%, #ad1f33 100%);
+  box-shadow: 0 5px 9px rgba(0, 0, 0, .5), inset 0 2px 2px rgba(255,255,255,.35);
 }
 html[data-theme="dark"] .wall.preview-bad { background: #3a4054 !important; }
 html[data-theme="dark"] .dock-handle { background: linear-gradient(180deg, #262c42, #1c2133); box-shadow: 0 5px 12px rgba(0,0,0,.4), inset 0 1px 0 rgba(255,255,255,.06); }
