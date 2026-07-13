@@ -1,7 +1,7 @@
 // WallRush client app: screens, board UI, online play (WebSocket), AI mode, auth.
-import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=19';
-import { aiMove } from './ai.js?v=19';
-import { makeT } from './i18n.js?v=19';
+import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=22';
+import { aiMove } from './ai.js?v=22';
+import { makeT } from './i18n.js?v=22';
 
 /* ================= state ================= */
 const $ = (id) => document.getElementById(id);
@@ -21,6 +21,28 @@ function detectLang() {
 let lang = detectLang();
 let t = makeT(lang);
 let vibroOn = localStorage.getItem('wr_vibro') !== '0';
+let soundOn = localStorage.getItem('wr_sound') !== '0';
+
+// short "tick" on every move, like a chess clock (WebAudio, no files needed)
+let audioCtx = null;
+function tick(mine) {
+  if (!soundOn) return;
+  try {
+    audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    const t0 = audioCtx.currentTime;
+    const o = audioCtx.createOscillator();
+    const g = audioCtx.createGain();
+    o.type = 'triangle';
+    o.frequency.value = mine ? 660 : 500; // my move rings higher than theirs
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.exponentialRampToValueAtTime(0.22, t0 + 0.008);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.09);
+    o.connect(g).connect(audioCtx.destination);
+    o.start(t0);
+    o.stop(t0 + 0.1);
+  } catch { /* no audio — fine */ }
+}
 
 // theme: light by default, dark if the user switched it in the profile
 function applyTheme() {
@@ -75,7 +97,7 @@ function getAiWorker() {
   if (aiWorker === false) return null;
   if (!aiWorker) {
     try {
-      aiWorker = new Worker('js/ai-worker.js?v=21', { type: 'module' });
+      aiWorker = new Worker('js/ai-worker.js?v=22', { type: 'module' });
       aiWorker.onmessage = (e) => {
         const cb = aiPending.get(e.data.id);
         aiPending.delete(e.data.id);
@@ -207,11 +229,13 @@ function handleWsMessage(msg) {
       break;
     case 'state':
       if (game?.mode === 'online') {
+        // turn passed to me ⇒ this state carries the opponent's move
+        const oppMoved = msg.state.turn === game.myIndex && game.state?.turn !== game.myIndex;
         game.state = msg.state;
         game.clocks = { ...msg.clocks, recvAt: Date.now() };
         cancelWallPreview();
         renderGame();
-        vibrate(12);
+        if (oppMoved) { vibrate(12); tick(false); }
       }
       break;
     case 'game_over':
@@ -572,6 +596,7 @@ board.addEventListener('click', (e) => {
 function submitMove(move) {
   if (!isMyTurn()) return;
   vibrate(move.type === 'wall' ? 25 : 15);
+  tick(true);
   if (game.mode === 'online') {
     wsSend({ t: 'move', move });
     // optimistic apply for snappy UI; server state will overwrite
@@ -621,6 +646,7 @@ function scheduleAiMove() {
         if (move.type === 'wall') s.walls[s.walls.length - 1].by = 1 - game.myIndex;
         renderGame();
         vibrate(10);
+        tick(false);
         if (s.winner !== null) onGameOver(s.winner === game.myIndex, 'goal');
       }
     };
@@ -818,6 +844,7 @@ function updateProfileUI() {
                                      // tapping then explains WHY it is unavailable
   $('logged-box').hidden = !logged;
   $('vibro-toggle').checked = vibroOn;
+  $('sound-toggle').checked = soundOn;
 }
 
 let authMode = 'login'; // 'login' | 'register' | 'nick' | 'reset'
@@ -990,6 +1017,12 @@ $('vibro-toggle').addEventListener('change', (e) => {
   vibroOn = e.target.checked;
   localStorage.setItem('wr_vibro', vibroOn ? '1' : '0');
   if (vibroOn) vibrate(20);
+});
+
+$('sound-toggle').addEventListener('change', (e) => {
+  soundOn = e.target.checked;
+  localStorage.setItem('wr_sound', soundOn ? '1' : '0');
+  if (soundOn) tick(true); // preview
 });
 
 $('theme-toggle').addEventListener('change', (e) => {

@@ -429,13 +429,14 @@ function searchRootF(fs, depth, recent) {
   return { pick, score: scored[0].s };
 }
 
-function engineMove(state, p, budgetMs, maxDepth) {
+function engineMove(state, p, budgetMs, maxDepth, recent) {
+  if (recent && !(recent instanceof Set)) recent = new Set(recent);
   const fs = new FastState(state);
   TT = new Map(); nodes = 0; timedOut = false;
   deadline = Date.now() + (budgetMs || 700);
   let best = null;
   for (let depth = 2; depth <= (maxDepth || 16); depth += 1) {
-    const res = searchRootF(fs, depth);
+    const res = searchRootF(fs, depth, recent);
     if (timedOut) break;
     if (res) {
       best = res;

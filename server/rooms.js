@@ -1,7 +1,8 @@
 // WallRush online rooms: lobby, matches, clocks, reconnect, rematch, emoji.
 // Server is authoritative: it validates every move with the shared engine.
 import { initialState, applyMove } from '../public/js/engine.js';
-import { verifyUser, getProfile, recordResult } from './db.js';
+import { verifyUser, getProfile, recordResult, recordBotResult } from './db.js';
+import { initBots, fakeOnline, notifyUserWaiting } from './bots.js';
 import crypto from 'crypto';
 
 const BANK_MS = 120_000;      // 2:00 per player per game
@@ -37,8 +38,11 @@ function lobbyRooms() {
   return list;
 }
 
+// bots inflate the visible counter so the lobby always feels populated
+function onlineCount() { return clients.size + fakeOnline(); }
+
 function broadcastLobby() {
-  const msg = { t: 'lobby', rooms: lobbyRooms(), online: clients.size };
+  const msg = { t: 'lobby', rooms: lobbyRooms(), online: onlineCount() };
   for (const c of clients.values()) if (c.inLobby) send(c, msg);
 }
 
@@ -98,6 +102,8 @@ async function finish(room, winnerIdx, reason) {
   if (w.userId || l.userId) {
     await recordResult(w.userId || null, l.userId || null);
   }
+  if (w.isBot) recordBotResult(w.nick, true);
+  if (l.isBot) recordBotResult(l.nick, false);
 }
 
 function destroyRoom(room) {
@@ -208,7 +214,7 @@ async function handleHello(client, msg) {
     client.token = rid();
     byToken.set(client.token, client);
   }
-  send(client, { t: 'hello_ok', token: client.token, nick: client.nick, online: clients.size });
+  send(client, { t: 'hello_ok', token: client.token, nick: client.nick, online: onlineCount() });
 }
 
 function handleMove(client, msg) {
@@ -276,6 +282,24 @@ function handleEmoji(client, msg) {
 }
 
 export function attachWs(wss) {
+  initBots({
+    rooms,
+    joinRoom,
+    createRoom,
+    leaveRoom,
+    handleMove,
+    handleRematch,
+    handleEmoji,
+    broadcastLobby,
+    resign(client) {
+      const room = rooms.get(client.roomId);
+      if (room && room.status === 'playing') {
+        const idx = room.players.indexOf(client);
+        if (idx !== -1) finish(room, 1 - idx, 'resign');
+      }
+    },
+  });
+
   wss.on('connection', (ws) => {
     const client = { ws, token: null, nick: '', userId: null, roomId: null, inLobby: false, graceTimer: null, alive: true };
     clients.set(ws, client);
@@ -290,10 +314,16 @@ export function attachWs(wss) {
           case 'hello': await handleHello(client, msg); break;
           case 'lobby_sub':
             client.inLobby = true;
-            send(client, { t: 'lobby', rooms: lobbyRooms(), online: clients.size });
+            send(client, { t: 'lobby', rooms: lobbyRooms(), online: onlineCount() });
             break;
           case 'lobby_unsub': client.inLobby = false; break;
-          case 'create_room': createRoom(client, Boolean(msg.private)); break;
+          case 'create_room':
+            createRoom(client, Boolean(msg.private));
+            // a bot will come knocking if nobody joins the public room
+            if (!msg.private && !client.isBot) {
+              notifyUserWaiting(rooms.get(client.roomId), 8000 + Math.random() * 22_000);
+            }
+            break;
           case 'join_room': {
             const room = rooms.get(String(msg.roomId || ''));
             if (!room || room.code) send(client, { t: 'error', code: 'room_not_found' });
@@ -311,7 +341,11 @@ export function attachWs(wss) {
             const open = [...rooms.values()].find(r =>
               r.status === 'open' && !r.code && r.players[0] !== client);
             if (open) joinRoom(client, open);
-            else createRoom(client, false);
+            else {
+              createRoom(client, false);
+              // quick match should feel quick — a bot arrives within seconds
+              notifyUserWaiting(rooms.get(client.roomId), 2500 + Math.random() * 4500);
+            }
             break;
           }
           case 'leave_room': leaveRoom(client); break;

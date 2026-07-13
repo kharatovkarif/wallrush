@@ -80,11 +80,61 @@ export async function recordResult(winnerUserId, loserUserId) {
 
 export async function leaderboard(limit = 50) {
   if (!dbEnabled) return [];
-  const { data } = await supa
-    .from('profiles')
-    .select('nick, wins, losses')
-    .order('wins', { ascending: false })
-    .order('losses', { ascending: true })
-    .limit(limit);
-  return data || [];
+  const [{ data: people }, { data: bots }] = await Promise.all([
+    supa.from('profiles').select('nick, wins, losses').limit(200),
+    supa.from('bot_players').select('nick, wins, losses').limit(200),
+  ]);
+  const all = [...(people || []), ...(bots || [])];
+  all.sort((a, b) => (b.wins - a.wins) || (a.losses - b.losses));
+  return all.slice(0, limit);
+}
+
+// ---- bot players (kept in their own table so real stats stay clean) ----
+
+// One-time seed: insert missing bots with a believable starting record.
+export async function seedBots(nicks) {
+  if (!dbEnabled) return;
+  try {
+    const rows = nicks.map((nick) => {
+      const games = 5 + Math.floor(Math.random() * 60);
+      const wins = Math.floor(games * (0.25 + Math.random() * 0.5));
+      return { nick, wins, losses: games - wins };
+    });
+    await supa.from('bot_players').upsert(rows, { onConflict: 'nick', ignoreDuplicates: true });
+  } catch (e) {
+    console.error('seedBots failed:', e.message);
+  }
+}
+
+export async function recordBotResult(nick, won) {
+  if (!dbEnabled) return;
+  try {
+    const { data } = await supa.from('bot_players').select('wins, losses').eq('nick', nick).maybeSingle();
+    if (!data) return;
+    await supa.from('bot_players').update(
+      won ? { wins: data.wins + 1 } : { losses: data.losses + 1 }
+    ).eq('nick', nick);
+  } catch (e) {
+    console.error('recordBotResult failed:', e.message);
+  }
+}
+
+// Slow background growth so the leaderboard looks alive day to day:
+// every call, a small random slice of bots "finishes a game".
+export async function growBots(botWinChance) {
+  if (!dbEnabled) return;
+  try {
+    const { data: bots } = await supa.from('bot_players').select('nick, wins, losses');
+    if (!bots) return;
+    for (const b of bots) {
+      if (Math.random() > 0.12) continue; // ~12% of bots per tick
+      const p = botWinChance.get(b.nick) ?? 0.5;
+      const won = Math.random() < p;
+      await supa.from('bot_players').update(
+        won ? { wins: b.wins + 1 } : { losses: b.losses + 1 }
+      ).eq('nick', b.nick);
+    }
+  } catch (e) {
+    console.error('growBots failed:', e.message);
+  }
 }
