@@ -1,7 +1,7 @@
 // WallRush client app: screens, board UI, online play (WebSocket), AI mode, auth.
-import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=27';
-import { aiMove } from './ai.js?v=27';
-import { makeT } from './i18n.js?v=27';
+import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=28';
+import { aiMove } from './ai.js?v=28';
+import { makeT } from './i18n.js?v=28';
 
 /* ================= state ================= */
 const $ = (id) => document.getElementById(id);
@@ -110,7 +110,7 @@ function getAiWorker() {
   if (aiWorker === false) return null;
   if (!aiWorker) {
     try {
-      aiWorker = new Worker('js/ai-worker.js?v=27', { type: 'module' });
+      aiWorker = new Worker('js/ai-worker.js?v=28', { type: 'module' });
       aiWorker.onmessage = (e) => {
         const cb = aiPending.get(e.data.id);
         aiPending.delete(e.data.id);
@@ -404,7 +404,7 @@ function positionPawn(i) {
 
 function wallRect(vw) {
   const thick = geo.g * 0.78;             // slim capsule, well inside the groove
-  const inset = geo.u * 0.06;             // ends exactly at the two cells, not past them
+  const inset = -geo.g / 2;               // stretch to the grid lines: collinear walls join seamlessly
   const len = 2 * geo.u + geo.g - 2 * inset;
   const a = cellXY(vw.r, vw.c);
   if (vw.o === 'h') {
