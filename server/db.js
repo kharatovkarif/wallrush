@@ -9,6 +9,11 @@ export const cleanEnv = (v) => (v || '')
   .replace(/[\s\u200B-\u200D\uFEFF]+/g, '')
   .replace(/^["']+|["']+$/g, '');
 
+// Escape LIKE/ILIKE wildcards so a nick is matched literally, not as a pattern.
+// Without this, an underscore or % in a nick behaves as a wildcard and can
+// resolve to the wrong account (breaking login by nick).
+export const likeEscape = (s) => String(s).replace(/[\\%_]/g, (m) => '\\' + m);
+
 const url = cleanEnv(process.env.SUPABASE_URL);
 const serviceKey = cleanEnv(process.env.SUPABASE_SERVICE_KEY);
 

@@ -5,7 +5,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { WebSocketServer } from 'ws';
 import { attachWs } from './rooms.js';
-import { dbEnabled, dbStatus, dbDetail, cleanEnv, supa, verifyUser, getProfile, createProfile, leaderboard } from './db.js';
+import { dbEnabled, dbStatus, dbDetail, cleanEnv, likeEscape, supa, verifyUser, getProfile, createProfile, leaderboard } from './db.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -72,8 +72,8 @@ app.post('/api/register', async (req, res) => {
   if (password.length < 6) return res.status(400).json({ error: 'password_short' });
   if (!/^[A-Za-z0-9_а-яА-ЯёЁ]{3,16}$/.test(nick)) return res.status(400).json({ error: 'nick_bad' });
 
-  // nick must be free
-  const { data: taken } = await supa.from('profiles').select('id').ilike('nick', nick).maybeSingle();
+  // nick must be free (exact, case-insensitive — escape LIKE wildcards)
+  const { data: taken } = await supa.from('profiles').select('id').ilike('nick', likeEscape(nick)).maybeSingle();
   if (taken) return res.status(400).json({ error: 'nick_taken' });
 
   const { data: created, error } = await supa.auth.admin.createUser({
@@ -144,7 +144,7 @@ app.post('/api/resolve-login', async (req, res) => {
   if (!dbEnabled) return res.status(503).json({ error: 'db_off' });
   const nick = String(req.body?.nick || '').trim();
   if (!nick || nick.length > 32) return res.status(400).json({ error: 'not_found' });
-  const { data: prof } = await supa.from('profiles').select('id').ilike('nick', nick).maybeSingle();
+  const { data: prof } = await supa.from('profiles').select('id').ilike('nick', likeEscape(nick)).maybeSingle();
   if (!prof) return res.status(404).json({ error: 'not_found' });
   const { data: u, error } = await supa.auth.admin.getUserById(prof.id);
   if (error || !u?.user?.email) return res.status(404).json({ error: 'not_found' });
