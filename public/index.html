@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#f4f4fb">
   <title>WallRush — Block their way</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect x='8' y='14' width='84' height='30' rx='8' fill='%237c5cff'/><rect x='8' y='56' width='40' height='30' rx='8' fill='%237c5cff'/><rect x='56' y='56' width='36' height='30' rx='8' fill='%23b3a1ff'/></svg>">
-  <link rel="stylesheet" href="css/style.css?v=28">
+  <link rel="stylesheet" href="css/style.css?v=30">
 </head>
 <body>
   <div id="app">
@@ -189,9 +189,23 @@
         </div>
         <div class="modal-buttons">
           <button class="btn-big" id="btn-rematch" data-i18n="rematch"></button>
+          <button class="btn-big btn-ghost" id="btn-replay" data-i18n="replay"></button>
           <button class="btn-big btn-outline" id="btn-to-menu" data-i18n="back_menu"></button>
         </div>
         <p id="rematch-status" class="hint" hidden></p>
+      </div>
+    </div>
+
+    <!-- ============ REPLAY CONTROLS (over the game board) ============ -->
+    <div id="replay-bar" hidden>
+      <div class="replay-inner">
+        <button class="rp-btn" id="rp-start" aria-label="start">⏮</button>
+        <button class="rp-btn" id="rp-prev" aria-label="prev">⏴</button>
+        <button class="rp-btn rp-play" id="rp-play" aria-label="play">▶</button>
+        <button class="rp-btn" id="rp-next" aria-label="next">⏵</button>
+        <div class="rp-track"><div class="rp-fill" id="rp-fill"></div></div>
+        <span class="rp-count" id="rp-count">0/0</span>
+        <button class="rp-close" id="rp-close" data-i18n="replay_close"></button>
       </div>
     </div>
 
@@ -306,7 +320,7 @@
     <div id="toast" hidden></div>
   </div>
 
-  <script src="vendor/supabase.js?v=28" defer></script>
-  <script type="module" src="js/app.js?v=28"></script>
+  <script src="vendor/supabase.js?v=30" defer></script>
+  <script type="module" src="js/app.js?v=30"></script>
 </body>
 </html>

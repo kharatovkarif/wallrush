@@ -1,7 +1,7 @@
 // WallRush client app: screens, board UI, online play (WebSocket), AI mode, auth.
-import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=28';
-import { aiMove } from './ai.js?v=28';
-import { makeT } from './i18n.js?v=28';
+import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=30';
+import { aiMove } from './ai.js?v=30';
+import { makeT } from './i18n.js?v=30';
 
 /* ================= state ================= */
 const $ = (id) => document.getElementById(id);
@@ -110,7 +110,7 @@ function getAiWorker() {
   if (aiWorker === false) return null;
   if (!aiWorker) {
     try {
-      aiWorker = new Worker('js/ai-worker.js?v=28', { type: 'module' });
+      aiWorker = new Worker('js/ai-worker.js?v=30', { type: 'module' });
       aiWorker.onmessage = (e) => {
         const cb = aiPending.get(e.data.id);
         aiPending.delete(e.data.id);
@@ -145,6 +145,13 @@ function aiMoveAsync(state, level, opts) {
 /* ================= helpers ================= */
 function vibrate(pattern) {
   if (vibroOn && navigator.vibrate) navigator.vibrate(pattern);
+}
+
+// Record every board position so the finished game can be replayed.
+// Kept only in memory for the current game — discarded on menu/new game.
+function recordSnapshot(state) {
+  if (!game) return;
+  (game.history = game.history || []).push(cloneState(state));
 }
 
 function myNick() {
@@ -247,6 +254,7 @@ function handleWsMessage(msg) {
         const oppWalled = msg.state.walls.length > (game.state?.walls.length ?? 0);
         game.state = msg.state;
         game.clocks = { ...msg.clocks, recvAt: Date.now() };
+        recordSnapshot(msg.state); // server states cover both players' moves
         cancelWallPreview();
         renderGame();
         if (oppMoved) { vibrate(12); tick(false, oppWalled); }
@@ -675,6 +683,7 @@ function submitMove(move) {
     if (!applyMove(s, move)) return;
     notePos(s);
     if (move.type === 'wall') s.walls[s.walls.length - 1].by = game.myIndex;
+    recordSnapshot(s);
     renderGame();
     if (s.winner !== null) { onGameOver(s.winner === game.myIndex, 'goal'); return; }
     scheduleAiMove();
@@ -708,6 +717,7 @@ function scheduleAiMove() {
       if (applyMove(s, move)) {
         notePos(s);
         if (move.type === 'wall') s.walls[s.walls.length - 1].by = 1 - game.myIndex;
+        recordSnapshot(s);
         renderGame();
         vibrate(10);
         tick(false, move.type === 'wall');
@@ -732,6 +742,8 @@ function startAiGame(level = 'normal') {
   };
   game.state.turn = Math.random() < 0.5 ? 0 : 1;
   game.seen = []; // recent positions, so hardcore never shuffles back and forth
+  game.history = [cloneState(game.state)]; // for the post-game replay
+  stopReplay();
   $('overlay-gameover').hidden = true;
   cancelWallPreview();
   logVisit(true);
@@ -755,7 +767,9 @@ function startOnlineGame(msg) {
     oppNick: msg.opp?.nick || '???',
     clocks: { ...msg.clocks, recvAt: Date.now() },
     over: false,
+    history: [cloneState(msg.state)], // for the post-game replay
   };
+  stopReplay();
   $('overlay-gameover').hidden = true;
   $('btn-rematch').style.display = '';
   $('rematch-status').hidden = true;
@@ -826,10 +840,74 @@ $('btn-rematch').addEventListener('click', () => {
 $('btn-to-menu').addEventListener('click', () => {
   if (game?.mode === 'online') wsSend({ t: 'rematch', yes: false });
   wsSend({ t: 'leave_room' });
-  game = null;
+  stopReplay();
+  game = null; // history goes with it — nothing is kept
   $('overlay-gameover').hidden = true;
   show('screen-home');
 });
+
+/* ================= replay of the finished game ================= */
+let replay = null; // { idx, timer, playing, savedState }
+
+function renderReplayFrame() {
+  if (!replay || !game) return;
+  const last = game.history.length - 1;
+  replay.idx = Math.max(0, Math.min(last, replay.idx));
+  game.state = cloneState(game.history[replay.idx]);
+  game._wallsRendered = game.state.walls.length; // no pop-in flicker while scrubbing
+  renderGame();
+  $('turn-banner').textContent = t('replay_move') + ' ' + replay.idx + '/' + last;
+  $('rp-count').textContent = replay.idx + '/' + last;
+  $('rp-fill').style.width = (last ? (replay.idx / last * 100) : 0) + '%';
+  $('rp-play').textContent = replay.playing ? '⏸' : '▶';
+}
+
+function replayTick() {
+  if (!replay) return;
+  const last = game.history.length - 1;
+  if (replay.idx >= last) { replay.playing = false; renderReplayFrame(); return; }
+  replay.idx++;
+  renderReplayFrame();
+  tick(replay.idx % 2 === 0); // soft click on each step
+}
+
+function playReplay(on) {
+  if (!replay) return;
+  clearInterval(replay.timer);
+  replay.playing = on;
+  if (on) {
+    if (replay.idx >= game.history.length - 1) replay.idx = 0; // restart from the top
+    renderReplayFrame();
+    replay.timer = setInterval(replayTick, 750);
+  }
+  renderReplayFrame();
+}
+
+function startReplay() {
+  if (!game || !game.history || game.history.length < 2) return;
+  replay = { idx: 0, timer: null, playing: false, savedState: game.state };
+  $('overlay-gameover').hidden = true;
+  $('replay-bar').hidden = false;
+  playReplay(true);
+}
+
+function stopReplay() {
+  if (!replay) return;
+  clearInterval(replay.timer);
+  if (game) game.state = replay.savedState; // put the final position back
+  replay = null;
+  $('replay-bar').hidden = true;
+}
+
+$('btn-replay').addEventListener('click', startReplay);
+$('rp-close').addEventListener('click', () => {
+  stopReplay();
+  $('overlay-gameover').hidden = false; // back to the win/lose screen
+});
+$('rp-play').addEventListener('click', () => playReplay(!replay?.playing));
+$('rp-start').addEventListener('click', () => { if (replay) { playReplay(false); replay.idx = 0; renderReplayFrame(); } });
+$('rp-prev').addEventListener('click', () => { if (replay) { playReplay(false); replay.idx--; renderReplayFrame(); } });
+$('rp-next').addEventListener('click', () => { if (replay) { playReplay(false); replay.idx++; renderReplayFrame(); } });
 
 /* resign */
 $('btn-resign').addEventListener('click', () => { if (game && !game.over) $('overlay-resign').hidden = false; });
