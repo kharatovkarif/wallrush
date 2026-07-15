@@ -59,8 +59,10 @@ const ROSTER = [
   { nick: 'Sergo_86', skill: 'normal', speed: 0.9, chatty: 0.5, resigner: true },
 ];
 
-const SKILL_LEVEL = { easy: 'easy', normal: 'normal', hard: 'hard', ace: 'hardcore' };
-const SKILL_WINP = { easy: 0.35, normal: 0.5, hard: 0.62, ace: 0.75 };
+// Bots are supposed to feel like real people: competent racers, never wandering.
+// Even the "easy" personas play at least the normal level, so nobody looks dumb.
+const SKILL_LEVEL = { easy: 'normal', normal: 'normal', hard: 'hard', ace: 'hardcore' };
+const SKILL_WINP = { easy: 0.48, normal: 0.52, hard: 0.62, ace: 0.72 };
 
 let api = null;          // hooks into rooms.js, set by initBots
 const bots = [];
@@ -188,25 +190,47 @@ function onMsg(bot, msg) {
 }
 
 /* ---------- thinking ---------- */
+// How tense is the position for the bot? Obvious races get a snappy reply;
+// only real decisions (a live blocking chance, a tight finish) get a real pause.
+function moveTension(room, idx) {
+  const s = room.state;
+  const myD = distToGoal(s.walls, idx === 0 ? 0 : 8)[s.pawns[idx].r * 9 + s.pawns[idx].c];
+  const oppD = distToGoal(s.walls, idx === 0 ? 8 : 0)[s.pawns[1 - idx].r * 9 + s.pawns[1 - idx].c];
+  if (myD === -1 || oppD === -1) return 1;
+  const haveWalls = s.left[idx] > 0;
+  if (myD + 1 < oppD) return 0;                 // clearly ahead → just run, no thinking
+  if (!haveWalls) return 0;                      // nothing to decide but where to step
+  if (oppD <= 3 || Math.abs(myD - oppD) <= 1) return 2; // tight: worth a think about a wall
+  return 1;
+}
+
 function scheduleThink(bot) {
   clearTimeout(bot.thinkTimer);
   const room = api.rooms.get(bot.roomId);
   if (!room || room.status !== 'playing') return;
+  const idx = room.players.indexOf(bot);
+  if (idx === -1) return;
 
-  // human-looking delay: usually seconds, sometimes a long stare
+  // human reaction: quick on obvious moves, a couple of seconds normally,
+  // a real pause only when there's actually something to weigh
+  const tension = moveTension(room, idx);
   let d;
-  const r = Math.random();
-  if (r < 0.78) d = 1500 + Math.random() * 4500;        // 1.5–6s
-  else if (r < 0.95) d = 8000 + Math.random() * 10_000; // 8–18s
-  else d = 20_000 + Math.random() * 8000;               // 20–28s
+  if (tension === 0) {
+    d = 500 + Math.random() * 1500;                        // 0.5–2s, just moving
+  } else if (tension === 1) {
+    d = Math.random() < 0.85 ? 1200 + Math.random() * 2800 // 1.2–4s
+                             : 4000 + Math.random() * 3000; // 4–7s once in a while
+  } else {
+    d = Math.random() < 0.8 ? 2500 + Math.random() * 4000  // 2.5–6.5s, weighing a wall
+                            : 6500 + Math.random() * 3500;  // 6.5–10s deep think
+  }
   d *= bot.p.speed;
-  // the very first moves come quicker — nobody ponders move one for 20s
+  // the very first move comes quickly — nobody ponders move one
   if (room.state.walls.length === 0 && room.state.left[0] + room.state.left[1] === 20) {
-    d = Math.min(d, 1200 + Math.random() * 2500);
+    d = Math.min(d, 900 + Math.random() * 1600);
   }
   // never flag: stay well inside the bank and the 30s move cap
-  const idx = room.players.indexOf(bot);
-  if (idx !== -1 && room.bank) d = Math.max(600, Math.min(d, room.bank[idx] - 5000, 26_000));
+  if (room.bank) d = Math.max(500, Math.min(d, room.bank[idx] - 5000, 14_000));
 
   bot.thinkTimer = setTimeout(() => doMove(bot), d);
 }

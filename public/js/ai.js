@@ -448,16 +448,25 @@ function engineMove(state, p, budgetMs, maxDepth, recent) {
   return { type: 'pawn', r: (pick.mv / 9) | 0, c: pick.mv % 9 };
 }
 
-/* ---------- weak move for the skill dial ---------- */
+/* ---------- casual move: always races toward the goal, never backward ----------
+   The weak play still WANTS to win — it just doesn't bother placing walls and
+   may take a harmless equal-distance sidestep now and then. It never walks the
+   wrong way, so an easy opponent looks like a real (if unambitious) player. */
 function weakMove(state, p) {
+  const dist = distToGoal(state.walls, goalRow(p));
   const moves = pawnMoves(state, p);
-  if (Math.random() < 0.35) {
-    const dist = distToGoal(state.walls, goalRow(p));
-    let best = moves[0], bd = Infinity;
-    for (const m of moves) { const d = dist[m.r * N + m.c]; if (d !== -1 && d < bd) { bd = d; best = m; } }
-    return { type: 'pawn', r: best.r, c: best.c };
+  const here = dist[state.pawns[p].r * N + state.pawns[p].c];
+  let bd = Infinity;
+  for (const m of moves) { const d = dist[m.r * N + m.c]; if (d !== -1 && d < bd) bd = d; }
+  const best = moves.filter(m => dist[m.r * N + m.c] === bd);
+  // a little human variety: sometimes a sidestep that keeps distance, never one that loses ground
+  if (Math.random() < 0.2) {
+    const okay = moves.filter(m => { const d = dist[m.r * N + m.c]; return d !== -1 && d <= here; });
+    const pool = okay.length ? okay : best;
+    const m = pool[Math.floor(Math.random() * pool.length)];
+    return { type: 'pawn', r: m.r, c: m.c };
   }
-  const m = moves[Math.floor(Math.random() * moves.length)];
+  const m = best[Math.floor(Math.random() * best.length)];
   return { type: 'pawn', r: m.r, c: m.c };
 }
 
