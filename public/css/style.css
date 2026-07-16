@@ -123,6 +123,18 @@ body {
 .btn-big:active { transform: scale(.97); }
 .btn-outline { background: var(--card); color: var(--violet); box-shadow: var(--shadow); }
 .btn-ghost { background: transparent; color: var(--muted); box-shadow: inset 0 0 0 2px var(--bezel); }
+
+/* social links (home footer): brand-colored app-style tiles */
+.social-block { margin: 24px 0 6px; }
+.social-label { text-align: center; color: var(--muted); font-size: 12px; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 12px; }
+.social-row { display: flex; justify-content: center; gap: 16px; }
+.soc { width: 50px; height: 50px; border-radius: 15px; display: grid; place-items: center; box-shadow: var(--shadow); transition: transform .15s ease; }
+.soc:active { transform: scale(.9); }
+.soc svg { width: 27px; height: 27px; }
+.soc-ig { background: linear-gradient(45deg, #f9ce34 5%, #ee2a7b 45%, #6228d7 95%); }
+.soc-tt { background: #010101; }
+.soc-yt { background: #ff0000; }
+html[data-theme="dark"] .soc-tt { box-shadow: inset 0 0 0 1px #2f3550, var(--shadow); }
 .btn-danger { background: linear-gradient(120deg, #ff6b6b, #e0455e); box-shadow: 0 6px 18px rgba(255, 90, 90, .35); }
 .btn-link { background: none; border: none; color: var(--violet); font: inherit; font-size: 14px; cursor: pointer; padding: 6px; }
 

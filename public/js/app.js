@@ -1,7 +1,7 @@
 // WallRush client app: screens, board UI, online play (WebSocket), AI mode, auth.
-import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=31';
-import { aiMove } from './ai.js?v=31';
-import { makeT } from './i18n.js?v=31';
+import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=32';
+import { aiMove } from './ai.js?v=32';
+import { makeT } from './i18n.js?v=32';
 
 /* ================= state ================= */
 const $ = (id) => document.getElementById(id);
@@ -110,7 +110,7 @@ function getAiWorker() {
   if (aiWorker === false) return null;
   if (!aiWorker) {
     try {
-      aiWorker = new Worker('js/ai-worker.js?v=31', { type: 'module' });
+      aiWorker = new Worker('js/ai-worker.js?v=32', { type: 'module' });
       aiWorker.onmessage = (e) => {
         const cb = aiPending.get(e.data.id);
         aiPending.delete(e.data.id);
