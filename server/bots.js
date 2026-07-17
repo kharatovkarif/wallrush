@@ -161,13 +161,40 @@ function onMsg(bot, msg) {
     }
     case 'game_over': {
       clearBotTimers(bot);
+      const room = api.rooms.get(bot.roomId);
+      const opp = room ? room.players.find(pl => pl !== bot) : null;
+      const vsBot = Boolean(opp?.isBot);
+      if (vsBot) {
+        // bot-vs-bot: wrap up quickly and quietly, no rematch loops
+        bot.leaveTimer = setTimeout(() => {
+          if (bot.roomId) api.leaveRoom(bot, false);
+        }, 2500 + Math.random() * 4000);
+        break;
+      }
       if (msg.winner === bot.me && Math.random() < bot.p.chatty * 0.5) {
         sendEmoji(bot, '🤝', 800 + Math.random() * 1500);
+      }
+      // sometimes the bot itself asks for a rematch, like a hooked player
+      if (Math.random() < 0.3) {
+        setTimeout(() => {
+          const r = api.rooms.get(bot.roomId);
+          if (r && r.status === 'over' && opp && opp.roomId === r.id) {
+            api.handleRematch(bot, { yes: true });
+          }
+        }, 3000 + Math.random() * 4000);
       }
       // hang around a little in case the human wants a rematch, then leave
       bot.leaveTimer = setTimeout(() => {
         if (bot.roomId) api.leaveRoom(bot, true);
       }, 15_000 + Math.random() * 15_000);
+      break;
+    }
+    case 'emoji': {
+      // people answer emojis — so do bots
+      if (Math.random() < bot.p.chatty * 0.55) {
+        const reply = Math.random() < 0.45 ? msg.e : (Math.random() < 0.5 ? '😂' : '🫡');
+        sendEmoji(bot, reply, 1200 + Math.random() * 2500);
+      }
       break;
     }
     case 'rematch_offer': {
@@ -276,6 +303,11 @@ function botOpenRooms() {
   return [...api.rooms.values()].filter(r => r.status === 'open' && !r.code && r.players[0].isBot);
 }
 
+function botGamesActive() {
+  return [...api.rooms.values()].filter(r =>
+    r.status === 'playing' && r.players.length === 2 && r.players.every(pl => pl.isBot)).length;
+}
+
 function rotationTick() {
   const now = Date.now();
   // rooms that waited long enough disappear (the "player" went elsewhere)
@@ -290,6 +322,14 @@ function rotationTick() {
       api.createRoom(b, false);
       b.openDeadline = now + 12_000 + Math.random() * 35_000;
     }
+  }
+  // once in a while a bot joins another bot's room and they REALLY play:
+  // watchers see the room fill up and start, and the leaderboard grows
+  // from genuine finished games (max one such match at a time)
+  if (botGamesActive() < 1 && Math.random() < 0.06) {
+    const open = botOpenRooms()[0];
+    const b = pickIdle();
+    if (open && b) api.joinRoom(b, open);
   }
 }
 

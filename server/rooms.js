@@ -40,6 +40,7 @@ function lobbyRooms() {
 
 // bots inflate the visible counter so the lobby always feels populated
 function onlineCount() { return clients.size + fakeOnline(); }
+export function realOnline() { return clients.size; } // for the owner's admin page
 
 function broadcastLobby() {
   const msg = { t: 'lobby', rooms: lobbyRooms(), online: onlineCount() };

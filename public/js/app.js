@@ -1,7 +1,7 @@
 // WallRush client app: screens, board UI, online play (WebSocket), AI mode, auth.
-import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=32';
-import { aiMove } from './ai.js?v=32';
-import { makeT } from './i18n.js?v=32';
+import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=33';
+import { aiMove } from './ai.js?v=33';
+import { makeT } from './i18n.js?v=33';
 
 /* ================= state ================= */
 const $ = (id) => document.getElementById(id);
@@ -82,11 +82,13 @@ function logVisit(game = false) {
   } catch {}
 }
 
-let guestNick = sessionStorage.getItem('wr_nick');
+// guest nick sticks to the device forever, so the same person keeps the same
+// name across visits (was per-tab before — every visit looked like a new user)
+let guestNick = localStorage.getItem('wr_nick') || sessionStorage.getItem('wr_nick');
 if (!guestNick) {
   guestNick = 'User' + (1000 + Math.floor(Math.random() * 9000));
-  sessionStorage.setItem('wr_nick', guestNick);
 }
+localStorage.setItem('wr_nick', guestNick);
 
 let config = { auth: false };
 let supabase = null;      // supabase-js client (if auth configured)
@@ -110,7 +112,7 @@ function getAiWorker() {
   if (aiWorker === false) return null;
   if (!aiWorker) {
     try {
-      aiWorker = new Worker('js/ai-worker.js?v=32', { type: 'module' });
+      aiWorker = new Worker('js/ai-worker.js?v=33', { type: 'module' });
       aiWorker.onmessage = (e) => {
         const cb = aiPending.get(e.data.id);
         aiPending.delete(e.data.id);
@@ -1165,6 +1167,28 @@ $('sound-toggle').addEventListener('change', (e) => {
   soundOn = e.target.checked;
   localStorage.setItem('wr_sound', soundOn ? '1' : '0');
   if (soundOn) tick(true); // preview
+});
+
+/* ================= PWA: installable app ================= */
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  });
+}
+
+// browsers fire this when the app is installable — show the profile button
+let installEvt = null;
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  installEvt = e;
+  $('install-row').hidden = false;
+});
+$('btn-install').addEventListener('click', async () => {
+  if (!installEvt) return;
+  installEvt.prompt();
+  await installEvt.userChoice.catch(() => {});
+  installEvt = null;
+  $('install-row').hidden = true;
 });
 
 $('theme-toggle').addEventListener('change', (e) => {
