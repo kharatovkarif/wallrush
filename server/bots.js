@@ -238,26 +238,26 @@ function scheduleThink(bot) {
   const idx = room.players.indexOf(bot);
   if (idx === -1) return;
 
-  // human reaction: quick on obvious moves, a couple of seconds normally,
-  // a real pause only when there's actually something to weigh
+  // human reaction: obvious move → almost instantly, normal move → about a
+  // second, a real pause only when there's genuinely something to weigh
   const tension = moveTension(room, idx);
   let d;
   if (tension === 0) {
-    d = 500 + Math.random() * 1500;                        // 0.5–2s, just moving
+    d = 400 + Math.random() * 800;                          // 0.4–1.2s, just moving
   } else if (tension === 1) {
-    d = Math.random() < 0.85 ? 1200 + Math.random() * 2800 // 1.2–4s
-                             : 4000 + Math.random() * 3000; // 4–7s once in a while
+    d = Math.random() < 0.85 ? 900 + Math.random() * 1600   // 0.9–2.5s
+                             : 3000 + Math.random() * 2000;  // 3–5s once in a while
   } else {
-    d = Math.random() < 0.8 ? 2500 + Math.random() * 4000  // 2.5–6.5s, weighing a wall
-                            : 6500 + Math.random() * 3500;  // 6.5–10s deep think
+    d = Math.random() < 0.8 ? 2000 + Math.random() * 3000   // 2–5s, weighing a wall
+                            : 5000 + Math.random() * 3000;   // 5–8s deep think
   }
   d *= bot.p.speed;
   // the very first move comes quickly — nobody ponders move one
   if (room.state.walls.length === 0 && room.state.left[0] + room.state.left[1] === 20) {
-    d = Math.min(d, 900 + Math.random() * 1600);
+    d = Math.min(d, 700 + Math.random() * 1000);
   }
   // never flag: stay well inside the bank and the 30s move cap
-  if (room.bank) d = Math.max(500, Math.min(d, room.bank[idx] - 5000, 14_000));
+  if (room.bank) d = Math.max(400, Math.min(d, room.bank[idx] - 5000, 12_000));
 
   bot.thinkTimer = setTimeout(() => doMove(bot), d);
 }
@@ -358,9 +358,20 @@ export function initBots(hooks) {
   for (const p of ROSTER) bots.push(makeBot(p));
   seedBots(ROSTER.map(p => p.nick));
 
-  // leaderboard slowly grows as if the bots keep playing all day
+  // leaderboard lives its own life: every hour a slice of bots "plays a
+  // session" — active by day, busiest in the MSK evening, asleep at night.
+  // Over a day ~60-70% of the roster visibly moves up, like real regulars.
   const winp = new Map(ROSTER.map(p => [p.nick, SKILL_WINP[p.skill]]));
-  setInterval(() => growBots(winp), 60 * 60 * 1000);
+  const growthTick = () => {
+    const h = (new Date().getUTCHours() + 3) % 24; // MSK
+    let w;
+    if (h >= 3 && h < 10) w = 0.12;      // deep night: almost nobody plays
+    else if (h >= 18 || h < 1) w = 1.5;  // evening prime time
+    else w = 1;
+    growBots(winp, 0.07 * w);
+  };
+  setTimeout(growthTick, 10 * 60 * 1000); // first pass shortly after boot
+  setInterval(growthTick, 60 * 60 * 1000);
 
   refreshFake();
   retarget();

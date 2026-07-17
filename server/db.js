@@ -124,20 +124,24 @@ export async function recordBotResult(nick, won) {
   }
 }
 
-// Slow background growth so the leaderboard looks alive day to day:
-// every call, a small random slice of bots "finishes a game".
-export async function growBots(botWinChance) {
+// Background life for the leaderboard: each call, a slice of bots plays a
+// "session" of 1–4 games. Called hourly with a day-curve chance, so most of
+// the roster visibly climbs every single day, like real regulars would.
+export async function growBots(botWinChance, activeChance = 0.07) {
   if (!dbEnabled) return;
   try {
     const { data: bots } = await supa.from('bot_players').select('nick, wins, losses');
     if (!bots) return;
     for (const b of bots) {
-      if (Math.random() > 0.12) continue; // ~12% of bots per tick
+      if (Math.random() > activeChance) continue;
       const p = botWinChance.get(b.nick) ?? 0.5;
-      const won = Math.random() < p;
-      await supa.from('bot_players').update(
-        won ? { wins: b.wins + 1 } : { losses: b.losses + 1 }
-      ).eq('nick', b.nick);
+      const games = 1 + Math.floor(Math.random() * 4); // a session: 1–4 games
+      let w = 0;
+      for (let i = 0; i < games; i++) if (Math.random() < p) w++;
+      await supa.from('bot_players').update({
+        wins: b.wins + w,
+        losses: b.losses + (games - w),
+      }).eq('nick', b.nick);
     }
   } catch (e) {
     console.error('growBots failed:', e.message);
