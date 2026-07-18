@@ -116,6 +116,8 @@ app.post('/api/visit', async (req, res) => {
     if (!/^[A-Za-z0-9-]{8,64}$/.test(device)) return;
     const nick = String(req.body?.nick || '').slice(0, 32) || null;
     const game = Boolean(req.body?.game);
+    const lang = String(req.body?.lang || '').slice(0, 16) || null;
+    const tz = String(req.body?.tz || '').slice(0, 48) || null;
     const user = await verifyUser(bearer(req));
     const { data: ex } = await supa.from('visitors')
       .select('visits, games').eq('device_id', device).maybeSingle();
@@ -125,6 +127,8 @@ app.post('/api/visit', async (req, res) => {
         visits: ex.visits + (game ? 0 : 1),
         games: ex.games + (game ? 1 : 0),
         ...(nick ? { last_nick: nick } : {}),
+        ...(lang ? { lang } : {}),
+        ...(tz ? { tz } : {}),
         ...(user ? { user_id: user.id } : {}),
       }).eq('device_id', device);
     } else {
@@ -132,6 +136,7 @@ app.post('/api/visit', async (req, res) => {
         device_id: device,
         last_nick: nick,
         games: game ? 1 : 0,
+        lang, tz,
         user_id: user ? user.id : null,
       });
     }
@@ -167,7 +172,7 @@ app.get('/admin', async (req, res) => {
   if ((req.query.key || '') !== ADMIN_KEY) return res.status(404).send('Not found');
   if (!dbEnabled) return res.send('DB is off');
   const { data: rows } = await supa.from('visitors')
-    .select('first_seen, last_seen, visits, games, last_nick, user_id')
+    .select('first_seen, last_seen, visits, games, last_nick, user_id, lang, tz')
     .order('last_seen', { ascending: false }).limit(300);
   const { data: profs } = await supa.from('profiles').select('id, nick, wins, losses');
   const byId = new Map((profs || []).map(p => [p.id, p]));
@@ -195,7 +200,8 @@ app.get('/admin', async (req, res) => {
     const nick = prof ? prof.nick : (v.last_nick || '—');
     const badge = prof ? '<b style="color:#21c07a">✔ рег.</b>' : '<span style="color:#8892b0">гость</span>';
     const games = v.games > 0 ? `<b>${v.games}</b>` : '<span style="color:#c0392b">0</span>';
-    return `<tr><td>${esc(nick)}</td><td>${badge}</td><td>${mskFmt(v.first_seen)}</td><td>${mskFmt(v.last_seen)}</td><td>${v.visits}</td><td>${games}</td></tr>`;
+    const region = v.tz ? v.tz.split('/').pop().replace(/_/g, ' ') : '—';
+    return `<tr><td>${esc(nick)}</td><td>${badge}</td><td>${mskFmt(v.first_seen)}</td><td>${mskFmt(v.last_seen)}</td><td>${v.visits}</td><td>${games}</td><td>${esc(v.lang || '—')}</td><td>${esc(region)}</td></tr>`;
   }).join('');
 
   const bars = days.map(d =>
@@ -235,7 +241,7 @@ app.get('/admin', async (req, res) => {
 <div class="chart">${bars}</div>
 <h2>Журнал: каждый человек (устройство), свежие сверху</h2>
 <div class="wrap"><table>
-<tr><th>Ник</th><th>Статус</th><th>Первый заход (МСК)</th><th>Последний</th><th>Заходов</th><th>Партий</th></tr>
+<tr><th>Ник</th><th>Статус</th><th>Первый заход (МСК)</th><th>Последний</th><th>Заходов</th><th>Партий</th><th>Язык</th><th>Регион</th></tr>
 ${trs}
 </table></div>
 </body></html>`);
