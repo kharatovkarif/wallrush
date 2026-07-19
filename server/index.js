@@ -183,97 +183,35 @@ const mskDayLabel = (dayIdx) => {
   return `${String(d.getUTCDate()).padStart(2, '0')}.${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
 };
 
-// UI in the style of modern analytics (Plausible/Umami): live badge on top,
-// one big visitors chart, then breakdown panels with horizontal bars.
 const ADMIN_CSS = `
-  * { box-sizing: border-box; }
-  body { font-family: system-ui, -apple-system, sans-serif; background: #0e1015; color: #e9edf5; margin: 0; }
-  a { color: #7aa5f8; text-decoration: none; }
-  .top {
-    position: sticky; top: 0; z-index: 5; display: flex; align-items: center; gap: 12px;
-    padding: 12px 16px; background: rgba(14,16,21,.95); border-bottom: 1px solid #1d212c; backdrop-filter: blur(6px);
-  }
-  .top b { font-size: 16px; }
-  .live { display: flex; align-items: center; gap: 6px; font-size: 13px; color: #9aa3b8; margin-left: auto; }
-  .dot { width: 8px; height: 8px; border-radius: 50%; background: #22c55e; animation: pulse 1.6s infinite; }
-  @keyframes pulse { 50% { opacity: .35; } }
-  .page { max-width: 860px; margin: 0 auto; padding: 14px 14px 40px; }
-  .nav { display: flex; gap: 8px; margin: 10px 0 4px; flex-wrap: wrap; }
-  .nav a { background: #171b26; border: 1px solid #232937; border-radius: 10px; padding: 7px 13px; font-size: 13px; color: #cbd3e3; }
-  .nav a.on { background: #2f6df6; border-color: #2f6df6; color: #fff; }
-  .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(105px, 1fr)); gap: 8px; margin: 12px 0; }
-  .kpi { background: #171b26; border: 1px solid #232937; border-radius: 12px; padding: 10px 12px; }
-  .kpi b { display: block; font-size: 22px; }
-  .kpi span { font-size: 11px; color: #9aa3b8; }
-  .panel { background: #171b26; border: 1px solid #232937; border-radius: 14px; padding: 14px; margin-top: 12px; }
-  .panel h3 { margin: 0 0 10px; font-size: 13px; color: #9aa3b8; font-weight: 600; text-transform: uppercase; letter-spacing: .4px; }
-  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-  @media (max-width: 640px) { .grid { grid-template-columns: 1fr; } }
-  .row { position: relative; display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-radius: 8px; margin-bottom: 4px; overflow: hidden; font-size: 13.5px; color: inherit; }
-  .row .fillbg { position: absolute; left: 0; top: 0; bottom: 0; background: rgba(76,139,245,.16); border-radius: 8px; }
-  .row .lab { position: relative; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .row .num { position: relative; font-weight: 700; }
-  .row small { position: relative; color: #9aa3b8; }
+  body { font-family: system-ui, sans-serif; background: #12141f; color: #e8ecf8; margin: 0; padding: 14px; }
+  h1 { font-size: 19px; margin: 4px 0 12px; } h2 { font-size: 15px; margin: 20px 0 8px; color: #aab3d0; }
+  a { color: #6d9bf8; text-decoration: none; }
+  .cards { display: flex; flex-wrap: wrap; gap: 8px; }
+  .c { background: #1c2033; border-radius: 12px; padding: 10px 14px; min-width: 96px; }
+  .c b { font-size: 22px; display: block; } .c span { font-size: 11px; color: #8892b0; }
   table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
-  th, td { text-align: left; padding: 7px 8px; border-bottom: 1px solid #232937; white-space: nowrap; }
-  th { color: #9aa3b8; font-size: 11px; }
-  tr.click { cursor: pointer; } tr.click:active { background: #1d2230; }
+  th, td { text-align: left; padding: 7px 8px; border-bottom: 1px solid #262c42; white-space: nowrap; }
+  th { color: #8892b0; font-size: 11px; position: sticky; top: 0; background: #12141f; }
+  tr.click { cursor: pointer; } tr.click:active { background: #1c2033; }
   .wrap { overflow-x: auto; }
-  .back { display: inline-block; margin: 10px 0; font-size: 14px; }
-  .kv { display: grid; grid-template-columns: auto 1fr; gap: 5px 14px; margin-top: 10px; font-size: 13.5px; }
-  .kv span { color: #9aa3b8; }
-  .bignick { font-size: 21px; }`;
+  .chart { display: flex; align-items: flex-end; gap: 5px; height: 110px; padding-top: 14px; }
+  .bar { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; height: 100%; }
+  .bar .fill { width: 100%; background: #2f6df6; border-radius: 4px 4px 0 0; min-height: 2px; }
+  .bar small { font-size: 10px; color: #cfd6ee; margin: 2px 0; } .bar span { font-size: 9px; color: #667; }
+  .tabs { display: flex; gap: 8px; margin: 10px 0; flex-wrap: wrap; }
+  .tabs a { background: #1c2033; border-radius: 10px; padding: 7px 12px; font-size: 13px; color: #cfd6ee; }
+  .tabs a.on { background: #2f6df6; color: #fff; }
+  .person { background: #1c2033; border-radius: 14px; padding: 14px; margin-bottom: 14px; }
+  .person b.nick { font-size: 20px; }
+  .kv { display: grid; grid-template-columns: auto 1fr; gap: 4px 14px; margin-top: 10px; font-size: 13px; }
+  .kv span { color: #8892b0; }
+  .back { display: inline-block; margin-bottom: 10px; font-size: 14px; }`;
 
-const adminPage = (title, live, body) => `<!DOCTYPE html><html lang="ru"><head><meta charset="utf-8">
+const adminPage = (title, body) => `<!DOCTYPE html><html lang="ru"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="theme-color" content="#0e1015">
-<meta http-equiv="refresh" content="60">
-<title>${title}</title><style>${ADMIN_CSS}</style></head><body>
-<div class="top"><b>🧱 WallRush</b><div class="live"><span class="dot"></span>${live} сейчас в игре</div></div>
-<div class="page">${body}</div></body></html>`;
-
-// timezone city → country flag (for the Regions panel)
-const FLAGS = {
-  Moscow: '🇷🇺', Kaliningrad: '🇷🇺', Samara: '🇷🇺', Volgograd: '🇷🇺', Saratov: '🇷🇺', Yekaterinburg: '🇷🇺', Omsk: '🇷🇺', Novosibirsk: '🇷🇺', Krasnoyarsk: '🇷🇺', Irkutsk: '🇷🇺', Vladivostok: '🇷🇺',
-  Kiev: '🇺🇦', Kyiv: '🇺🇦', Minsk: '🇧🇾', Chisinau: '🇲🇩', Dushanbe: '🇹🇯', Tashkent: '🇺🇿', Samarkand: '🇺🇿', Almaty: '🇰🇿', Astana: '🇰🇿', Bishkek: '🇰🇬', Ashgabat: '🇹🇲', Baku: '🇦🇿', Yerevan: '🇦🇲', Tbilisi: '🇬🇪',
-  Tehran: '🇮🇷', Istanbul: '🇹🇷', Calcutta: '🇮🇳', Kolkata: '🇮🇳', Karachi: '🇵🇰', Dhaka: '🇧🇩', Dubai: '🇦🇪', Riyadh: '🇸🇦', Baghdad: '🇮🇶', Kabul: '🇦🇫', Jerusalem: '🇮🇱',
-  Paris: '🇫🇷', Berlin: '🇩🇪', London: '🇬🇧', Madrid: '🇪🇸', Rome: '🇮🇹', Zagreb: '🇭🇷', Warsaw: '🇵🇱', Amsterdam: '🇳🇱', Prague: '🇨🇿', Vienna: '🇦🇹', Stockholm: '🇸🇪', Helsinki: '🇫🇮', Lisbon: '🇵🇹', Athens: '🇬🇷', Bucharest: '🇷🇴', Sofia: '🇧🇬', Belgrade: '🇷🇸',
-  Algiers: '🇩🇿', Cairo: '🇪🇬', Casablanca: '🇲🇦', Lagos: '🇳🇬', Nairobi: '🇰🇪', Johannesburg: '🇿🇦', Tunis: '🇹🇳',
-  Manila: '🇵🇭', Jakarta: '🇮🇩', Bangkok: '🇹🇭', Tokyo: '🇯🇵', Seoul: '🇰🇷', Shanghai: '🇨🇳', Hong_Kong: '🇭🇰', Singapore: '🇸🇬', Ho_Chi_Minh: '🇻🇳', Kuala_Lumpur: '🇲🇾',
-  New_York: '🇺🇸', Los_Angeles: '🇺🇸', Chicago: '🇺🇸', Denver: '🇺🇸', Phoenix: '🇺🇸', Toronto: '🇨🇦', Vancouver: '🇨🇦', Sao_Paulo: '🇧🇷', Mexico_City: '🇲🇽', Buenos_Aires: '🇦🇷', Bogota: '🇨🇴', Lima: '🇵🇪', Santiago: '🇨🇱',
-  Auckland: '🇳🇿', Sydney: '🇦🇺', Melbourne: '🇦🇺', Brisbane: '🇦🇺',
-};
-const regionCity = (tz) => tz ? tz.split('/').pop() : '';
-const flagOf = (tz) => FLAGS[regionCity(tz)] || '🌍';
-
-// SVG area chart, Plausible-style: gradient fill, line, value labels
-function areaChart(values, labels) {
-  const w = 720, h = 150, pad = 10;
-  const max = Math.max(1, ...values);
-  const n = Math.max(2, values.length);
-  const step = (w - pad * 2) / (n - 1);
-  const pts = values.map((v, i) => [pad + i * step, h - pad - (h - pad * 2) * (v / max)]);
-  const line = pts.map((p, i) => (i ? 'L' : 'M') + p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join(' ');
-  const area = `${line} L ${pts[pts.length - 1][0].toFixed(1)} ${h - pad} L ${pad} ${h - pad} Z`;
-  const every = Math.max(1, Math.ceil(labels.length / 8));
-  const labs = labels.map((l, i) => (i % every === 0 || i === labels.length - 1)
-    ? `<text x="${(pad + i * step).toFixed(1)}" y="${h + 12}" font-size="9" fill="#9aa3b8" text-anchor="middle">${l}</text>` : '').join('');
-  const vals = values.map((v, i) => v > 0
-    ? `<text x="${(pad + i * step).toFixed(1)}" y="${(pts[i][1] - 6).toFixed(1)}" font-size="9" fill="#cbd3e3" text-anchor="middle">${v}</text>` : '').join('');
-  const dots = pts.map((p, i) => values[i] > 0 ? `<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="2.6" fill="#4c8bf5"/>` : '').join('');
-  return `<svg viewBox="0 0 ${w} ${h + 18}" style="width:100%;height:auto;display:block">
-<defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1">
-<stop offset="0" stop-color="#4c8bf5" stop-opacity=".34"/><stop offset="1" stop-color="#4c8bf5" stop-opacity="0"/>
-</linearGradient></defs>
-<path d="${area}" fill="url(#g)"/><path d="${line}" fill="none" stroke="#4c8bf5" stroke-width="2.2" stroke-linejoin="round"/>${dots}${vals}${labs}</svg>`;
-}
-
-// horizontal bar row (the signature analytics look)
-const barRow = (label, count, max, href, extra = '') =>
-  `<a class="row" ${href ? `href="${href}"` : ''}>
-     <span class="fillbg" style="width:${Math.max(3, Math.round(100 * count / Math.max(1, max)))}%"></span>
-     <span class="lab">${label}</span>${extra}<span class="num">${count}</span>
-   </a>`;
+<meta name="theme-color" content="#12141f">
+<title>${title}</title><style>${ADMIN_CSS}</style></head><body>${body}</body></html>`;
 
 // display name for a visitor row: 📲 = installed the game as an app
 const visName = (v, byId) => {
@@ -282,148 +220,131 @@ const visName = (v, byId) => {
   return (v.installed_at ? '📲 ' : '') + base;
 };
 
-async function loadAdminData(daysBack) {
+app.get('/admin', async (req, res) => {
+  if ((req.query.key || '') !== ADMIN_KEY) return res.status(404).send('Not found');
+  if (!dbEnabled) return res.send('DB is off');
   const { data: rows } = await supa.from('visitors')
     .select('device_id, first_seen, last_seen, visits, games, last_nick, user_id, lang, tz, installed_at')
     .order('last_seen', { ascending: false }).limit(500);
   const { data: profs } = await supa.from('profiles').select('id, nick, wins, losses');
-  const { data: log } = await supa.from('visit_log')
-    .select('device_id, kind, at')
-    .gt('at', new Date(Date.now() - daysBack * dayMs).toISOString())
-    .limit(20000);
-  return { all: rows || [], byId: new Map((profs || []).map(p => [p.id, p])), log: log || [] };
-}
+  const byId = new Map((profs || []).map(p => [p.id, p]));
+  const all = rows || [];
 
-// ---- main dashboard: live badge, KPIs, big visitors chart, breakdown panels ----
-app.get('/admin', async (req, res) => {
-  if ((req.query.key || '') !== ADMIN_KEY) return res.status(404).send('Not found');
-  if (!dbEnabled) return res.send('DB is off');
-  const p = ['today', '7d', '30d'].includes(String(req.query.p)) ? String(req.query.p) : '7d';
-  const nDays = p === 'today' ? 1 : p === '7d' ? 7 : 30;
-  const { all, byId, log } = await loadAdminData(nDays);
-  const today = mskDayStart(Date.now());
-  const startDay = today - (nDays - 1);
-  const startMs = startDay * dayMs - 3 * 3600e3;
-
-  // per-day / per-hour activity from the event log
-  const dayAct = new Map(); // day -> { set, games }
-  const hourAct = new Map(); // msk hour -> set (today only)
-  for (const e of log) {
-    const t = new Date(e.at).getTime();
-    const day = mskDayStart(t);
-    const rec = dayAct.get(day) || { set: new Set(), games: 0 };
-    rec.set.add(e.device_id);
-    if (e.kind === 'game') rec.games++;
-    dayAct.set(day, rec);
-    if (day === today) {
-      const h = Math.floor(((t + 3 * 3600e3) % dayMs) / 3600e3);
-      (hourAct.get(h) || hourAct.set(h, new Set()).get(h)).add(e.device_id);
-    }
-  }
-
-  // KPIs for the chosen period
-  const inPeriod = (iso) => iso && new Date(iso).getTime() >= startMs;
-  const visitors = all.filter(v => inPeriod(v.last_seen)).length;
-  const fresh = all.filter(v => inPeriod(v.first_seen)).length;
-  const games = log.filter(e => e.kind === 'game').length;
-  const installsP = all.filter(v => inPeriod(v.installed_at)).length;
-  const installsAll = all.filter(v => v.installed_at).length;
-
-  // chart: hours for "today", days otherwise (old days fall back to new-people counts)
-  let values, labels;
-  if (p === 'today') {
-    const nowH = Math.floor(((Date.now() + 3 * 3600e3) % dayMs) / 3600e3);
-    values = []; labels = [];
-    for (let h = 0; h <= nowH; h++) { values.push(hourAct.get(h)?.size || 0); labels.push(h + ':00'); }
-  } else {
-    values = []; labels = [];
-    for (let day = startDay; day <= today; day++) {
-      const act = dayAct.get(day)?.set.size || 0;
-      const fresh2 = all.filter(v => mskDayStart(new Date(v.first_seen).getTime()) === day).length;
-      values.push(Math.max(act, fresh2));
-      labels.push(mskDayLabel(day));
-    }
-  }
-
-  // breakdown panels (people active in the period)
-  const act = all.filter(v => inPeriod(v.last_seen));
-  const group = (keyFn) => {
-    const m = new Map();
-    for (const v of act) { const k = keyFn(v); if (!k) continue; m.set(k, (m.get(k) || 0) + 1); }
-    return [...m.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8);
-  };
-  const regions = group(v => v.tz ? `${flagOf(v.tz)} ${regionCity(v.tz).replace(/_/g, ' ')}` : null);
-  const langs = group(v => v.lang ? v.lang.split('-')[0].toLowerCase() : null);
-  const maxR = Math.max(1, ...regions.map(r => r[1]));
-  const maxL = Math.max(1, ...langs.map(r => r[1]));
-  const pHref = (v) => `/admin/v?key=${ADMIN_KEY}&d=${encodeURIComponent(v.device_id)}`;
-  const recent = all.slice(0, 8).map(v =>
-    barRow(esc(visName(v, byId)), v.games, Math.max(1, ...all.slice(0, 8).map(x => x.games)), pHref(v),
-      `<small>${mskFmt(v.last_seen)}</small>`)).join('');
-  const topPlayers = [...all].sort((a, b) => b.games - a.games).slice(0, 8);
-  const top = topPlayers.map(v =>
-    barRow(esc(visName(v, byId)), v.games, Math.max(1, topPlayers[0]?.games || 1), pHref(v))).join('');
-
-  const per = (id, label) => `<a class="${p === id ? 'on' : ''}" href="/admin?key=${ADMIN_KEY}&p=${id}">${label}</a>`;
-
-  res.send(adminPage('WallRush — статистика', realOnline(), `
-<div class="nav">
-  ${per('today', 'Сегодня')}${per('7d', '7 дней')}${per('30d', '30 дней')}
-  <a href="/admin/all?key=${ADMIN_KEY}" style="margin-left:auto">Все люди →</a>
-</div>
-<div class="kpis">
-  <div class="kpi"><b>${visitors}</b><span>посетители</span></div>
-  <div class="kpi"><b>${fresh}</b><span>новых</span></div>
-  <div class="kpi"><b>${games}</b><span>партий</span></div>
-  <div class="kpi"><b>${installsP}</b><span>📲 установили (всего ${installsAll})</span></div>
-  <div class="kpi"><b>${(byId.size)}</b><span>✔ аккаунтов</span></div>
-</div>
-<div class="panel"><h3>Посетители ${p === 'today' ? 'по часам (МСК)' : 'по дням'}</h3>${areaChart(values, labels)}</div>
-<div class="grid">
-  <div class="panel"><h3>🌍 Регионы</h3>${regions.map(([k, n]) => barRow(k, n, maxR)).join('') || '<small style="color:#9aa3b8">пока пусто</small>'}</div>
-  <div class="panel"><h3>🗣 Языки</h3>${langs.map(([k, n]) => barRow(k, n, maxL)).join('') || '<small style="color:#9aa3b8">пока пусто</small>'}</div>
-  <div class="panel"><h3>🕐 Последние посетители · партий</h3>${recent}</div>
-  <div class="panel"><h3>🏆 Самые активные · партий</h3>${top}</div>
-</div>`));
-});
-
-// ---- full journal: every person, filterable, click → person page ----
-app.get('/admin/all', async (req, res) => {
-  if ((req.query.key || '') !== ADMIN_KEY) return res.status(404).send('Not found');
-  if (!dbEnabled) return res.send('DB is off');
-  const { all, byId } = await loadAdminData(1);
   const played = all.filter(v => v.games > 0).length;
   const regs = all.filter(v => v.user_id).length;
   const installs = all.filter(v => v.installed_at).length;
-  const f = String(req.query.f || 'all');
-  const shown = all.filter(v =>
-    f === 'played' ? v.games > 0 :
-    f === 'zero' ? v.games === 0 :
-    f === 'inst' ? Boolean(v.installed_at) :
-    f === 'reg' ? Boolean(v.user_id) : true);
-  const tab = (id, label, n) =>
-    `<a class="${f === id ? 'on' : ''}" href="/admin/all?key=${ADMIN_KEY}&f=${id}">${label} (${n})</a>`;
-  const trs = shown.map(v => {
-    const prof = v.user_id ? byId.get(v.user_id) : null;
-    const badge = prof ? '<b style="color:#22c55e">✔</b>' : '<span style="color:#9aa3b8">гость</span>';
-    const games = v.games > 0 ? `<b>${v.games}</b>` : '<span style="color:#e0455e">0</span>';
-    const region = v.tz ? `${flagOf(v.tz)} ${regionCity(v.tz).replace(/_/g, ' ')}` : '—';
-    return `<tr class="click" onclick="location.href='/admin/v?key=${ADMIN_KEY}&d=${encodeURIComponent(v.device_id)}'">
-      <td>${esc(visName(v, byId))} ›</td><td>${badge}</td><td>${mskFmt(v.first_seen)}</td><td>${mskFmt(v.last_seen)}</td><td>${v.visits}</td><td>${games}</td><td>${esc(v.lang || '—')}</td><td>${region}</td></tr>`;
-  }).join('');
-  res.send(adminPage('Все люди — WallRush', realOnline(), `
-<a class="back" href="/admin?key=${ADMIN_KEY}">‹ Обзор</a>
-<div class="nav">
+  const totalGames = all.reduce((s, v) => s + v.games, 0);
+  const today = mskDayStart(Date.now());
+  const newToday = all.filter(v => mskDayStart(new Date(v.first_seen).getTime()) === today).length;
+  const activeToday = all.filter(v => mskDayStart(new Date(v.last_seen).getTime()) === today).length;
+
+  const view = String(req.query.view || 'people');
+  const viewTab = (id, label) =>
+    `<a class="${view === id ? 'on' : ''}" href="/admin?key=${ADMIN_KEY}&view=${id}">${label}</a>`;
+
+  let content = '';
+  if (view === 'days') {
+    // ----- days view: each day = a block with its own numbers and people -----
+    const { data: log } = await supa.from('visit_log')
+      .select('device_id, kind, at')
+      .gt('at', new Date(Date.now() - 14 * dayMs).toISOString())
+      .limit(8000);
+    const byDevice = new Map(all.map(v => [v.device_id, v]));
+    const dmap = new Map(); // day -> { active:Set, games:number }
+    for (const e of (log || [])) {
+      const day = mskDayStart(new Date(e.at).getTime());
+      const rec = dmap.get(day) || { active: new Set(), games: 0 };
+      rec.active.add(e.device_id);
+      if (e.kind === 'game') rec.games++;
+      dmap.set(day, rec);
+    }
+    const blocks = [];
+    for (let day = today; day > today - 14; day--) {
+      const rec = dmap.get(day);
+      const fresh = all.filter(v => mskDayStart(new Date(v.first_seen).getTime()) === day);
+      if (!rec && !fresh.length) continue;
+      const people = rec
+        ? [...rec.active].map(id => byDevice.get(id)).filter(Boolean)
+        : fresh;
+      const list = people.map(v =>
+        `<a href="/admin/v?key=${ADMIN_KEY}&d=${encodeURIComponent(v.device_id)}">${esc(visName(v, byId))}</a>`
+      ).join(', ') || '—';
+      blocks.push(`<div class="person">
+        <b>${mskDayLabel(day)}${day === today ? ' — сегодня' : ''}</b>
+        <div class="kv">
+          <span>Новых</span><b>${fresh.length}</b>
+          <span>Заходили</span><b>${rec ? rec.active.size : fresh.length}</b>
+          <span>Партий</span><b>${rec ? rec.games : '—'}</b>
+        </div>
+        <p style="font-size:13px;line-height:1.8;margin:8px 0 0">${list}</p>
+      </div>`);
+    }
+    content = `<h2>Каждый день отдельно (нажми на ник — вся история человека)</h2>` +
+      (blocks.join('') || '<p style="color:#8892b0">Подневная история пишется с 19.07 — блоки появятся по мере заходов.</p>');
+  } else {
+    // ----- people view: the journal with filters -----
+    const f = String(req.query.f || 'all');
+    const shown = all.filter(v =>
+      f === 'played' ? v.games > 0 :
+      f === 'zero' ? v.games === 0 :
+      f === 'inst' ? Boolean(v.installed_at) :
+      f === 'reg' ? Boolean(v.user_id) : true);
+    const tab = (id, label, n) =>
+      `<a class="${f === id ? 'on' : ''}" href="/admin?key=${ADMIN_KEY}&view=people&f=${id}">${label} (${n})</a>`;
+    const trs = shown.map(v => {
+      const prof = v.user_id ? byId.get(v.user_id) : null;
+      const badge = prof ? '<b style="color:#21c07a">✔ рег.</b>' : '<span style="color:#8892b0">гость</span>';
+      const games = v.games > 0 ? `<b>${v.games}</b>` : '<span style="color:#c0392b">0</span>';
+      const region = v.tz ? v.tz.split('/').pop().replace(/_/g, ' ') : '—';
+      const href = `/admin/v?key=${ADMIN_KEY}&d=${encodeURIComponent(v.device_id)}`;
+      return `<tr class="click" onclick="location.href='${href}'"><td>${esc(visName(v, byId))} ›</td><td>${badge}</td><td>${mskFmt(v.first_seen)}</td><td>${mskFmt(v.last_seen)}</td><td>${v.visits}</td><td>${games}</td><td>${esc(v.lang || '—')}</td><td>${esc(region)}</td></tr>`;
+    }).join('');
+    content = `
+<h2>Журнал — нажми на человека, чтобы увидеть его историю (📲 = установил приложение)</h2>
+<div class="tabs">
   ${tab('all', 'Все', all.length)}
   ${tab('played', '🎮 Играли', played)}
-  ${tab('zero', '👀 Смотрели', all.length - played)}
+  ${tab('zero', '👀 Только смотрели', all.length - played)}
   ${tab('inst', '📲 Установили', installs)}
-  ${tab('reg', '✔ Аккаунт', regs)}
+  ${tab('reg', '✔ Регистрация', regs)}
 </div>
-<div class="panel wrap"><table>
-<tr><th>Ник</th><th></th><th>Пришёл</th><th>Был</th><th>Визитов</th><th>Партий</th><th>Язык</th><th>Регион</th></tr>
+<div class="wrap"><table>
+<tr><th>Ник</th><th>Статус</th><th>Первый заход (МСК)</th><th>Последний</th><th>Заходов</th><th>Партий</th><th>Язык</th><th>Регион</th></tr>
 ${trs}
-</table></div>`));
+</table></div>`;
+  }
+
+  // new devices per day, last 14 days (chart shown in both views)
+  const days = [];
+  for (let i = 13; i >= 0; i--) {
+    const day = today - i;
+    const n = all.filter(v => mskDayStart(new Date(v.first_seen).getTime()) === day).length;
+    days.push({ label: mskDayLabel(day), n });
+  }
+  const maxDay = Math.max(1, ...days.map(d => d.n));
+  const bars = days.map(d =>
+    `<div class="bar"><div class="fill" style="height:${Math.round(100 * d.n / maxDay)}%"></div><small>${d.n}</small><span>${d.label}</span></div>`
+  ).join('');
+
+  res.send(adminPage('WallRush — статистика', `
+<meta http-equiv="refresh" content="60">
+<h1>🧱 WallRush — статистика <span style="font-size:11px;color:#667">(обновляется каждую минуту)</span></h1>
+<div class="cards">
+  <div class="c"><b>${realOnline()}</b><span>сейчас на сайте (реально)</span></div>
+  <div class="c"><b>${realOnline() + fakeOnline()}</b><span>показано «онлайн»</span></div>
+  <div class="c"><b>${newToday}</b><span>новых сегодня</span></div>
+  <div class="c"><b>${activeToday}</b><span>заходили сегодня</span></div>
+  <div class="c"><b>${installs}</b><span>📲 установили приложение</span></div>
+  <div class="c"><b>${all.length}</b><span>всего людей</span></div>
+  <div class="c"><b>${totalGames}</b><span>партий всего</span></div>
+</div>
+<div class="tabs" style="margin-top:14px">
+  ${viewTab('people', '👥 Люди')}
+  ${viewTab('days', '📅 По дням')}
+</div>
+<h2>Новые люди по дням (14 дней)</h2>
+<div class="chart">${bars}</div>
+${content}`));
 });
 
 // one person's page: everything about a single device + day-by-day timeline
@@ -434,7 +355,7 @@ app.get('/admin/v', async (req, res) => {
   const { data: v } = await supa.from('visitors')
     .select('device_id, first_seen, last_seen, visits, games, last_nick, user_id, lang, tz, installed_at')
     .eq('device_id', device).maybeSingle();
-  if (!v) return res.send(adminPage('Не найден', realOnline(), `<a class="back" href="/admin?key=${ADMIN_KEY}">‹ Назад</a><p>Человек не найден.</p>`));
+  if (!v) return res.send(adminPage('Не найден', `<a class="back" href="/admin?key=${ADMIN_KEY}">‹ Назад</a><p>Человек не найден.</p>`));
   const prof = v.user_id ? (await supa.from('profiles').select('nick, wins, losses').eq('id', v.user_id).maybeSingle()).data : null;
   const { data: log } = await supa.from('visit_log')
     .select('kind, at').eq('device_id', device).order('at', { ascending: false }).limit(1000);
@@ -452,28 +373,27 @@ app.get('/admin/v', async (req, res) => {
   ).join('');
 
   const nick = prof ? prof.nick : (v.last_nick || '—');
-  const region = v.tz ? `${flagOf(v.tz)} ${regionCity(v.tz).replace(/_/g, ' ')}` : '—';
-  res.send(adminPage(`${nick} — WallRush`, realOnline(), `
-<a class="back" href="/admin/all?key=${ADMIN_KEY}">‹ Все люди</a>
-<div class="panel">
-  <b class="bignick">${esc(nick)}</b>
-  ${prof ? '<b style="color:#22c55e"> ✔ зарегистрирован</b>' : '<span style="color:#9aa3b8"> · гость</span>'}
+  const region = v.tz ? v.tz.split('/').pop().replace(/_/g, ' ') : '—';
+  res.send(adminPage(`${nick} — WallRush`, `
+<a class="back" href="/admin?key=${ADMIN_KEY}">‹ Назад к списку</a>
+<div class="person">
+  <b class="nick">${esc(nick)}</b>
+  ${prof ? '<b style="color:#21c07a"> ✔ зарегистрирован</b>' : '<span style="color:#8892b0"> · гость</span>'}
   <div class="kv">
     <span>Первый заход</span><b>${mskFmt(v.first_seen)} (МСК)</b>
     <span>Последний раз</span><b>${mskFmt(v.last_seen)}</b>
     <span>Всего заходов</span><b>${v.visits}</b>
     <span>Всего партий</span><b>${v.games}</b>
     <span>Язык устройства</span><b>${esc(v.lang || 'неизвестно')}</b>
-    <span>Регион</span><b>${region}</b>
+    <span>Регион</span><b>${esc(region)}</b>
     <span>Приложение</span><b>${v.installed_at ? `📲 установил (${mskFmt(v.installed_at)})` : 'не устанавливал'}</b>
     ${prof ? `<span>Побед / поражений</span><b>${prof.wins} / ${prof.losses} (против живых)</b>` : ''}
   </div>
 </div>
-<div class="panel"><h3>По дням: когда заходил и сколько играл</h3>
+<h2>По дням: когда заходил и сколько играл</h2>
 ${dayRows
     ? `<div class="wrap"><table><tr><th>День</th><th>Заходов</th><th>Партий</th></tr>${dayRows}</table></div>`
-    : '<small style="color:#9aa3b8">Подробная история пишется с 19.07 — записи появятся при следующем заходе этого человека.</small>'}
-</div>`));
+    : '<p style="color:#8892b0;font-size:13px">Подробная история пишется с 19.07 — у этого человека записей пока нет. Появятся при следующем его заходе.</p>'}`));
 });
 
 app.get('/healthz', (req, res) => res.send('ok'));
