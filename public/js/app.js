@@ -1,7 +1,7 @@
 // WallRush client app: screens, board UI, online play (WebSocket), AI mode, auth.
-import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=34';
-import { aiMove } from './ai.js?v=34';
-import { makeT } from './i18n.js?v=34';
+import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=35';
+import { aiMove } from './ai.js?v=35';
+import { makeT } from './i18n.js?v=35';
 
 /* ================= state ================= */
 const $ = (id) => document.getElementById(id);
@@ -69,7 +69,14 @@ if (!deviceId) {
   deviceId = (crypto.randomUUID ? crypto.randomUUID() : 'd' + Date.now() + '-' + Math.random().toString(36).slice(2, 10));
   localStorage.setItem('wr_device', deviceId);
 }
-function logVisit(game = false) {
+// running as an installed app? (home-screen icon opens in standalone mode)
+function runsInstalled() {
+  try {
+    return window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+  } catch { return false; }
+}
+
+function logVisit(game = false, installed = false) {
   try {
     fetch('/api/visit', {
       method: 'POST',
@@ -82,10 +89,14 @@ function logVisit(game = false) {
         // language + timezone → the owner sees who comes from where
         lang: navigator.language || '',
         tz: Intl.DateTimeFormat().resolvedOptions().timeZone || '',
+        // installed-the-app flag: fires on install and on standalone launches
+        installed: installed || runsInstalled(),
       }),
     }).catch(() => {});
   } catch {}
 }
+// the moment the user accepts the install prompt, tell the server
+window.addEventListener('appinstalled', () => logVisit(false, true));
 
 // guest nick sticks to the device forever, so the same person keeps the same
 // name across visits (was per-tab before — every visit looked like a new user)
@@ -117,7 +128,7 @@ function getAiWorker() {
   if (aiWorker === false) return null;
   if (!aiWorker) {
     try {
-      aiWorker = new Worker('js/ai-worker.js?v=34', { type: 'module' });
+      aiWorker = new Worker('js/ai-worker.js?v=35', { type: 'module' });
       aiWorker.onmessage = (e) => {
         const cb = aiPending.get(e.data.id);
         aiPending.delete(e.data.id);

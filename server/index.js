@@ -118,9 +118,10 @@ app.post('/api/visit', async (req, res) => {
     const game = Boolean(req.body?.game);
     const lang = String(req.body?.lang || '').slice(0, 16) || null;
     const tz = String(req.body?.tz || '').slice(0, 48) || null;
+    const installed = req.body?.installed === true;
     const user = await verifyUser(bearer(req));
     const { data: ex } = await supa.from('visitors')
-      .select('visits, games').eq('device_id', device).maybeSingle();
+      .select('visits, games, installed_at').eq('device_id', device).maybeSingle();
     if (ex) {
       await supa.from('visitors').update({
         last_seen: new Date().toISOString(),
@@ -130,6 +131,7 @@ app.post('/api/visit', async (req, res) => {
         ...(lang ? { lang } : {}),
         ...(tz ? { tz } : {}),
         ...(user ? { user_id: user.id } : {}),
+        ...(installed && !ex.installed_at ? { installed_at: new Date().toISOString() } : {}),
       }).eq('device_id', device);
     } else {
       await supa.from('visitors').insert({
@@ -138,6 +140,7 @@ app.post('/api/visit', async (req, res) => {
         games: game ? 1 : 0,
         lang, tz,
         user_id: user ? user.id : null,
+        installed_at: installed ? new Date().toISOString() : null,
       });
     }
     // per-event log: powers the per-person timeline on the admin page
@@ -208,35 +211,20 @@ const ADMIN_CSS = `
 const adminPage = (title, body) => `<!DOCTYPE html><html lang="ru"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#12141f">
-<link rel="manifest" href="/admin/manifest.json?key=${ADMIN_KEY}">
-<link rel="apple-touch-icon" href="/icons/admin-192.png">
 <title>${title}</title><style>${ADMIN_CSS}</style></head><body>${body}</body></html>`;
 
-// installable "WR Stats" app: the manifest itself is key-protected, so the
-// secret start_url never sits in a public file
-app.get('/admin/manifest.json', (req, res) => {
-  if ((req.query.key || '') !== ADMIN_KEY) return res.status(404).send('Not found');
-  res.json({
-    name: 'WallRush Статистика',
-    short_name: 'WR Stats',
-    start_url: `/admin?key=${ADMIN_KEY}`,
-    scope: '/admin',
-    display: 'standalone',
-    background_color: '#12141f',
-    theme_color: '#12141f',
-    icons: [
-      { src: '/icons/admin-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
-      { src: '/icons/admin-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
-      { src: '/icons/admin-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
-    ],
-  });
-});
+// display name for a visitor row: 📲 = installed the game as an app
+const visName = (v, byId) => {
+  const prof = v.user_id ? byId.get(v.user_id) : null;
+  const base = prof ? prof.nick : (v.last_nick || '—');
+  return (v.installed_at ? '📲 ' : '') + base;
+};
 
 app.get('/admin', async (req, res) => {
   if ((req.query.key || '') !== ADMIN_KEY) return res.status(404).send('Not found');
   if (!dbEnabled) return res.send('DB is off');
   const { data: rows } = await supa.from('visitors')
-    .select('device_id, first_seen, last_seen, visits, games, last_nick, user_id, lang, tz')
+    .select('device_id, first_seen, last_seen, visits, games, last_nick, user_id, lang, tz, installed_at')
     .order('last_seen', { ascending: false }).limit(500);
   const { data: profs } = await supa.from('profiles').select('id, nick, wins, losses');
   const byId = new Map((profs || []).map(p => [p.id, p]));
@@ -244,21 +232,89 @@ app.get('/admin', async (req, res) => {
 
   const played = all.filter(v => v.games > 0).length;
   const regs = all.filter(v => v.user_id).length;
+  const installs = all.filter(v => v.installed_at).length;
   const totalGames = all.reduce((s, v) => s + v.games, 0);
   const today = mskDayStart(Date.now());
   const newToday = all.filter(v => mskDayStart(new Date(v.first_seen).getTime()) === today).length;
   const activeToday = all.filter(v => mskDayStart(new Date(v.last_seen).getTime()) === today).length;
 
-  // filter tabs: all / played / watched only / registered
-  const f = String(req.query.f || 'all');
-  const shown = all.filter(v =>
-    f === 'played' ? v.games > 0 :
-    f === 'zero' ? v.games === 0 :
-    f === 'reg' ? Boolean(v.user_id) : true);
-  const tab = (id, label, n) =>
-    `<a class="${f === id ? 'on' : ''}" href="/admin?key=${ADMIN_KEY}&f=${id}">${label} (${n})</a>`;
+  const view = String(req.query.view || 'people');
+  const viewTab = (id, label) =>
+    `<a class="${view === id ? 'on' : ''}" href="/admin?key=${ADMIN_KEY}&view=${id}">${label}</a>`;
 
-  // new devices per day, last 14 days
+  let content = '';
+  if (view === 'days') {
+    // ----- days view: each day = a block with its own numbers and people -----
+    const { data: log } = await supa.from('visit_log')
+      .select('device_id, kind, at')
+      .gt('at', new Date(Date.now() - 14 * dayMs).toISOString())
+      .limit(8000);
+    const byDevice = new Map(all.map(v => [v.device_id, v]));
+    const dmap = new Map(); // day -> { active:Set, games:number }
+    for (const e of (log || [])) {
+      const day = mskDayStart(new Date(e.at).getTime());
+      const rec = dmap.get(day) || { active: new Set(), games: 0 };
+      rec.active.add(e.device_id);
+      if (e.kind === 'game') rec.games++;
+      dmap.set(day, rec);
+    }
+    const blocks = [];
+    for (let day = today; day > today - 14; day--) {
+      const rec = dmap.get(day);
+      const fresh = all.filter(v => mskDayStart(new Date(v.first_seen).getTime()) === day);
+      if (!rec && !fresh.length) continue;
+      const people = rec
+        ? [...rec.active].map(id => byDevice.get(id)).filter(Boolean)
+        : fresh;
+      const list = people.map(v =>
+        `<a href="/admin/v?key=${ADMIN_KEY}&d=${encodeURIComponent(v.device_id)}">${esc(visName(v, byId))}</a>`
+      ).join(', ') || '—';
+      blocks.push(`<div class="person">
+        <b>${mskDayLabel(day)}${day === today ? ' — сегодня' : ''}</b>
+        <div class="kv">
+          <span>Новых</span><b>${fresh.length}</b>
+          <span>Заходили</span><b>${rec ? rec.active.size : fresh.length}</b>
+          <span>Партий</span><b>${rec ? rec.games : '—'}</b>
+        </div>
+        <p style="font-size:13px;line-height:1.8;margin:8px 0 0">${list}</p>
+      </div>`);
+    }
+    content = `<h2>Каждый день отдельно (нажми на ник — вся история человека)</h2>` +
+      (blocks.join('') || '<p style="color:#8892b0">Подневная история пишется с 19.07 — блоки появятся по мере заходов.</p>');
+  } else {
+    // ----- people view: the journal with filters -----
+    const f = String(req.query.f || 'all');
+    const shown = all.filter(v =>
+      f === 'played' ? v.games > 0 :
+      f === 'zero' ? v.games === 0 :
+      f === 'inst' ? Boolean(v.installed_at) :
+      f === 'reg' ? Boolean(v.user_id) : true);
+    const tab = (id, label, n) =>
+      `<a class="${f === id ? 'on' : ''}" href="/admin?key=${ADMIN_KEY}&view=people&f=${id}">${label} (${n})</a>`;
+    const trs = shown.map(v => {
+      const prof = v.user_id ? byId.get(v.user_id) : null;
+      const badge = prof ? '<b style="color:#21c07a">✔ рег.</b>' : '<span style="color:#8892b0">гость</span>';
+      const games = v.games > 0 ? `<b>${v.games}</b>` : '<span style="color:#c0392b">0</span>';
+      const region = v.tz ? v.tz.split('/').pop().replace(/_/g, ' ') : '—';
+      const href = `/admin/v?key=${ADMIN_KEY}&d=${encodeURIComponent(v.device_id)}`;
+      return `<tr class="click" onclick="location.href='${href}'"><td>${esc(visName(v, byId))} ›</td><td>${badge}</td><td>${mskFmt(v.first_seen)}</td><td>${mskFmt(v.last_seen)}</td><td>${v.visits}</td><td>${games}</td><td>${esc(v.lang || '—')}</td><td>${esc(region)}</td></tr>`;
+    }).join('');
+    content = `
+<h2>Журнал — нажми на человека, чтобы увидеть его историю (📲 = установил приложение)</h2>
+<div class="tabs">
+  ${tab('all', 'Все', all.length)}
+  ${tab('played', '🎮 Играли', played)}
+  ${tab('zero', '👀 Только смотрели', all.length - played)}
+  ${tab('inst', '📲 Установили', installs)}
+  ${tab('reg', '✔ Регистрация', regs)}
+</div>
+<div class="wrap"><table>
+<tr><th>Ник</th><th>Статус</th><th>Первый заход (МСК)</th><th>Последний</th><th>Заходов</th><th>Партий</th><th>Язык</th><th>Регион</th></tr>
+${trs}
+</table></div>`;
+  }
+
+  // new devices per day, last 14 days (chart shown in both views)
   const days = [];
   for (let i = 13; i >= 0; i--) {
     const day = today - i;
@@ -270,16 +326,6 @@ app.get('/admin', async (req, res) => {
     `<div class="bar"><div class="fill" style="height:${Math.round(100 * d.n / maxDay)}%"></div><small>${d.n}</small><span>${d.label}</span></div>`
   ).join('');
 
-  const trs = shown.map(v => {
-    const prof = v.user_id ? byId.get(v.user_id) : null;
-    const nick = prof ? prof.nick : (v.last_nick || '—');
-    const badge = prof ? '<b style="color:#21c07a">✔ рег.</b>' : '<span style="color:#8892b0">гость</span>';
-    const games = v.games > 0 ? `<b>${v.games}</b>` : '<span style="color:#c0392b">0</span>';
-    const region = v.tz ? v.tz.split('/').pop().replace(/_/g, ' ') : '—';
-    const href = `/admin/v?key=${ADMIN_KEY}&d=${encodeURIComponent(v.device_id)}`;
-    return `<tr class="click" onclick="location.href='${href}'"><td>${esc(nick)} ›</td><td>${badge}</td><td>${mskFmt(v.first_seen)}</td><td>${mskFmt(v.last_seen)}</td><td>${v.visits}</td><td>${games}</td><td>${esc(v.lang || '—')}</td><td>${esc(region)}</td></tr>`;
-  }).join('');
-
   res.send(adminPage('WallRush — статистика', `
 <meta http-equiv="refresh" content="60">
 <h1>🧱 WallRush — статистика <span style="font-size:11px;color:#667">(обновляется каждую минуту)</span></h1>
@@ -288,22 +334,17 @@ app.get('/admin', async (req, res) => {
   <div class="c"><b>${realOnline() + fakeOnline()}</b><span>показано «онлайн»</span></div>
   <div class="c"><b>${newToday}</b><span>новых сегодня</span></div>
   <div class="c"><b>${activeToday}</b><span>заходили сегодня</span></div>
+  <div class="c"><b>${installs}</b><span>📲 установили приложение</span></div>
   <div class="c"><b>${all.length}</b><span>всего людей</span></div>
   <div class="c"><b>${totalGames}</b><span>партий всего</span></div>
 </div>
+<div class="tabs" style="margin-top:14px">
+  ${viewTab('people', '👥 Люди')}
+  ${viewTab('days', '📅 По дням')}
+</div>
 <h2>Новые люди по дням (14 дней)</h2>
 <div class="chart">${bars}</div>
-<h2>Журнал — нажми на человека, чтобы увидеть его историю</h2>
-<div class="tabs">
-  ${tab('all', 'Все', all.length)}
-  ${tab('played', '🎮 Играли', played)}
-  ${tab('zero', '👀 Только смотрели', all.length - played)}
-  ${tab('reg', '✔ Регистрация', regs)}
-</div>
-<div class="wrap"><table>
-<tr><th>Ник</th><th>Статус</th><th>Первый заход (МСК)</th><th>Последний</th><th>Заходов</th><th>Партий</th><th>Язык</th><th>Регион</th></tr>
-${trs}
-</table></div>`));
+${content}`));
 });
 
 // one person's page: everything about a single device + day-by-day timeline
@@ -312,7 +353,7 @@ app.get('/admin/v', async (req, res) => {
   if (!dbEnabled) return res.send('DB is off');
   const device = String(req.query.d || '');
   const { data: v } = await supa.from('visitors')
-    .select('device_id, first_seen, last_seen, visits, games, last_nick, user_id, lang, tz')
+    .select('device_id, first_seen, last_seen, visits, games, last_nick, user_id, lang, tz, installed_at')
     .eq('device_id', device).maybeSingle();
   if (!v) return res.send(adminPage('Не найден', `<a class="back" href="/admin?key=${ADMIN_KEY}">‹ Назад</a><p>Человек не найден.</p>`));
   const prof = v.user_id ? (await supa.from('profiles').select('nick, wins, losses').eq('id', v.user_id).maybeSingle()).data : null;
@@ -345,6 +386,7 @@ app.get('/admin/v', async (req, res) => {
     <span>Всего партий</span><b>${v.games}</b>
     <span>Язык устройства</span><b>${esc(v.lang || 'неизвестно')}</b>
     <span>Регион</span><b>${esc(region)}</b>
+    <span>Приложение</span><b>${v.installed_at ? `📲 установил (${mskFmt(v.installed_at)})` : 'не устанавливал'}</b>
     ${prof ? `<span>Побед / поражений</span><b>${prof.wins} / ${prof.losses} (против живых)</b>` : ''}
   </div>
 </div>
