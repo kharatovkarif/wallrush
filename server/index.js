@@ -140,6 +140,11 @@ app.post('/api/visit', async (req, res) => {
         user_id: user ? user.id : null,
       });
     }
+    // per-event log: powers the per-person timeline on the admin page
+    await supa.from('visit_log').insert({ device_id: device, kind: game ? 'game' : 'visit' });
+    if (Math.random() < 0.01) { // occasional cleanup: keep 60 days
+      await supa.from('visit_log').delete().lt('at', new Date(Date.now() - 60 * 86400e3).toISOString());
+    }
   } catch (e) {
     console.error('visit log failed:', e.message);
   }
@@ -168,83 +173,185 @@ const mskFmt = (iso) => {
   return `${p(d.getUTCDate())}.${p(d.getUTCMonth() + 1)} ${p(d.getUTCHours())}:${p(d.getUTCMinutes())}`;
 };
 
+const dayMs = 86400e3;
+const mskDayStart = (t) => Math.floor((t + 3 * 3600e3) / dayMs);
+const mskDayLabel = (dayIdx) => {
+  const d = new Date(dayIdx * dayMs - 3 * 3600e3 + 12 * 3600e3);
+  return `${String(d.getUTCDate()).padStart(2, '0')}.${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
+};
+
+const ADMIN_CSS = `
+  body { font-family: system-ui, sans-serif; background: #12141f; color: #e8ecf8; margin: 0; padding: 14px; }
+  h1 { font-size: 19px; margin: 4px 0 12px; } h2 { font-size: 15px; margin: 20px 0 8px; color: #aab3d0; }
+  a { color: #6d9bf8; text-decoration: none; }
+  .cards { display: flex; flex-wrap: wrap; gap: 8px; }
+  .c { background: #1c2033; border-radius: 12px; padding: 10px 14px; min-width: 96px; }
+  .c b { font-size: 22px; display: block; } .c span { font-size: 11px; color: #8892b0; }
+  table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  th, td { text-align: left; padding: 7px 8px; border-bottom: 1px solid #262c42; white-space: nowrap; }
+  th { color: #8892b0; font-size: 11px; position: sticky; top: 0; background: #12141f; }
+  tr.click { cursor: pointer; } tr.click:active { background: #1c2033; }
+  .wrap { overflow-x: auto; }
+  .chart { display: flex; align-items: flex-end; gap: 5px; height: 110px; padding-top: 14px; }
+  .bar { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; height: 100%; }
+  .bar .fill { width: 100%; background: #2f6df6; border-radius: 4px 4px 0 0; min-height: 2px; }
+  .bar small { font-size: 10px; color: #cfd6ee; margin: 2px 0; } .bar span { font-size: 9px; color: #667; }
+  .tabs { display: flex; gap: 8px; margin: 10px 0; flex-wrap: wrap; }
+  .tabs a { background: #1c2033; border-radius: 10px; padding: 7px 12px; font-size: 13px; color: #cfd6ee; }
+  .tabs a.on { background: #2f6df6; color: #fff; }
+  .person { background: #1c2033; border-radius: 14px; padding: 14px; margin-bottom: 14px; }
+  .person b.nick { font-size: 20px; }
+  .kv { display: grid; grid-template-columns: auto 1fr; gap: 4px 14px; margin-top: 10px; font-size: 13px; }
+  .kv span { color: #8892b0; }
+  .back { display: inline-block; margin-bottom: 10px; font-size: 14px; }`;
+
+const adminPage = (title, body) => `<!DOCTYPE html><html lang="ru"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#12141f">
+<link rel="manifest" href="/admin/manifest.json?key=${ADMIN_KEY}">
+<link rel="apple-touch-icon" href="/icons/admin-192.png">
+<title>${title}</title><style>${ADMIN_CSS}</style></head><body>${body}</body></html>`;
+
+// installable "WR Stats" app: the manifest itself is key-protected, so the
+// secret start_url never sits in a public file
+app.get('/admin/manifest.json', (req, res) => {
+  if ((req.query.key || '') !== ADMIN_KEY) return res.status(404).send('Not found');
+  res.json({
+    name: 'WallRush Статистика',
+    short_name: 'WR Stats',
+    start_url: `/admin?key=${ADMIN_KEY}`,
+    scope: '/admin',
+    display: 'standalone',
+    background_color: '#12141f',
+    theme_color: '#12141f',
+    icons: [
+      { src: '/icons/admin-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
+      { src: '/icons/admin-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
+      { src: '/icons/admin-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+    ],
+  });
+});
+
 app.get('/admin', async (req, res) => {
   if ((req.query.key || '') !== ADMIN_KEY) return res.status(404).send('Not found');
   if (!dbEnabled) return res.send('DB is off');
   const { data: rows } = await supa.from('visitors')
-    .select('first_seen, last_seen, visits, games, last_nick, user_id, lang, tz')
-    .order('last_seen', { ascending: false }).limit(300);
+    .select('device_id, first_seen, last_seen, visits, games, last_nick, user_id, lang, tz')
+    .order('last_seen', { ascending: false }).limit(500);
   const { data: profs } = await supa.from('profiles').select('id, nick, wins, losses');
   const byId = new Map((profs || []).map(p => [p.id, p]));
   const all = rows || [];
 
   const played = all.filter(v => v.games > 0).length;
+  const regs = all.filter(v => v.user_id).length;
   const totalGames = all.reduce((s, v) => s + v.games, 0);
-  const dayMs = 86400e3;
-  const mskDayStart = (t) => Math.floor((t + 3 * 3600e3) / dayMs);
   const today = mskDayStart(Date.now());
   const newToday = all.filter(v => mskDayStart(new Date(v.first_seen).getTime()) === today).length;
+  const activeToday = all.filter(v => mskDayStart(new Date(v.last_seen).getTime()) === today).length;
+
+  // filter tabs: all / played / watched only / registered
+  const f = String(req.query.f || 'all');
+  const shown = all.filter(v =>
+    f === 'played' ? v.games > 0 :
+    f === 'zero' ? v.games === 0 :
+    f === 'reg' ? Boolean(v.user_id) : true);
+  const tab = (id, label, n) =>
+    `<a class="${f === id ? 'on' : ''}" href="/admin?key=${ADMIN_KEY}&f=${id}">${label} (${n})</a>`;
 
   // new devices per day, last 14 days
   const days = [];
   for (let i = 13; i >= 0; i--) {
     const day = today - i;
     const n = all.filter(v => mskDayStart(new Date(v.first_seen).getTime()) === day).length;
-    const d = new Date((day * dayMs) - 3 * 3600e3 + 12 * 3600e3);
-    days.push({ label: `${String(d.getUTCDate()).padStart(2, '0')}.${String(d.getUTCMonth() + 1).padStart(2, '0')}`, n });
+    days.push({ label: mskDayLabel(day), n });
   }
   const maxDay = Math.max(1, ...days.map(d => d.n));
+  const bars = days.map(d =>
+    `<div class="bar"><div class="fill" style="height:${Math.round(100 * d.n / maxDay)}%"></div><small>${d.n}</small><span>${d.label}</span></div>`
+  ).join('');
 
-  const trs = all.map(v => {
+  const trs = shown.map(v => {
     const prof = v.user_id ? byId.get(v.user_id) : null;
     const nick = prof ? prof.nick : (v.last_nick || '—');
     const badge = prof ? '<b style="color:#21c07a">✔ рег.</b>' : '<span style="color:#8892b0">гость</span>';
     const games = v.games > 0 ? `<b>${v.games}</b>` : '<span style="color:#c0392b">0</span>';
     const region = v.tz ? v.tz.split('/').pop().replace(/_/g, ' ') : '—';
-    return `<tr><td>${esc(nick)}</td><td>${badge}</td><td>${mskFmt(v.first_seen)}</td><td>${mskFmt(v.last_seen)}</td><td>${v.visits}</td><td>${games}</td><td>${esc(v.lang || '—')}</td><td>${esc(region)}</td></tr>`;
+    const href = `/admin/v?key=${ADMIN_KEY}&d=${encodeURIComponent(v.device_id)}`;
+    return `<tr class="click" onclick="location.href='${href}'"><td>${esc(nick)} ›</td><td>${badge}</td><td>${mskFmt(v.first_seen)}</td><td>${mskFmt(v.last_seen)}</td><td>${v.visits}</td><td>${games}</td><td>${esc(v.lang || '—')}</td><td>${esc(region)}</td></tr>`;
   }).join('');
 
-  const bars = days.map(d =>
-    `<div class="bar"><div class="fill" style="height:${Math.round(100 * d.n / maxDay)}%"></div><small>${d.n}</small><span>${d.label}</span></div>`
-  ).join('');
-
-  res.send(`<!DOCTYPE html><html lang="ru"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+  res.send(adminPage('WallRush — статистика', `
 <meta http-equiv="refresh" content="60">
-<title>WallRush — статистика</title>
-<style>
-  body { font-family: system-ui, sans-serif; background: #12141f; color: #e8ecf8; margin: 0; padding: 14px; }
-  h1 { font-size: 19px; margin: 4px 0 12px; } h2 { font-size: 15px; margin: 20px 0 8px; color: #aab3d0; }
-  .cards { display: flex; flex-wrap: wrap; gap: 8px; }
-  .c { background: #1c2033; border-radius: 12px; padding: 10px 14px; min-width: 96px; }
-  .c b { font-size: 22px; display: block; } .c span { font-size: 11px; color: #8892b0; }
-  table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
-  th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid #262c42; white-space: nowrap; }
-  th { color: #8892b0; font-size: 11px; position: sticky; top: 0; background: #12141f; }
-  .wrap { overflow-x: auto; }
-  .chart { display: flex; align-items: flex-end; gap: 5px; height: 110px; padding-top: 14px; }
-  .bar { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; height: 100%; }
-  .bar .fill { width: 100%; background: #2f6df6; border-radius: 4px 4px 0 0; min-height: 2px; }
-  .bar small { font-size: 10px; color: #cfd6ee; margin: 2px 0; } .bar span { font-size: 9px; color: #667; }
-</style></head><body>
 <h1>🧱 WallRush — статистика <span style="font-size:11px;color:#667">(обновляется каждую минуту)</span></h1>
 <div class="cards">
   <div class="c"><b>${realOnline()}</b><span>сейчас на сайте (реально)</span></div>
   <div class="c"><b>${realOnline() + fakeOnline()}</b><span>показано «онлайн»</span></div>
   <div class="c"><b>${newToday}</b><span>новых сегодня</span></div>
+  <div class="c"><b>${activeToday}</b><span>заходили сегодня</span></div>
   <div class="c"><b>${all.length}</b><span>всего людей</span></div>
-  <div class="c"><b>${played}</b><span>из них играли</span></div>
-  <div class="c"><b>${(profs || []).length}</b><span>с регистрацией</span></div>
   <div class="c"><b>${totalGames}</b><span>партий всего</span></div>
 </div>
 <h2>Новые люди по дням (14 дней)</h2>
 <div class="chart">${bars}</div>
-<h2>Журнал: каждый человек (устройство), свежие сверху</h2>
+<h2>Журнал — нажми на человека, чтобы увидеть его историю</h2>
+<div class="tabs">
+  ${tab('all', 'Все', all.length)}
+  ${tab('played', '🎮 Играли', played)}
+  ${tab('zero', '👀 Только смотрели', all.length - played)}
+  ${tab('reg', '✔ Регистрация', regs)}
+</div>
 <div class="wrap"><table>
 <tr><th>Ник</th><th>Статус</th><th>Первый заход (МСК)</th><th>Последний</th><th>Заходов</th><th>Партий</th><th>Язык</th><th>Регион</th></tr>
 ${trs}
-</table></div>
-</body></html>`);
+</table></div>`));
+});
+
+// one person's page: everything about a single device + day-by-day timeline
+app.get('/admin/v', async (req, res) => {
+  if ((req.query.key || '') !== ADMIN_KEY) return res.status(404).send('Not found');
+  if (!dbEnabled) return res.send('DB is off');
+  const device = String(req.query.d || '');
+  const { data: v } = await supa.from('visitors')
+    .select('device_id, first_seen, last_seen, visits, games, last_nick, user_id, lang, tz')
+    .eq('device_id', device).maybeSingle();
+  if (!v) return res.send(adminPage('Не найден', `<a class="back" href="/admin?key=${ADMIN_KEY}">‹ Назад</a><p>Человек не найден.</p>`));
+  const prof = v.user_id ? (await supa.from('profiles').select('nick, wins, losses').eq('id', v.user_id).maybeSingle()).data : null;
+  const { data: log } = await supa.from('visit_log')
+    .select('kind, at').eq('device_id', device).order('at', { ascending: false }).limit(1000);
+
+  // group events by MSK day
+  const byDay = new Map();
+  for (const e of (log || [])) {
+    const day = mskDayStart(new Date(e.at).getTime());
+    const rec = byDay.get(day) || { visits: 0, games: 0, last: e.at };
+    if (e.kind === 'game') rec.games++; else rec.visits++;
+    byDay.set(day, rec);
+  }
+  const dayRows = [...byDay.entries()].sort((a, b) => b[0] - a[0]).map(([day, r]) =>
+    `<tr><td>${mskDayLabel(day)}</td><td>${r.visits}</td><td>${r.games > 0 ? `<b>${r.games}</b>` : '<span style="color:#c0392b">0</span>'}</td></tr>`
+  ).join('');
+
+  const nick = prof ? prof.nick : (v.last_nick || '—');
+  const region = v.tz ? v.tz.split('/').pop().replace(/_/g, ' ') : '—';
+  res.send(adminPage(`${nick} — WallRush`, `
+<a class="back" href="/admin?key=${ADMIN_KEY}">‹ Назад к списку</a>
+<div class="person">
+  <b class="nick">${esc(nick)}</b>
+  ${prof ? '<b style="color:#21c07a"> ✔ зарегистрирован</b>' : '<span style="color:#8892b0"> · гость</span>'}
+  <div class="kv">
+    <span>Первый заход</span><b>${mskFmt(v.first_seen)} (МСК)</b>
+    <span>Последний раз</span><b>${mskFmt(v.last_seen)}</b>
+    <span>Всего заходов</span><b>${v.visits}</b>
+    <span>Всего партий</span><b>${v.games}</b>
+    <span>Язык устройства</span><b>${esc(v.lang || 'неизвестно')}</b>
+    <span>Регион</span><b>${esc(region)}</b>
+    ${prof ? `<span>Побед / поражений</span><b>${prof.wins} / ${prof.losses} (против живых)</b>` : ''}
+  </div>
+</div>
+<h2>По дням: когда заходил и сколько играл</h2>
+${dayRows
+    ? `<div class="wrap"><table><tr><th>День</th><th>Заходов</th><th>Партий</th></tr>${dayRows}</table></div>`
+    : '<p style="color:#8892b0;font-size:13px">Подробная история пишется с 19.07 — у этого человека записей пока нет. Появятся при следующем его заходе.</p>'}`));
 });
 
 app.get('/healthz', (req, res) => res.send('ok'));
