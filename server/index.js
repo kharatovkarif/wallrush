@@ -279,7 +279,7 @@ app.get('/admin', async (req, res) => {
         `<a href="/admin/v?key=${ADMIN_KEY}&d=${encodeURIComponent(v.device_id)}">${esc(visName(v, byId))}</a>`
       ).join(', ') || '—';
       blocks.push(`<div class="person">
-        <b>${mskDayLabel(day)}${day === today ? ' — сегодня' : ''}</b>
+        <b><a href="/admin/day?key=${ADMIN_KEY}&day=${day}">${mskDayLabel(day)}${day === today ? ' — сегодня' : ''} · по часам →</a></b>
         <div class="kv">
           <span>Новых</span><b>${fresh.length}</b>
           <span>Заходили</span><b>${rec ? rec.active.size : fresh.length}</b>
@@ -354,6 +354,57 @@ ${trs}
 <h2>Новые люди по дням (14 дней)</h2>
 <div class="chart">${bars}</div>
 ${content}`));
+});
+
+// one day's page: hour-by-hour breakdown (people + games per MSK hour)
+app.get('/admin/day', async (req, res) => {
+  if ((req.query.key || '') !== ADMIN_KEY) return res.status(404).send('Not found');
+  if (!dbEnabled) return res.send('DB is off');
+  const day = parseInt(String(req.query.day || ''), 10);
+  if (!Number.isFinite(day)) return res.redirect(`/admin?key=${ADMIN_KEY}`);
+  const startIso = new Date(day * dayMs - 3 * 3600e3).toISOString();
+  const endIso = new Date((day + 1) * dayMs - 3 * 3600e3).toISOString();
+  const { data: log } = await supa.from('visit_log')
+    .select('device_id, kind, at').gte('at', startIso).lt('at', endIso).limit(20000);
+  const { data: rows } = await supa.from('visitors')
+    .select('device_id, first_seen, last_seen, visits, games, last_nick, user_id, installed_at, standalone_at')
+    .order('last_seen', { ascending: false }).limit(500);
+  const { data: profs } = await supa.from('profiles').select('id, nick');
+  const byId = new Map((profs || []).map(p => [p.id, p]));
+  const byDevice = new Map((rows || []).map(v => [v.device_id, v]));
+
+  const hours = Array.from({ length: 24 }, () => ({ set: new Set(), games: 0 }));
+  const dayDevices = new Set();
+  let dayGames = 0;
+  for (const e of (log || [])) {
+    const t = new Date(e.at).getTime();
+    const h = Math.floor(((t + 3 * 3600e3) % dayMs) / 3600e3);
+    hours[h].set.add(e.device_id);
+    dayDevices.add(e.device_id);
+    if (e.kind === 'game') { hours[h].games++; dayGames++; }
+  }
+  const fresh = (rows || []).filter(v => mskDayStart(new Date(v.first_seen).getTime()) === day).length;
+  const trs = hours.map((x, h) => {
+    const dim = x.set.size === 0 && x.games === 0;
+    return `<tr${dim ? ' style="opacity:.35"' : ''}><td>${String(h).padStart(2, '0')}:00</td><td>${x.set.size ? `<b>${x.set.size}</b>` : 0}</td><td>${x.games ? `<b>${x.games}</b>` : 0}</td></tr>`;
+  }).join('');
+  const people = [...dayDevices].map(id => byDevice.get(id)).filter(Boolean).map(v =>
+    `<a href="/admin/v?key=${ADMIN_KEY}&d=${encodeURIComponent(v.device_id)}">${esc(visName(v, byId))}</a>`).join(', ') || '—';
+
+  res.send(adminPage(`${mskDayLabel(day)} — WallRush`, `
+<a class="back" href="/admin?key=${ADMIN_KEY}&view=days">‹ Назад к дням</a>
+<div class="person">
+  <b>${mskDayLabel(day)}${day === mskDayStart(Date.now()) ? ' — сегодня' : ''}</b>
+  <div class="kv">
+    <span>Заходили</span><b>${dayDevices.size}</b>
+    <span>Новых</span><b>${fresh}</b>
+    <span>Партий</span><b>${dayGames}</b>
+  </div>
+</div>
+<h2>По часам (МСК)</h2>
+<div class="wrap"><table><tr><th>Час</th><th>Людей</th><th>Партий</th></tr>${trs}</table></div>
+<h2>Кто был в этот день (нажми на ник)</h2>
+<p style="font-size:13px;line-height:1.9">${people}</p>`));
 });
 
 // one person's page: everything about a single device + day-by-day timeline
