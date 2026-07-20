@@ -132,6 +132,7 @@ app.post('/api/visit', async (req, res) => {
         ...(tz ? { tz } : {}),
         ...(user ? { user_id: user.id } : {}),
         ...(installed && !ex.installed_at ? { installed_at: new Date().toISOString() } : {}),
+        ...(installed ? { standalone_at: new Date().toISOString() } : {}), // every launch from the icon
       }).eq('device_id', device);
     } else {
       await supa.from('visitors').insert({
@@ -141,6 +142,7 @@ app.post('/api/visit', async (req, res) => {
         lang, tz,
         user_id: user ? user.id : null,
         installed_at: installed ? new Date().toISOString() : null,
+        standalone_at: installed ? new Date().toISOString() : null,
       });
     }
     // per-event log: powers the per-person timeline on the admin page
@@ -214,17 +216,24 @@ const adminPage = (title, body) => `<!DOCTYPE html><html lang="ru"><head><meta c
 <title>${title}</title><style>${ADMIN_CSS}</style></head><body>${body}</body></html>`;
 
 // display name for a visitor row: 📲 = installed the game as an app
+// installed but hasn't launched from the icon for a week while still visiting
+// in the browser → most likely removed the app (the platform gives no direct
+// uninstall signal, this is the honest best guess)
+const maybeDeleted = (v) => Boolean(v.installed_at) &&
+  (!v.standalone_at || (Date.now() - new Date(v.standalone_at).getTime() > 7 * dayMs &&
+    new Date(v.last_seen).getTime() > new Date(v.standalone_at).getTime()));
+
 const visName = (v, byId) => {
   const prof = v.user_id ? byId.get(v.user_id) : null;
   const base = prof ? prof.nick : (v.last_nick || '—');
-  return (v.installed_at ? '📲 ' : '') + base;
+  return (v.installed_at ? (maybeDeleted(v) ? '📲❓ ' : '📲 ') : '') + base;
 };
 
 app.get('/admin', async (req, res) => {
   if ((req.query.key || '') !== ADMIN_KEY) return res.status(404).send('Not found');
   if (!dbEnabled) return res.send('DB is off');
   const { data: rows } = await supa.from('visitors')
-    .select('device_id, first_seen, last_seen, visits, games, last_nick, user_id, lang, tz, installed_at')
+    .select('device_id, first_seen, last_seen, visits, games, last_nick, user_id, lang, tz, installed_at, standalone_at')
     .order('last_seen', { ascending: false }).limit(500);
   const { data: profs } = await supa.from('profiles').select('id, nick, wins, losses');
   const byId = new Map((profs || []).map(p => [p.id, p]));
@@ -353,7 +362,7 @@ app.get('/admin/v', async (req, res) => {
   if (!dbEnabled) return res.send('DB is off');
   const device = String(req.query.d || '');
   const { data: v } = await supa.from('visitors')
-    .select('device_id, first_seen, last_seen, visits, games, last_nick, user_id, lang, tz, installed_at')
+    .select('device_id, first_seen, last_seen, visits, games, last_nick, user_id, lang, tz, installed_at, standalone_at')
     .eq('device_id', device).maybeSingle();
   if (!v) return res.send(adminPage('Не найден', `<a class="back" href="/admin?key=${ADMIN_KEY}">‹ Назад</a><p>Человек не найден.</p>`));
   const prof = v.user_id ? (await supa.from('profiles').select('nick, wins, losses').eq('id', v.user_id).maybeSingle()).data : null;
@@ -386,7 +395,9 @@ app.get('/admin/v', async (req, res) => {
     <span>Всего партий</span><b>${v.games}</b>
     <span>Язык устройства</span><b>${esc(v.lang || 'неизвестно')}</b>
     <span>Регион</span><b>${esc(region)}</b>
-    <span>Приложение</span><b>${v.installed_at ? `📲 установил (${mskFmt(v.installed_at)})` : 'не устанавливал'}</b>
+    <span>Приложение</span><b>${!v.installed_at ? 'не устанавливал'
+      : maybeDeleted(v) ? `📲❓ установил ${mskFmt(v.installed_at)}, но с иконки давно не заходил — возможно удалил`
+      : `📲 установил (${mskFmt(v.installed_at)})${v.standalone_at ? `, запуск с иконки: ${mskFmt(v.standalone_at)}` : ''}`}</b>
     ${prof ? `<span>Побед / поражений</span><b>${prof.wins} / ${prof.losses} (против живых)</b>` : ''}
   </div>
 </div>
