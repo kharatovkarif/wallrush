@@ -1,7 +1,7 @@
 // WallRush client app: screens, board UI, online play (WebSocket), AI mode, auth.
-import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=38';
-import { aiMove } from './ai.js?v=38';
-import { makeT } from './i18n.js?v=38';
+import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=39';
+import { aiMove } from './ai.js?v=39';
+import { makeT } from './i18n.js?v=39';
 
 /* ================= state ================= */
 const $ = (id) => document.getElementById(id);
@@ -128,7 +128,7 @@ function getAiWorker() {
   if (aiWorker === false) return null;
   if (!aiWorker) {
     try {
-      aiWorker = new Worker('js/ai-worker.js?v=38', { type: 'module' });
+      aiWorker = new Worker('js/ai-worker.js?v=39', { type: 'module' });
       aiWorker.onmessage = (e) => {
         const cb = aiPending.get(e.data.id);
         aiPending.delete(e.data.id);
@@ -1283,9 +1283,8 @@ window.addEventListener('beforeinstallprompt', (e) => {
   e.preventDefault();
   installEvt = e;
   $('install-row').hidden = false;
-  if (localStorage.getItem('wr_inst_hide') !== '1' && !runsInstalled()) {
-    $('install-banner').hidden = false;
-  }
+  // show the banner on every visit/reload (closing only hides it for now)
+  if (!runsInstalled()) $('install-banner').hidden = false;
 });
 async function doInstall() {
   if (!installEvt) return;
@@ -1298,8 +1297,7 @@ async function doInstall() {
 $('btn-install').addEventListener('click', doInstall);
 $('install-banner-go').addEventListener('click', doInstall);
 $('install-banner-close').addEventListener('click', () => {
-  $('install-banner').hidden = true;
-  localStorage.setItem('wr_inst_hide', '1'); // asked once — don't nag
+  $('install-banner').hidden = true; // just for this view — returns on next reload
 });
 
 $('theme-toggle').addEventListener('change', (e) => {
