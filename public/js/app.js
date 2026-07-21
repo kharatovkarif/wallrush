@@ -1,7 +1,7 @@
 // WallRush client app: screens, board UI, online play (WebSocket), AI mode, auth.
-import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=36';
-import { aiMove } from './ai.js?v=36';
-import { makeT } from './i18n.js?v=36';
+import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=37';
+import { aiMove } from './ai.js?v=37';
+import { makeT } from './i18n.js?v=37';
 
 /* ================= state ================= */
 const $ = (id) => document.getElementById(id);
@@ -128,7 +128,7 @@ function getAiWorker() {
   if (aiWorker === false) return null;
   if (!aiWorker) {
     try {
-      aiWorker = new Worker('js/ai-worker.js?v=36', { type: 'module' });
+      aiWorker = new Worker('js/ai-worker.js?v=37', { type: 'module' });
       aiWorker.onmessage = (e) => {
         const cb = aiPending.get(e.data.id);
         aiPending.delete(e.data.id);
@@ -335,7 +335,7 @@ $('btn-quick').addEventListener('click', () => { wsSend({ t: 'quick' }); show('s
 $('btn-friend').addEventListener('click', () => show('screen-friend'));
 $('btn-friend-create').addEventListener('click', () => wsSend({ t: 'create_room', private: true }));
 
-/* ---- race mode entry points ---- */
+/* ---- race mode entry points (online only: real players and bots) ---- */
 $('btn-race').addEventListener('click', () => show('screen-race'));
 $('race-quick').addEventListener('click', () => {
   wsSend({ t: 'quick', mode: 'race' });
@@ -343,8 +343,8 @@ $('race-quick').addEventListener('click', () => {
   $('waiting-code').hidden = true;
 });
 $('race-friend').addEventListener('click', () => wsSend({ t: 'create_room', private: true, mode: 'race' }));
-$('race-ai-normal').addEventListener('click', () => startAiGame('normal', 'race'));
-$('race-ai-hard').addEventListener('click', () => startAiGame('hard', 'race'));
+$('race-rooms').addEventListener('click', () => show('screen-rooms'));
+$('btn-create-race').addEventListener('click', () => wsSend({ t: 'create_room', private: false, mode: 'race' }));
 $('btn-friend-join').addEventListener('click', () => {
   const code = $('friend-code-input').value.trim().toUpperCase();
   if (code.length >= 4) wsSend({ t: 'join_code', code });

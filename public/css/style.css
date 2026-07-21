@@ -143,6 +143,11 @@ html[data-theme="dark"] #install-banner { background: #1c2033; }
 .card-race { background: linear-gradient(120deg, #17b978, #0e9d63); color: #fff; }
 .card-race small { color: rgba(255,255,255,.75); }
 
+/* two room types side by side in the lobby */
+.create-row { display: flex; gap: 10px; }
+.create-row .btn-big { flex: 1; font-size: 14px; padding: 14px 8px; }
+.btn-create-race { background: linear-gradient(120deg, #17b978, #0e9d63); box-shadow: 0 6px 18px rgba(23, 185, 120, .35); }
+
 /* social links (home footer): brand-colored app-style tiles */
 .social-block { margin: 24px 0 6px; }
 .social-label { text-align: center; color: var(--muted); font-size: 12px; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 12px; }

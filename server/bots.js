@@ -317,11 +317,12 @@ function rotationTick() {
     const b = room.players[0];
     if (now > b.openDeadline) api.leaveRoom(b, false);
   }
-  // top up to the current target
+  // top up to the current target; about a third of bot rooms are race rooms,
+  // so the lobby shows both kinds like real players would create
   if (botOpenRooms().length < rotTarget && Math.random() < 0.75) {
     const b = pickIdle();
     if (b) {
-      api.createRoom(b, false);
+      api.createRoom(b, false, Math.random() < 0.35 ? 'race' : 'duel');
       b.openDeadline = now + 12_000 + Math.random() * 35_000;
     }
   }

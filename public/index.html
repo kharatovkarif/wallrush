@@ -8,7 +8,7 @@
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect x='8' y='14' width='84' height='30' rx='8' fill='%237c5cff'/><rect x='8' y='56' width='40' height='30' rx='8' fill='%237c5cff'/><rect x='56' y='56' width='36' height='30' rx='8' fill='%23b3a1ff'/></svg>">
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <link rel="stylesheet" href="css/style.css?v=36">
+  <link rel="stylesheet" href="css/style.css?v=37">
 </head>
 <body>
   <div id="app">
@@ -86,7 +86,10 @@
         <h2 data-i18n="rooms_title"></h2>
       </header>
       <div id="rooms-list" class="rooms-list"></div>
-      <button class="btn-big" id="btn-create-room" data-i18n="create_room"></button>
+      <div class="create-row">
+        <button class="btn-big" id="btn-create-room" data-i18n="create_duel"></button>
+        <button class="btn-big btn-create-race" id="btn-create-race" data-i18n="create_race"></button>
+      </div>
     </section>
 
     <!-- ============ FRIEND (private code) ============ -->
@@ -122,14 +125,9 @@
           <div class="card-text"><b data-i18n="play_friend"></b><small data-i18n="play_friend_sub"></small></div>
           <div class="card-arrow">›</div>
         </button>
-        <button class="card card-light" id="race-ai-normal">
-          <div class="card-icon lvl-normal">😎</div>
-          <div class="card-text"><b data-i18n="ai_normal"></b><small data-i18n="play_ai"></small></div>
-          <div class="card-arrow">›</div>
-        </button>
-        <button class="card card-light" id="race-ai-hard">
-          <div class="card-icon lvl-hard">🔥</div>
-          <div class="card-text"><b data-i18n="ai_hard"></b><small data-i18n="play_ai"></small></div>
+        <button class="card card-light" id="race-rooms">
+          <div class="card-icon dark">🌐</div>
+          <div class="card-text"><b data-i18n="play_online"></b><small data-i18n="play_online_sub"></small></div>
           <div class="card-arrow">›</div>
         </button>
       </div>
@@ -383,7 +381,7 @@
     <div id="toast" hidden></div>
   </div>
 
-  <script src="vendor/supabase.js?v=36" defer></script>
-  <script type="module" src="js/app.js?v=36"></script>
+  <script src="vendor/supabase.js?v=37" defer></script>
+  <script type="module" src="js/app.js?v=37"></script>
 </body>
 </html>
