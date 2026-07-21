@@ -218,12 +218,19 @@ const ADMIN_CSS = `
   .kv span { color: #8892b0; }
   .back { display: inline-block; margin-bottom: 10px; font-size: 14px; }`;
 
+const nowMskHms = () => {
+  const d = new Date(Date.now() + 3 * 3600e3);
+  const p = (n) => String(n).padStart(2, '0');
+  return `${p(d.getUTCHours())}:${p(d.getUTCMinutes())}:${p(d.getUTCSeconds())}`;
+};
 const adminPage = (title, body) => `<!DOCTYPE html><html lang="ru"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#12141f">
-<meta http-equiv="refresh" content="60">
+<meta http-equiv="refresh" content="30">
 <meta http-equiv="Cache-Control" content="no-store">
-<title>${title}</title><style>${ADMIN_CSS}</style></head><body>${body}</body></html>`;
+<title>${title}</title><style>${ADMIN_CSS}</style></head><body>${body}
+<p style="text-align:center;color:#5b6480;font-size:12px;margin:18px 0 6px">🕐 обновлено в ${nowMskHms()} МСК · страница сама обновляется каждые 30 сек</p>
+</body></html>`;
 
 // display name for a visitor row: 📲 = installed the game as an app
 // installed but hasn't launched from the icon for a week while still visiting
