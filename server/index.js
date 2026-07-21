@@ -171,6 +171,14 @@ app.post('/api/resolve-login', async (req, res) => {
    /admin?key=<ADMIN_KEY> — full visitor journal: every device, when it came,
    whether it played, how many games; plus live online and daily growth. */
 const ADMIN_KEY = cleanEnv(process.env.ADMIN_KEY) || 'karoboev777';
+
+// never cache admin pages — the browser was showing hours-old stats
+app.use('/admin', (req, res, next) => {
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
+  res.set('Pragma', 'no-cache');
+  res.set('Expires', '0');
+  next();
+});
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
 const mskFmt = (iso) => {
   const d = new Date(new Date(iso).getTime() + 3 * 3600e3);
@@ -213,6 +221,8 @@ const ADMIN_CSS = `
 const adminPage = (title, body) => `<!DOCTYPE html><html lang="ru"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#12141f">
+<meta http-equiv="refresh" content="60">
+<meta http-equiv="Cache-Control" content="no-store">
 <title>${title}</title><style>${ADMIN_CSS}</style></head><body>${body}</body></html>`;
 
 // display name for a visitor row: 📲 = installed the game as an app
@@ -336,7 +346,6 @@ ${trs}
   ).join('');
 
   res.send(adminPage('WallRush — статистика', `
-<meta http-equiv="refresh" content="60">
 <h1>🧱 WallRush — статистика <span style="font-size:11px;color:#667">(обновляется каждую минуту)</span></h1>
 <div class="cards">
   <div class="c"><b>${realOnline()}</b><span>сейчас на сайте (реально)</span></div>
