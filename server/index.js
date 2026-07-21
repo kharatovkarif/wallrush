@@ -271,35 +271,34 @@ app.get('/admin', async (req, res) => {
   let content = '';
   if (view === 'days') {
     // ----- days view: each day = a block with its own numbers and people -----
-    const { data: log } = await supa.from('visit_log')
-      .select('device_id, kind, at')
-      .gt('at', new Date(Date.now() - 14 * dayMs).toISOString())
-      .limit(8000);
-    const byDevice = new Map(all.map(v => [v.device_id, v]));
-    const dmap = new Map(); // day -> { active:Set, games:number }
-    for (const e of (log || [])) {
-      const day = mskDayStart(new Date(e.at).getTime());
-      const rec = dmap.get(day) || { active: new Set(), games: 0 };
-      rec.active.add(e.device_id);
-      if (e.kind === 'game') rec.games++;
-      dmap.set(day, rec);
-    }
+    // aggregate per MSK day IN the database (no 1000-row truncation)
+    const fromTs = new Date((today - 13) * dayMs - 3 * 3600e3).toISOString();
+    const { data: buckets } = await supa.rpc('admin_buckets', {
+      from_ts: fromTs, to_ts: new Date().toISOString(), bucket_secs: 86400, offset_secs: 10800,
+    });
+    const dmap = new Map(); // MSK day index -> { people, games }
+    for (const b of (buckets || [])) dmap.set(Number(b.bucket), { people: Number(b.people), games: Number(b.games) });
+
     const blocks = [];
     for (let day = today; day > today - 14; day--) {
       const rec = dmap.get(day);
       const fresh = all.filter(v => mskDayStart(new Date(v.first_seen).getTime()) === day);
       if (!rec && !fresh.length) continue;
-      const people = rec
-        ? [...rec.active].map(id => byDevice.get(id)).filter(Boolean)
-        : fresh;
-      const list = people.map(v =>
+      // list of who was active that day (distinct devices, small result)
+      const { data: devs } = await supa.rpc('admin_devices', {
+        from_ts: new Date(day * dayMs - 3 * 3600e3).toISOString(),
+        to_ts: new Date((day + 1) * dayMs - 3 * 3600e3).toISOString(),
+      });
+      const byDevice = new Map(all.map(v => [v.device_id, v]));
+      const people = (devs || []).map(d => byDevice.get(d.device_id)).filter(Boolean);
+      const list = (people.length ? people : fresh).map(v =>
         `<a href="/admin/v?key=${ADMIN_KEY}&d=${encodeURIComponent(v.device_id)}">${esc(visName(v, byId))}</a>`
       ).join(', ') || '—';
       blocks.push(`<div class="person">
         <b><a href="/admin/day?key=${ADMIN_KEY}&day=${day}">${mskDayLabel(day)}${day === today ? ' — сегодня' : ''} · по часам →</a></b>
         <div class="kv">
           <span>Новых</span><b>${fresh.length}</b>
-          <span>Заходили</span><b>${rec ? rec.active.size : fresh.length}</b>
+          <span>Заходили</span><b>${rec ? rec.people : fresh.length}</b>
           <span>Партий</span><b>${rec ? rec.games : '—'}</b>
         </div>
         <p style="font-size:13px;line-height:1.8;margin:8px 0 0">${list}</p>
@@ -380,32 +379,33 @@ app.get('/admin/day', async (req, res) => {
   if (!Number.isFinite(day)) return res.redirect(`/admin?key=${ADMIN_KEY}`);
   const startIso = new Date(day * dayMs - 3 * 3600e3).toISOString();
   const endIso = new Date((day + 1) * dayMs - 3 * 3600e3).toISOString();
-  const { data: log } = await supa.from('visit_log')
-    .select('device_id, kind, at').gte('at', startIso).lt('at', endIso).limit(20000);
+  // per-hour counts aggregated in the DB (immune to the 1000-row API limit)
+  const { data: hbk } = await supa.rpc('admin_buckets', {
+    from_ts: startIso, to_ts: endIso, bucket_secs: 3600, offset_secs: 10800,
+  });
+  const { data: devs } = await supa.rpc('admin_devices', { from_ts: startIso, to_ts: endIso });
   const { data: rows } = await supa.from('visitors')
-    .select('device_id, first_seen, last_seen, visits, games, last_nick, user_id, installed_at, standalone_at')
-    .order('last_seen', { ascending: false }).limit(500);
+    .select('device_id, first_seen, last_nick, user_id, installed_at, standalone_at')
+    .limit(500);
   const { data: profs } = await supa.from('profiles').select('id, nick');
   const byId = new Map((profs || []).map(p => [p.id, p]));
   const byDevice = new Map((rows || []).map(v => [v.device_id, v]));
 
-  const hours = Array.from({ length: 24 }, () => ({ set: new Set(), games: 0 }));
-  const dayDevices = new Set();
+  const hours = Array.from({ length: 24 }, () => ({ people: 0, games: 0 }));
   let dayGames = 0;
-  for (const e of (log || [])) {
-    const t = new Date(e.at).getTime();
-    const h = Math.floor(((t + 3 * 3600e3) % dayMs) / 3600e3);
-    hours[h].set.add(e.device_id);
-    dayDevices.add(e.device_id);
-    if (e.kind === 'game') { hours[h].games++; dayGames++; }
+  for (const b of (hbk || [])) {
+    const h = Number(b.bucket) % 24;
+    hours[h] = { people: Number(b.people), games: Number(b.games) };
+    dayGames += Number(b.games);
   }
+  const dayDevices = (devs || []).length;
   const fresh = (rows || []).filter(v => mskDayStart(new Date(v.first_seen).getTime()) === day).length;
   const trs = hours.map((x, h) => {
-    const dim = x.set.size === 0 && x.games === 0;
+    const dim = x.people === 0 && x.games === 0;
     const href = `/admin/hour?key=${ADMIN_KEY}&day=${day}&h=${h}`;
-    return `<tr class="click"${dim ? ' style="opacity:.35"' : ''} onclick="location.href='${href}'"><td>${String(h).padStart(2, '0')}:00 ›</td><td>${x.set.size ? `<b>${x.set.size}</b>` : 0}</td><td>${x.games ? `<b>${x.games}</b>` : 0}</td></tr>`;
+    return `<tr class="click"${dim ? ' style="opacity:.35"' : ''} onclick="location.href='${href}'"><td>${String(h).padStart(2, '0')}:00 ›</td><td>${x.people ? `<b>${x.people}</b>` : 0}</td><td>${x.games ? `<b>${x.games}</b>` : 0}</td></tr>`;
   }).join('');
-  const people = [...dayDevices].map(id => byDevice.get(id)).filter(Boolean).map(v =>
+  const people = (devs || []).map(d => byDevice.get(d.device_id)).filter(Boolean).map(v =>
     `<a href="/admin/v?key=${ADMIN_KEY}&d=${encodeURIComponent(v.device_id)}">${esc(visName(v, byId))}</a>`).join(', ') || '—';
 
   res.send(adminPage(`${mskDayLabel(day)} — WallRush`, `
@@ -413,7 +413,7 @@ app.get('/admin/day', async (req, res) => {
 <div class="person">
   <b>${mskDayLabel(day)}${day === mskDayStart(Date.now()) ? ' — сегодня' : ''}</b>
   <div class="kv">
-    <span>Заходили</span><b>${dayDevices.size}</b>
+    <span>Заходили</span><b>${dayDevices}</b>
     <span>Новых</span><b>${fresh}</b>
     <span>Партий</span><b>${dayGames}</b>
   </div>
@@ -434,34 +434,33 @@ app.get('/admin/hour', async (req, res) => {
     return res.redirect(`/admin?key=${ADMIN_KEY}`);
   }
   const startMs = day * dayMs - 3 * 3600e3 + h * 3600e3;
-  const { data: log } = await supa.from('visit_log')
-    .select('device_id, kind, at')
-    .gte('at', new Date(startMs).toISOString())
-    .lt('at', new Date(startMs + 3600e3).toISOString())
-    .limit(10000);
+  const startIso = new Date(startMs).toISOString();
+  const endIso = new Date(startMs + 3600e3).toISOString();
+  // per-minute counts aggregated in the DB
+  const { data: mbk } = await supa.rpc('admin_buckets', {
+    from_ts: startIso, to_ts: endIso, bucket_secs: 60, offset_secs: 10800,
+  });
+  const { data: devs } = await supa.rpc('admin_devices', { from_ts: startIso, to_ts: endIso });
   const { data: rows } = await supa.from('visitors')
-    .select('device_id, last_seen, games, last_nick, user_id, installed_at, standalone_at')
-    .order('last_seen', { ascending: false }).limit(500);
+    .select('device_id, last_nick, user_id, installed_at, standalone_at').limit(500);
   const { data: profs } = await supa.from('profiles').select('id, nick');
   const byId = new Map((profs || []).map(p => [p.id, p]));
   const byDevice = new Map((rows || []).map(v => [v.device_id, v]));
 
-  const mins = Array.from({ length: 60 }, () => ({ set: new Set(), games: 0 }));
-  const hourDevices = new Set();
+  const mins = Array.from({ length: 60 }, () => ({ people: 0, games: 0 }));
   let hourGames = 0;
-  for (const e of (log || [])) {
-    const m = Math.floor((new Date(e.at).getTime() - startMs) / 60e3);
-    if (m < 0 || m > 59) continue;
-    mins[m].set.add(e.device_id);
-    hourDevices.add(e.device_id);
-    if (e.kind === 'game') { mins[m].games++; hourGames++; }
+  for (const b of (mbk || [])) {
+    const m = Number(b.bucket) % 60;
+    mins[m] = { people: Number(b.people), games: Number(b.games) };
+    hourGames += Number(b.games);
   }
+  const hourDevices = (devs || []).length;
   const hh = String(h).padStart(2, '0');
   const trs = mins.map((x, m) => {
-    const dim = x.set.size === 0 && x.games === 0;
-    return `<tr${dim ? ' style="opacity:.3"' : ''}><td>${hh}:${String(m).padStart(2, '0')}</td><td>${x.set.size ? `<b>${x.set.size}</b>` : 0}</td><td>${x.games ? `<b>${x.games}</b>` : 0}</td></tr>`;
+    const dim = x.people === 0 && x.games === 0;
+    return `<tr${dim ? ' style="opacity:.3"' : ''}><td>${hh}:${String(m).padStart(2, '0')}</td><td>${x.people ? `<b>${x.people}</b>` : 0}</td><td>${x.games ? `<b>${x.games}</b>` : 0}</td></tr>`;
   }).join('');
-  const people = [...hourDevices].map(id => byDevice.get(id)).filter(Boolean).map(v =>
+  const people = (devs || []).map(d => byDevice.get(d.device_id)).filter(Boolean).map(v =>
     `<a href="/admin/v?key=${ADMIN_KEY}&d=${encodeURIComponent(v.device_id)}">${esc(visName(v, byId))}</a>`).join(', ') || '—';
 
   res.send(adminPage(`${mskDayLabel(day)} ${hh}:00 — WallRush`, `
@@ -469,7 +468,7 @@ app.get('/admin/hour', async (req, res) => {
 <div class="person">
   <b>${mskDayLabel(day)}, час ${hh}:00–${hh}:59 (МСК)</b>
   <div class="kv">
-    <span>Людей за час</span><b>${hourDevices.size}</b>
+    <span>Людей за час</span><b>${hourDevices}</b>
     <span>Партий за час</span><b>${hourGames}</b>
   </div>
 </div>
