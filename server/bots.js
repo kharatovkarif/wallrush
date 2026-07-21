@@ -228,6 +228,13 @@ function moveTension(room, idx) {
   const haveWalls = s.left[idx] > 0;
   if (myD + 1 < oppD) return 0;                 // clearly ahead → just run, no thinking
   if (!haveWalls) return 0;                      // nothing to decide but where to step
+  if (s.mode === 'race') {
+    // race is a sprint: distances stay equal most of the way, so almost every
+    // move is "just run" — a real pause only when the finish line is close
+    if (oppD <= 4 && oppD <= myD) return 2;
+    if (oppD <= 7) return 1;
+    return 0;
+  }
   if (oppD <= 3 || Math.abs(myD - oppD) <= 1) return 2; // tight: worth a think about a wall
   return 1;
 }
@@ -253,12 +260,14 @@ function scheduleThink(bot) {
                             : 5000 + Math.random() * 3000;   // 5–8s deep think
   }
   d *= bot.p.speed;
+  // race games are longer, so people play them snappier overall
+  if (room.state.mode === 'race') d *= 0.7;
   // the very first move comes quickly — nobody ponders move one
-  if (room.state.walls.length === 0 && room.state.left[0] + room.state.left[1] === 20) {
+  if (room.state.walls.length === 0 && room.state.pawns.every(p2 => p2.r === 0 || p2.r >= (room.state.rows || 9) - 1)) {
     d = Math.min(d, 700 + Math.random() * 1000);
   }
   // never flag: stay well inside the bank and the 30s move cap
-  if (room.bank) d = Math.max(400, Math.min(d, room.bank[idx] - 5000, 12_000));
+  if (room.bank) d = Math.max(400, Math.min(d, room.bank[idx] - 5000, room.state.mode === 'race' ? 8000 : 12_000));
 
   bot.thinkTimer = setTimeout(() => doMove(bot), d);
 }
