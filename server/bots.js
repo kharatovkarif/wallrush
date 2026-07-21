@@ -4,7 +4,7 @@
 // (variable delays), chat with emojis, sometimes resign lost games and
 // respond to rematch offers.
 import { aiMove } from '../public/js/ai.js';
-import { distToGoal } from '../public/js/engine.js';
+import { distToGoal, goalRow } from '../public/js/engine.js';
 import { seedBots, growBots } from './db.js';
 
 // skill: 'easy' | 'normal' | 'hard' | 'ace' (ace = the real engine, capped budget)
@@ -221,8 +221,9 @@ function onMsg(bot, msg) {
 // only real decisions (a live blocking chance, a tight finish) get a real pause.
 function moveTension(room, idx) {
   const s = room.state;
-  const myD = distToGoal(s.walls, idx === 0 ? 0 : 8)[s.pawns[idx].r * 9 + s.pawns[idx].c];
-  const oppD = distToGoal(s.walls, idx === 0 ? 8 : 0)[s.pawns[1 - idx].r * 9 + s.pawns[1 - idx].c];
+  const cols = s.cols || 9, rows = s.rows || 9;
+  const myD = distToGoal(s.walls, goalRow(idx, s), cols, rows)[s.pawns[idx].r * cols + s.pawns[idx].c];
+  const oppD = distToGoal(s.walls, goalRow(1 - idx, s), cols, rows)[s.pawns[1 - idx].r * cols + s.pawns[1 - idx].c];
   if (myD === -1 || oppD === -1) return 1;
   const haveWalls = s.left[idx] > 0;
   if (myD + 1 < oppD) return 0;                 // clearly ahead → just run, no thinking
@@ -271,8 +272,9 @@ function doMove(bot) {
 
   // hopeless and out of walls? some personalities just resign
   if (bot.p.resigner && state.left[idx] === 0) {
-    const myD = distToGoal(state.walls, idx === 0 ? 0 : 8)[state.pawns[idx].r * 9 + state.pawns[idx].c];
-    const oppD = distToGoal(state.walls, idx === 0 ? 8 : 0)[state.pawns[1 - idx].r * 9 + state.pawns[1 - idx].c];
+    const cols = state.cols || 9, rows = state.rows || 9;
+    const myD = distToGoal(state.walls, goalRow(idx, state), cols, rows)[state.pawns[idx].r * cols + state.pawns[idx].c];
+    const oppD = distToGoal(state.walls, goalRow(1 - idx, state), cols, rows)[state.pawns[1 - idx].r * cols + state.pawns[1 - idx].c];
     if (myD !== -1 && oppD !== -1 && myD - oppD >= 5 && Math.random() < 0.3) {
       if (Math.random() < bot.p.chatty * 0.6) api.handleEmoji(bot, { e: '🫡' });
       api.resign(bot);

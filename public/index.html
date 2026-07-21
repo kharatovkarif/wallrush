@@ -8,13 +8,19 @@
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect x='8' y='14' width='84' height='30' rx='8' fill='%237c5cff'/><rect x='8' y='56' width='40' height='30' rx='8' fill='%237c5cff'/><rect x='56' y='56' width='36' height='30' rx='8' fill='%23b3a1ff'/></svg>">
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <link rel="stylesheet" href="css/style.css?v=35">
+  <link rel="stylesheet" href="css/style.css?v=36">
 </head>
 <body>
   <div id="app">
 
     <!-- ============ HOME ============ -->
     <section class="screen active" id="screen-home">
+      <div id="install-banner" hidden>
+        <span class="ib-icon">📲</span>
+        <span class="ib-text" data-i18n="install_banner"></span>
+        <button id="install-banner-go" data-i18n="install_now"></button>
+        <button id="install-banner-close" aria-label="close">✕</button>
+      </div>
       <header class="home-head">
         <div class="logo">
           <div class="logo-mark"><span></span><span></span><span></span></div>
@@ -40,6 +46,11 @@
             <div class="card-text"><b data-i18n="play_friend"></b><small data-i18n="play_friend_sub"></small></div>
           </button>
         </div>
+        <button class="card card-race" id="btn-race">
+          <div class="card-icon">🏁</div>
+          <div class="card-text"><b data-i18n="race_title"></b><small data-i18n="race_sub"></small></div>
+          <div class="card-arrow">›</div>
+        </button>
         <button class="card card-light" id="btn-ai">
           <div class="card-icon dark">🤖</div>
           <div class="card-text"><b data-i18n="play_ai"></b><small data-i18n="play_ai_sub"></small></div>
@@ -90,6 +101,37 @@
         <p class="hint" data-i18n="friend_enter"></p>
         <input id="friend-code-input" class="input" maxlength="6" autocomplete="off" autocapitalize="characters" data-i18n-ph="code_placeholder">
         <button class="btn-big btn-outline" id="btn-friend-join" data-i18n="friend_join"></button>
+      </div>
+    </section>
+
+    <!-- ============ RACE MODE ============ -->
+    <section class="screen" id="screen-race">
+      <header class="sub-head">
+        <button class="btn-back" data-back>‹</button>
+        <h2>🏁 <span data-i18n="race_title"></span></h2>
+      </header>
+      <p class="hint" style="text-align:center;padding:0 18px 10px" data-i18n="race_rules"></p>
+      <div class="cards">
+        <button class="card card-primary" id="race-quick">
+          <div class="card-icon">⚡</div>
+          <div class="card-text"><b data-i18n="quick_match"></b><small data-i18n="quick_match_sub"></small></div>
+          <div class="card-arrow">›</div>
+        </button>
+        <button class="card card-violet2" id="race-friend">
+          <div class="card-icon">🤝</div>
+          <div class="card-text"><b data-i18n="play_friend"></b><small data-i18n="play_friend_sub"></small></div>
+          <div class="card-arrow">›</div>
+        </button>
+        <button class="card card-light" id="race-ai-normal">
+          <div class="card-icon lvl-normal">😎</div>
+          <div class="card-text"><b data-i18n="ai_normal"></b><small data-i18n="play_ai"></small></div>
+          <div class="card-arrow">›</div>
+        </button>
+        <button class="card card-light" id="race-ai-hard">
+          <div class="card-icon lvl-hard">🔥</div>
+          <div class="card-text"><b data-i18n="ai_hard"></b><small data-i18n="play_ai"></small></div>
+          <div class="card-arrow">›</div>
+        </button>
       </div>
     </section>
 
@@ -341,7 +383,7 @@
     <div id="toast" hidden></div>
   </div>
 
-  <script src="vendor/supabase.js?v=35" defer></script>
-  <script type="module" src="js/app.js?v=35"></script>
+  <script src="vendor/supabase.js?v=36" defer></script>
+  <script type="module" src="js/app.js?v=36"></script>
 </body>
 </html>

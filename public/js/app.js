@@ -1,7 +1,7 @@
 // WallRush client app: screens, board UI, online play (WebSocket), AI mode, auth.
-import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=35';
-import { aiMove } from './ai.js?v=35';
-import { makeT } from './i18n.js?v=35';
+import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=36';
+import { aiMove } from './ai.js?v=36';
+import { makeT } from './i18n.js?v=36';
 
 /* ================= state ================= */
 const $ = (id) => document.getElementById(id);
@@ -128,7 +128,7 @@ function getAiWorker() {
   if (aiWorker === false) return null;
   if (!aiWorker) {
     try {
-      aiWorker = new Worker('js/ai-worker.js?v=35', { type: 'module' });
+      aiWorker = new Worker('js/ai-worker.js?v=36', { type: 'module' });
       aiWorker.onmessage = (e) => {
         const cb = aiPending.get(e.data.id);
         aiPending.delete(e.data.id);
@@ -321,7 +321,7 @@ function renderRooms(rooms) {
     const letter = (room.nick || '?')[0].toUpperCase();
     el.innerHTML = `<div class="r-avatar"></div><b></b><button class="btn-join"></button>`;
     el.querySelector('.r-avatar').textContent = letter;
-    el.querySelector('b').textContent = room.nick;
+    el.querySelector('b').textContent = (room.mode === 'race' ? '🏁 ' : '') + room.nick;
     const btn = el.querySelector('.btn-join');
     btn.textContent = t('join');
     btn.addEventListener('click', () => wsSend({ t: 'join_room', roomId: room.id }));
@@ -334,6 +334,17 @@ $('btn-create-room').addEventListener('click', () => wsSend({ t: 'create_room', 
 $('btn-quick').addEventListener('click', () => { wsSend({ t: 'quick' }); show('screen-waiting'); $('waiting-code').hidden = true; });
 $('btn-friend').addEventListener('click', () => show('screen-friend'));
 $('btn-friend-create').addEventListener('click', () => wsSend({ t: 'create_room', private: true }));
+
+/* ---- race mode entry points ---- */
+$('btn-race').addEventListener('click', () => show('screen-race'));
+$('race-quick').addEventListener('click', () => {
+  wsSend({ t: 'quick', mode: 'race' });
+  show('screen-waiting');
+  $('waiting-code').hidden = true;
+});
+$('race-friend').addEventListener('click', () => wsSend({ t: 'create_room', private: true, mode: 'race' }));
+$('race-ai-normal').addEventListener('click', () => startAiGame('normal', 'race'));
+$('race-ai-hard').addEventListener('click', () => startAiGame('hard', 'race'));
 $('btn-friend-join').addEventListener('click', () => {
   const code = $('friend-code-input').value.trim().toUpperCase();
   if (code.length >= 4) wsSend({ t: 'join_code', code });
@@ -348,31 +359,53 @@ let geo = null; // {u, g, pad, size}
 let cellEls = [];
 let pawnEls = [null, null];
 
+// board dimensions of the current game (race is bigger than the classic 9x9)
+function dims() {
+  const s = game?.state;
+  return { cols: s?.cols || 9, rows: s?.rows || 9 };
+}
+function isRace() { return game?.state?.mode === 'race'; }
+
 function computeGeo() {
+  const { cols, rows } = dims();
+  // cells are 1u, grooves and padding 0.3u → total width in units:
+  const uw = cols * 1.3 + 0.3;
+  const uh = rows * 1.3 + 0.3;
   const size = board.clientWidth;
-  const u = size / 12;       // 9u cells + 8*0.3u gaps + 2*0.3u padding = 12u
+  const u = size / uw;
   const g = 0.3 * u;
-  geo = { size, u, g, pad: g };
+  geo = { size, height: u * uh, u, g, pad: g };
 }
 
-function cellXY(r, c) {
-  return { x: geo.pad + c * (geo.u + geo.g), y: geo.pad + r * (geo.u + geo.g) };
-}
-
-// view mapping: player 1 sees the board rotated 180°
+// view mapping: player 1 sees the board rotated 180° — but NOT in race mode,
+// where both players stand on the same (bottom) side
 function toView(r, c) {
-  if (game?.myIndex === 1) return { r: 8 - r, c: 8 - c };
+  if (game?.myIndex === 1 && !isRace()) {
+    const { cols, rows } = dims();
+    return { r: rows - 1 - r, c: cols - 1 - c };
+  }
   return { r, c };
 }
 function wallToView(w) {
-  if (game?.myIndex === 1) return { r: 7 - w.r, c: 7 - w.c, o: w.o };
+  if (game?.myIndex === 1 && !isRace()) {
+    const { cols, rows } = dims();
+    return { r: rows - 2 - w.r, c: cols - 2 - w.c, o: w.o };
+  }
   return w;
 }
 // inverse mappings equal the forward ones (180° rotation is an involution)
 const fromView = toView;
 const wallFromView = wallToView;
 
+function cellXY(r, c) {
+  return { x: geo.pad + c * (geo.u + geo.g), y: geo.pad + r * (geo.u + geo.g) };
+}
+
 function buildBoard() {
+  const { cols, rows } = dims();
+  // race board is taller than wide — cap width so the whole board fits on screen
+  board.style.aspectRatio = `${cols * 1.3 + 0.3} / ${rows * 1.3 + 0.3}`;
+  board.style.maxWidth = isRace() ? 'min(80vw, 46dvh)' : 'min(87vw, 55dvh)';
   computeGeo();
   board.innerHTML = '';
   cellEls = [];
@@ -381,24 +414,30 @@ function buildBoard() {
   // cells stay as invisible tap targets
   const bandH = geo.pad + geo.u + geo.g / 2;
   for (const pos of ['top', 'bottom']) {
+    if (isRace() && pos === 'bottom') continue; // race: only the finish band on top
     const b = document.createElement('div');
     b.className = 'zone-band ' + pos;
     b.style.cssText = (pos === 'top' ? 'top:0;' : 'bottom:0;') + `left:0;width:100%;height:${bandH}px`;
     board.appendChild(b);
   }
-  for (let i = 1; i < N; i++) {
+  for (let i = 1; i < Math.max(cols, rows); i++) {
     const at = geo.pad + i * (geo.u + geo.g) - geo.g / 2;
-    const v = document.createElement('div');
-    v.className = 'grid-line';
-    v.style.cssText = `left:${at}px;top:${geo.pad / 2}px;width:1px;height:${geo.size - geo.pad}px`;
-    const h = document.createElement('div');
-    h.className = 'grid-line';
-    h.style.cssText = `left:${geo.pad / 2}px;top:${at}px;width:${geo.size - geo.pad}px;height:1px`;
-    board.append(v, h);
+    if (i < cols) {
+      const v = document.createElement('div');
+      v.className = 'grid-line';
+      v.style.cssText = `left:${at}px;top:${geo.pad / 2}px;width:1px;height:${geo.height - geo.pad}px`;
+      board.append(v);
+    }
+    if (i < rows) {
+      const h = document.createElement('div');
+      h.className = 'grid-line';
+      h.style.cssText = `left:${geo.pad / 2}px;top:${at}px;width:${geo.size - geo.pad}px;height:1px`;
+      board.append(h);
+    }
   }
 
-  for (let r = 0; r < N; r++) {
-    for (let c = 0; c < N; c++) {
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
       const el = document.createElement('div');
       el.className = 'cell';
       const { x, y } = cellXY(r, c);
@@ -494,16 +533,25 @@ function renderGame() {
   $('chip-opp').querySelector('.chip-ball').className = 'chip-ball ' + oppColor();
   applyChipBallColors();
   $('turn-banner').textContent = myTurn ? t('your_turn') : t('opp_turn');
-  // like the competitor: each end is tinted with its OWNER's color —
-  // opponent's home on top, mine at the bottom (that's also my start)
-  $('zone-top').textContent = '▲ ' + String(game.oppNick).toUpperCase();
-  $('zone-top').className = 'zone-label zone-top ' + oppColor();
-  $('zone-bottom').textContent = '▼ ' + myNick().toUpperCase();
-  $('zone-bottom').className = 'zone-label zone-bottom ' + myColor();
   const bandTop = board.querySelector('.zone-band.top');
   const bandBottom = board.querySelector('.zone-band.bottom');
-  if (bandTop) bandTop.className = 'zone-band top ' + oppColor();
-  if (bandBottom) bandBottom.className = 'zone-band bottom ' + myColor();
+  if (isRace()) {
+    // race: everyone runs to the same finish line on top
+    $('zone-top').textContent = '🏁 ' + t('finish_label');
+    $('zone-top').className = 'zone-label zone-top finish';
+    $('zone-bottom').textContent = '▲ ' + myNick().toUpperCase() + ' · ' + String(game.oppNick).toUpperCase();
+    $('zone-bottom').className = 'zone-label zone-bottom';
+    if (bandTop) bandTop.className = 'zone-band top finish';
+  } else {
+    // like the competitor: each end is tinted with its OWNER's color —
+    // opponent's home on top, mine at the bottom (that's also my start)
+    $('zone-top').textContent = '▲ ' + String(game.oppNick).toUpperCase();
+    $('zone-top').className = 'zone-label zone-top ' + oppColor();
+    $('zone-bottom').textContent = '▼ ' + myNick().toUpperCase();
+    $('zone-bottom').className = 'zone-label zone-bottom ' + myColor();
+    if (bandTop) bandTop.className = 'zone-band top ' + oppColor();
+    if (bandBottom) bandBottom.className = 'zone-band bottom ' + myColor();
+  }
 }
 
 function myColor() { return game.myIndex === 0 ? 'blue' : 'red'; }
@@ -574,9 +622,11 @@ function cancelWallPreview() {
 // nearest wall slot to a board point, orientation is fixed by the dragged handle
 function nearestSlot(px, py, o) {
   const step = geo.u + geo.g;
-  const clamp7 = (v) => Math.max(0, Math.min(7, v));
-  const r = clamp7(Math.round((py - geo.pad - geo.u - geo.g / 2) / step));
-  const c = clamp7(Math.round((px - geo.pad - geo.u - geo.g / 2) / step));
+  const { cols, rows } = dims();
+  const clampR = (v) => Math.max(0, Math.min(rows - 2, v));
+  const clampC = (v) => Math.max(0, Math.min(cols - 2, v));
+  const r = clampR(Math.round((py - geo.pad - geo.u - geo.g / 2) / step));
+  const c = clampC(Math.round((px - geo.pad - geo.u - geo.g / 2) / step));
   return wallFromView({ o, r, c });
 }
 
@@ -748,11 +798,11 @@ function scheduleAiMove() {
   }, hardcore ? 120 : 500 + Math.random() * 700);
 }
 
-function startAiGame(level = 'normal') {
+function startAiGame(level = 'normal', boardMode = 'duel') {
   game = {
     mode: 'ai',
     aiLevel: level,
-    state: initialState(),
+    state: initialState(boardMode),
     myIndex: 0,
     oppNick: '🤖 ' + t('ai_' + level),
     clocks: null,
@@ -1193,18 +1243,29 @@ if ('serviceWorker' in navigator) {
 }
 
 // browsers fire this when the app is installable — show the profile button
+// and (like the competitor) a slim banner right on the home screen
 let installEvt = null;
 window.addEventListener('beforeinstallprompt', (e) => {
   e.preventDefault();
   installEvt = e;
   $('install-row').hidden = false;
+  if (localStorage.getItem('wr_inst_hide') !== '1' && !runsInstalled()) {
+    $('install-banner').hidden = false;
+  }
 });
-$('btn-install').addEventListener('click', async () => {
+async function doInstall() {
   if (!installEvt) return;
   installEvt.prompt();
   await installEvt.userChoice.catch(() => {});
   installEvt = null;
   $('install-row').hidden = true;
+  $('install-banner').hidden = true;
+}
+$('btn-install').addEventListener('click', doInstall);
+$('install-banner-go').addEventListener('click', doInstall);
+$('install-banner-close').addEventListener('click', () => {
+  $('install-banner').hidden = true;
+  localStorage.setItem('wr_inst_hide', '1'); // asked once — don't nag
 });
 
 $('theme-toggle').addEventListener('change', (e) => {

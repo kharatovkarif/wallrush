@@ -13,31 +13,36 @@ export const AI_LEVELS = {
   hardcore: { skill: 1.00, engine: true, budget: 1300 }, // deep search, full 1.3s of thinking per move
 };
 
+const dimsOf = (s) => [s.cols || 9, s.rows || 9];
+
 function pawnDist(state, p) {
-  return distToGoal(state.walls, goalRow(p))[state.pawns[p].r * N + state.pawns[p].c];
+  const [cols, rows] = dimsOf(state);
+  return distToGoal(state.walls, goalRow(p, state), cols, rows)[state.pawns[p].r * cols + state.pawns[p].c];
 }
 
 function myBestStep(state, p) {
-  const dist = distToGoal(state.walls, goalRow(p));
+  const [cols, rows] = dimsOf(state);
+  const dist = distToGoal(state.walls, goalRow(p, state), cols, rows);
   const moves = pawnMoves(state, p);
   let bestD = Infinity;
-  for (const m of moves) { const d = dist[m.r * N + m.c]; if (d !== -1 && d < bestD) bestD = d; }
-  const best = moves.filter(m => dist[m.r * N + m.c] === bestD);
+  for (const m of moves) { const d = dist[m.r * cols + m.c]; if (d !== -1 && d < bestD) bestD = d; }
+  const best = moves.filter(m => dist[m.r * cols + m.c] === bestD);
   const pool = best.length ? best : moves;
   return { move: pool[Math.floor(Math.random() * pool.length)], dist: bestD };
 }
 
 function shortestPathCells(state, p) {
-  const dist = distToGoal(state.walls, goalRow(p));
+  const [cols, rows] = dimsOf(state);
+  const dist = distToGoal(state.walls, goalRow(p, state), cols, rows);
   const cells = [];
   let cur = { ...state.pawns[p] };
   let guard = 0;
-  while (dist[cur.r * N + cur.c] > 0 && guard++ < 100) {
+  while (dist[cur.r * cols + cur.c] > 0 && guard++ < 160) {
     cells.push(cur);
     const opts = [[-1, 0], [1, 0], [0, -1], [0, 1]]
       .map(([dr, dc]) => ({ r: cur.r + dr, c: cur.c + dc }))
-      .filter(m => m.r >= 0 && m.r < N && m.c >= 0 && m.c < N)
-      .filter(m => dist[m.r * N + m.c] === dist[cur.r * N + cur.c] - 1);
+      .filter(m => m.r >= 0 && m.r < rows && m.c >= 0 && m.c < cols)
+      .filter(m => dist[m.r * cols + m.c] === dist[cur.r * cols + cur.c] - 1);
     if (!opts.length) break;
     cur = opts[0];
   }
@@ -48,6 +53,7 @@ function shortestPathCells(state, p) {
 // first (good move ordering makes alpha-beta prune hard so the search goes deep).
 function candidateWalls(state, p, cap) {
   if (state.left[p] <= 0) return [];
+  const [cols, rows] = dimsOf(state);
   const set = new Map();
   const add = (cells, span) => {
     for (const cell of cells.slice(0, span))
@@ -55,7 +61,7 @@ function candidateWalls(state, p, cap) {
         for (let dc = -1; dc <= 0; dc++)
           for (const o of ['h', 'v']) {
             const w = { r: cell.r + dr, c: cell.c + dc, o };
-            if (w.r < 0 || w.r > N - 2 || w.c < 0 || w.c > N - 2) continue;
+            if (w.r < 0 || w.r > rows - 2 || w.c < 0 || w.c > cols - 2) continue;
             set.set(`${w.r},${w.c},${w.o}`, w);
           }
   };
@@ -71,14 +77,15 @@ function candidateWalls(state, p, cap) {
       }
 
   const opp = 1 - p, oppPos = state.pawns[opp], myPos = state.pawns[p];
-  const dOpp0 = distToGoal(state.walls, goalRow(opp))[oppPos.r * N + oppPos.c];
-  const dMy0 = distToGoal(state.walls, goalRow(p))[myPos.r * N + myPos.c];
+  const gOpp = goalRow(opp, state), gMy = goalRow(p, state);
+  const dOpp0 = distToGoal(state.walls, gOpp, cols, rows)[oppPos.r * cols + oppPos.c];
+  const dMy0 = distToGoal(state.walls, gMy, cols, rows)[myPos.r * cols + myPos.c];
   const scored = [];
   for (const w of set.values()) {
     if (!canPlaceWall(state, p, w)) continue;
     const walls = [...state.walls, w];
-    const gain = (distToGoal(walls, goalRow(opp))[oppPos.r * N + oppPos.c] - dOpp0)
-               - (distToGoal(walls, goalRow(p))[myPos.r * N + myPos.c] - dMy0);
+    const gain = (distToGoal(walls, gOpp, cols, rows)[oppPos.r * cols + oppPos.c] - dOpp0)
+               - (distToGoal(walls, gMy, cols, rows)[myPos.r * cols + myPos.c] - dMy0);
     scored.push({ w, gain });
   }
   scored.sort((a, b) => b.gain - a.gain);
@@ -453,15 +460,16 @@ function engineMove(state, p, budgetMs, maxDepth, recent) {
    may take a harmless equal-distance sidestep now and then. It never walks the
    wrong way, so an easy opponent looks like a real (if unambitious) player. */
 function weakMove(state, p) {
-  const dist = distToGoal(state.walls, goalRow(p));
+  const [cols, rows] = dimsOf(state);
+  const dist = distToGoal(state.walls, goalRow(p, state), cols, rows);
   const moves = pawnMoves(state, p);
-  const here = dist[state.pawns[p].r * N + state.pawns[p].c];
+  const here = dist[state.pawns[p].r * cols + state.pawns[p].c];
   let bd = Infinity;
-  for (const m of moves) { const d = dist[m.r * N + m.c]; if (d !== -1 && d < bd) bd = d; }
-  const best = moves.filter(m => dist[m.r * N + m.c] === bd);
+  for (const m of moves) { const d = dist[m.r * cols + m.c]; if (d !== -1 && d < bd) bd = d; }
+  const best = moves.filter(m => dist[m.r * cols + m.c] === bd);
   // a little human variety: sometimes a sidestep that keeps distance, never one that loses ground
   if (Math.random() < 0.2) {
-    const okay = moves.filter(m => { const d = dist[m.r * N + m.c]; return d !== -1 && d <= here; });
+    const okay = moves.filter(m => { const d = dist[m.r * cols + m.c]; return d !== -1 && d <= here; });
     const pool = okay.length ? okay : best;
     const m = pool[Math.floor(Math.random() * pool.length)];
     return { type: 'pawn', r: m.r, c: m.c };
@@ -473,8 +481,11 @@ function weakMove(state, p) {
 export function aiMove(state, level = 'normal', opts = {}) {
   const cfg = AI_LEVELS[level] || AI_LEVELS.normal;
   const p = state.turn;
+  // the deep engine is built for the classic 9x9 board; race mode (and any
+  // non-standard board) plays the fast greedy line at full strength instead
+  const classic = (state.cols || 9) === 9 && (state.rows || 9) === 9 && state.mode !== 'race';
   if (Math.random() < cfg.skill) {
-    if (cfg.engine) return engineMove(state, p, opts.budgetMs ?? cfg.budget, opts.maxDepth, opts.recent);
+    if (cfg.engine && classic) return engineMove(state, p, opts.budgetMs ?? cfg.budget, opts.maxDepth, opts.recent);
     return greedyMove(state, p);
   }
   return weakMove(state, p);

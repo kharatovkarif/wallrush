@@ -32,7 +32,7 @@ function lobbyRooms() {
   const list = [];
   for (const room of rooms.values()) {
     if (room.status === 'open' && !room.code) {
-      list.push({ id: room.id, nick: room.players[0].nick });
+      list.push({ id: room.id, nick: room.players[0].nick, mode: room.mode || 'duel' });
     }
   }
   return list;
@@ -62,7 +62,7 @@ function stateMsg(room) {
 }
 
 function startGame(room) {
-  room.state = initialState();
+  room.state = initialState(room.mode || 'duel');
   room.state.turn = crypto.randomInt(2); // random first move
   room.bank = [BANK_MS, BANK_MS];
   room.status = 'playing';
@@ -146,11 +146,12 @@ function joinRoom(client, room) {
   startGame(room);
 }
 
-function createRoom(client, isPrivate) {
+function createRoom(client, isPrivate, mode) {
   if (client.roomId) leaveRoom(client, false);
   const room = {
     id: rid(),
     code: isPrivate ? roomCode() : null,
+    mode: mode === 'race' ? 'race' : 'duel',
     players: [client],
     status: 'open',
     state: null,
@@ -319,7 +320,7 @@ export function attachWs(wss) {
             break;
           case 'lobby_unsub': client.inLobby = false; break;
           case 'create_room':
-            createRoom(client, Boolean(msg.private));
+            createRoom(client, Boolean(msg.private), msg.mode);
             // a bot will come knocking if nobody joins the public room
             if (!msg.private && !client.isBot) {
               notifyUserWaiting(rooms.get(client.roomId), 8000 + Math.random() * 22_000);
@@ -339,11 +340,12 @@ export function attachWs(wss) {
             break;
           }
           case 'quick': {
+            const mode = msg.mode === 'race' ? 'race' : 'duel';
             const open = [...rooms.values()].find(r =>
-              r.status === 'open' && !r.code && r.players[0] !== client);
+              r.status === 'open' && !r.code && (r.mode || 'duel') === mode && r.players[0] !== client);
             if (open) joinRoom(client, open);
             else {
-              createRoom(client, false);
+              createRoom(client, false, mode);
               // quick match should feel quick — a bot arrives within seconds
               notifyUserWaiting(rooms.get(client.roomId), 2500 + Math.random() * 4500);
             }
