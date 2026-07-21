@@ -386,7 +386,8 @@ app.get('/admin/day', async (req, res) => {
   const fresh = (rows || []).filter(v => mskDayStart(new Date(v.first_seen).getTime()) === day).length;
   const trs = hours.map((x, h) => {
     const dim = x.set.size === 0 && x.games === 0;
-    return `<tr${dim ? ' style="opacity:.35"' : ''}><td>${String(h).padStart(2, '0')}:00</td><td>${x.set.size ? `<b>${x.set.size}</b>` : 0}</td><td>${x.games ? `<b>${x.games}</b>` : 0}</td></tr>`;
+    const href = `/admin/hour?key=${ADMIN_KEY}&day=${day}&h=${h}`;
+    return `<tr class="click"${dim ? ' style="opacity:.35"' : ''} onclick="location.href='${href}'"><td>${String(h).padStart(2, '0')}:00 ›</td><td>${x.set.size ? `<b>${x.set.size}</b>` : 0}</td><td>${x.games ? `<b>${x.games}</b>` : 0}</td></tr>`;
   }).join('');
   const people = [...dayDevices].map(id => byDevice.get(id)).filter(Boolean).map(v =>
     `<a href="/admin/v?key=${ADMIN_KEY}&d=${encodeURIComponent(v.device_id)}">${esc(visName(v, byId))}</a>`).join(', ') || '—';
@@ -404,6 +405,61 @@ app.get('/admin/day', async (req, res) => {
 <h2>По часам (МСК)</h2>
 <div class="wrap"><table><tr><th>Час</th><th>Людей</th><th>Партий</th></tr>${trs}</table></div>
 <h2>Кто был в этот день (нажми на ник)</h2>
+<p style="font-size:13px;line-height:1.9">${people}</p>`));
+});
+
+// one hour's page: minute-by-minute breakdown inside a chosen hour
+app.get('/admin/hour', async (req, res) => {
+  if ((req.query.key || '') !== ADMIN_KEY) return res.status(404).send('Not found');
+  if (!dbEnabled) return res.send('DB is off');
+  const day = parseInt(String(req.query.day || ''), 10);
+  const h = parseInt(String(req.query.h || ''), 10);
+  if (!Number.isFinite(day) || !Number.isFinite(h) || h < 0 || h > 23) {
+    return res.redirect(`/admin?key=${ADMIN_KEY}`);
+  }
+  const startMs = day * dayMs - 3 * 3600e3 + h * 3600e3;
+  const { data: log } = await supa.from('visit_log')
+    .select('device_id, kind, at')
+    .gte('at', new Date(startMs).toISOString())
+    .lt('at', new Date(startMs + 3600e3).toISOString())
+    .limit(10000);
+  const { data: rows } = await supa.from('visitors')
+    .select('device_id, last_seen, games, last_nick, user_id, installed_at, standalone_at')
+    .order('last_seen', { ascending: false }).limit(500);
+  const { data: profs } = await supa.from('profiles').select('id, nick');
+  const byId = new Map((profs || []).map(p => [p.id, p]));
+  const byDevice = new Map((rows || []).map(v => [v.device_id, v]));
+
+  const mins = Array.from({ length: 60 }, () => ({ set: new Set(), games: 0 }));
+  const hourDevices = new Set();
+  let hourGames = 0;
+  for (const e of (log || [])) {
+    const m = Math.floor((new Date(e.at).getTime() - startMs) / 60e3);
+    if (m < 0 || m > 59) continue;
+    mins[m].set.add(e.device_id);
+    hourDevices.add(e.device_id);
+    if (e.kind === 'game') { mins[m].games++; hourGames++; }
+  }
+  const hh = String(h).padStart(2, '0');
+  const trs = mins.map((x, m) => {
+    const dim = x.set.size === 0 && x.games === 0;
+    return `<tr${dim ? ' style="opacity:.3"' : ''}><td>${hh}:${String(m).padStart(2, '0')}</td><td>${x.set.size ? `<b>${x.set.size}</b>` : 0}</td><td>${x.games ? `<b>${x.games}</b>` : 0}</td></tr>`;
+  }).join('');
+  const people = [...hourDevices].map(id => byDevice.get(id)).filter(Boolean).map(v =>
+    `<a href="/admin/v?key=${ADMIN_KEY}&d=${encodeURIComponent(v.device_id)}">${esc(visName(v, byId))}</a>`).join(', ') || '—';
+
+  res.send(adminPage(`${mskDayLabel(day)} ${hh}:00 — WallRush`, `
+<a class="back" href="/admin/day?key=${ADMIN_KEY}&day=${day}">‹ Назад ко дню ${mskDayLabel(day)}</a>
+<div class="person">
+  <b>${mskDayLabel(day)}, час ${hh}:00–${hh}:59 (МСК)</b>
+  <div class="kv">
+    <span>Людей за час</span><b>${hourDevices.size}</b>
+    <span>Партий за час</span><b>${hourGames}</b>
+  </div>
+</div>
+<h2>По минутам</h2>
+<div class="wrap"><table><tr><th>Минута</th><th>Людей</th><th>Партий</th></tr>${trs}</table></div>
+<h2>Кто был в этот час (нажми на ник)</h2>
 <p style="font-size:13px;line-height:1.9">${people}</p>`));
 });
 
