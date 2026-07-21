@@ -139,14 +139,24 @@ body {
 #install-banner-close { border: none; background: transparent; color: var(--muted); font-size: 15px; cursor: pointer; padding: 4px 6px; }
 html[data-theme="dark"] #install-banner { background: #1c2033; }
 
-/* race mode card on home: green accent */
-.card-race { background: linear-gradient(120deg, #17b978, #0e9d63); color: #fff; }
-.card-race small { color: rgba(255,255,255,.75); }
+/* create-room settings dialog */
+.cr-group { margin: 14px 0; text-align: left; }
+.cr-label { font-size: 12px; font-weight: 800; letter-spacing: .5px; text-transform: uppercase; color: var(--muted); margin: 0 0 8px; }
+.cr-opts { display: flex; gap: 8px; }
+.cr-opts button {
+  flex: 1; border: 2px solid var(--bezel); background: var(--card); color: var(--text);
+  border-radius: 12px; padding: 12px 6px; font-size: 14px; font-weight: 700; cursor: pointer;
+  transition: transform .12s ease;
+}
+.cr-opts button.on { border-color: var(--blue); background: rgba(47,109,246,.1); color: var(--blue); }
+.cr-opts button:active { transform: scale(.95); }
+#cr-mode-hint { margin: 8px 2px 0; }
 
-/* two room types side by side in the lobby */
-.create-row { display: flex; gap: 10px; }
-.create-row .btn-big { flex: 1; font-size: 14px; padding: 14px 8px; }
-.btn-create-race { background: linear-gradient(120deg, #17b978, #0e9d63); box-shadow: 0 6px 18px rgba(23, 185, 120, .35); }
+/* lobby room shows its type under the nick */
+.r-info { flex: 1; display: flex; flex-direction: column; gap: 1px; text-align: left; }
+.r-info small { color: var(--muted); font-size: 11.5px; font-weight: 600; }
+html[data-theme="dark"] .cr-opts button { background: #232a40; }
+html[data-theme="dark"] .cr-opts button.on { background: rgba(47,109,246,.22); }
 
 /* social links (home footer): brand-colored app-style tiles */
 .social-block { margin: 24px 0 6px; }

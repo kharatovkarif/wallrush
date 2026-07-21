@@ -1,7 +1,7 @@
 // WallRush client app: screens, board UI, online play (WebSocket), AI mode, auth.
-import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=37';
-import { aiMove } from './ai.js?v=37';
-import { makeT } from './i18n.js?v=37';
+import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=38';
+import { aiMove } from './ai.js?v=38';
+import { makeT } from './i18n.js?v=38';
 
 /* ================= state ================= */
 const $ = (id) => document.getElementById(id);
@@ -128,7 +128,7 @@ function getAiWorker() {
   if (aiWorker === false) return null;
   if (!aiWorker) {
     try {
-      aiWorker = new Worker('js/ai-worker.js?v=37', { type: 'module' });
+      aiWorker = new Worker('js/ai-worker.js?v=38', { type: 'module' });
       aiWorker.onmessage = (e) => {
         const cb = aiPending.get(e.data.id);
         aiPending.delete(e.data.id);
@@ -319,9 +319,13 @@ function renderRooms(rooms) {
     const el = document.createElement('div');
     el.className = 'room-item';
     const letter = (room.nick || '?')[0].toUpperCase();
-    el.innerHTML = `<div class="r-avatar"></div><b></b><button class="btn-join"></button>`;
+    el.innerHTML = `<div class="r-avatar"></div><div class="r-info"><b></b><small></small></div><button class="btn-join"></button>`;
     el.querySelector('.r-avatar').textContent = letter;
-    el.querySelector('b').textContent = (room.mode === 'race' ? '🏁 ' : '') + room.nick;
+    el.querySelector('b').textContent = room.nick;
+    // show what kind of room it is: mode · walls · time
+    const modeLabel = room.mode === 'race' ? '🏁 ' + t('race_title') : '⚔️ ' + t('duel_title');
+    const timeLabel = room.time === '0' ? '∞' : room.time + t('min_short');
+    el.querySelector('small').textContent = `${modeLabel} · ${room.walls}🧱 · ${timeLabel}`;
     const btn = el.querySelector('.btn-join');
     btn.textContent = t('join');
     btn.addEventListener('click', () => wsSend({ t: 'join_room', roomId: room.id }));
@@ -330,21 +334,50 @@ function renderRooms(rooms) {
 }
 
 $('btn-online').addEventListener('click', () => show('screen-rooms'));
-$('btn-create-room').addEventListener('click', () => wsSend({ t: 'create_room', private: false }));
 $('btn-quick').addEventListener('click', () => { wsSend({ t: 'quick' }); show('screen-waiting'); $('waiting-code').hidden = true; });
 $('btn-friend').addEventListener('click', () => show('screen-friend'));
-$('btn-friend-create').addEventListener('click', () => wsSend({ t: 'create_room', private: true }));
 
-/* ---- race mode entry points (online only: real players and bots) ---- */
-$('btn-race').addEventListener('click', () => show('screen-race'));
-$('race-quick').addEventListener('click', () => {
-  wsSend({ t: 'quick', mode: 'race' });
-  show('screen-waiting');
-  $('waiting-code').hidden = true;
+/* ---- create-room settings dialog: mode / walls / time ---- */
+let createCfg = { mode: 'duel', walls: '10', time: '5', private: false };
+function pickOpt(groupId, val) {
+  document.querySelectorAll(`#${groupId} button`).forEach(b =>
+    b.classList.toggle('on', b.dataset.val === val));
+}
+function syncCreateDialog() {
+  const race = createCfg.mode === 'race';
+  // duel is always 10 walls; race lets you pick 10 or 15
+  $('cr-walls').querySelector('[data-val="15"]').hidden = !race;
+  if (!race && createCfg.walls === '15') { createCfg.walls = '10'; pickOpt('cr-walls', '10'); }
+  $('cr-mode-hint').textContent = race ? t('race_rules') : t('duel_rules');
+}
+function openCreateDialog(isPrivate) {
+  createCfg = { mode: 'duel', walls: '10', time: '5', private: isPrivate };
+  pickOpt('cr-mode', 'duel'); pickOpt('cr-walls', '10'); pickOpt('cr-time', '5');
+  syncCreateDialog();
+  $('overlay-create').hidden = false;
+}
+$('btn-create-room').addEventListener('click', () => openCreateDialog(false));
+$('btn-friend-create').addEventListener('click', () => openCreateDialog(true));
+$('cr-cancel').addEventListener('click', () => { $('overlay-create').hidden = true; });
+$('cr-mode').addEventListener('click', (e) => {
+  const b = e.target.closest('button'); if (!b) return;
+  createCfg.mode = b.dataset.val; pickOpt('cr-mode', b.dataset.val); syncCreateDialog();
 });
-$('race-friend').addEventListener('click', () => wsSend({ t: 'create_room', private: true, mode: 'race' }));
-$('race-rooms').addEventListener('click', () => show('screen-rooms'));
-$('btn-create-race').addEventListener('click', () => wsSend({ t: 'create_room', private: false, mode: 'race' }));
+$('cr-walls').addEventListener('click', (e) => {
+  const b = e.target.closest('button'); if (!b || b.hidden) return;
+  createCfg.walls = b.dataset.val; pickOpt('cr-walls', b.dataset.val);
+});
+$('cr-time').addEventListener('click', (e) => {
+  const b = e.target.closest('button'); if (!b) return;
+  createCfg.time = b.dataset.val; pickOpt('cr-time', b.dataset.val);
+});
+$('cr-create').addEventListener('click', () => {
+  $('overlay-create').hidden = true;
+  wsSend({
+    t: 'create_room', private: createCfg.private,
+    mode: createCfg.mode, walls: Number(createCfg.walls), time: createCfg.time,
+  });
+});
 $('btn-friend-join').addEventListener('click', () => {
   const code = $('friend-code-input').value.trim().toUpperCase();
   if (code.length >= 4) wsSend({ t: 'join_code', code });
@@ -590,10 +623,11 @@ setInterval(() => {
   bank[active] = Math.max(0, bank[active] - elapsed);
   const moveLeft = Math.max(0, Math.min(ck.moveLimit - elapsed, bank[active]));
 
-  $('me-clock').textContent = fmtClock(bank[me]);
-  $('opp-clock').textContent = fmtClock(bank[1 - me]);
-  const meDanger = active === me && (moveLeft <= 10_000 || bank[me] <= 10_000);
-  const oppDanger = active !== me && (moveLeft <= 10_000 || bank[1 - me] <= 10_000);
+  // no-time rooms show ∞ — only the 30s per-move rule applies
+  $('me-clock').textContent = ck.noTime ? '∞' : fmtClock(bank[me]);
+  $('opp-clock').textContent = ck.noTime ? '∞' : fmtClock(bank[1 - me]);
+  const meDanger = active === me && (moveLeft <= 10_000 || (!ck.noTime && bank[me] <= 10_000));
+  const oppDanger = active !== me && (moveLeft <= 10_000 || (!ck.noTime && bank[1 - me] <= 10_000));
   $('me-clock').classList.toggle('danger', meDanger);
   $('opp-clock').classList.toggle('danger', oppDanger);
 

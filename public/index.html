@@ -8,7 +8,7 @@
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect x='8' y='14' width='84' height='30' rx='8' fill='%237c5cff'/><rect x='8' y='56' width='40' height='30' rx='8' fill='%237c5cff'/><rect x='56' y='56' width='36' height='30' rx='8' fill='%23b3a1ff'/></svg>">
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <link rel="stylesheet" href="css/style.css?v=37">
+  <link rel="stylesheet" href="css/style.css?v=38">
 </head>
 <body>
   <div id="app">
@@ -46,11 +46,6 @@
             <div class="card-text"><b data-i18n="play_friend"></b><small data-i18n="play_friend_sub"></small></div>
           </button>
         </div>
-        <button class="card card-race" id="btn-race">
-          <div class="card-icon">🏁</div>
-          <div class="card-text"><b data-i18n="race_title"></b><small data-i18n="race_sub"></small></div>
-          <div class="card-arrow">›</div>
-        </button>
         <button class="card card-light" id="btn-ai">
           <div class="card-icon dark">🤖</div>
           <div class="card-text"><b data-i18n="play_ai"></b><small data-i18n="play_ai_sub"></small></div>
@@ -86,10 +81,7 @@
         <h2 data-i18n="rooms_title"></h2>
       </header>
       <div id="rooms-list" class="rooms-list"></div>
-      <div class="create-row">
-        <button class="btn-big" id="btn-create-room" data-i18n="create_duel"></button>
-        <button class="btn-big btn-create-race" id="btn-create-race" data-i18n="create_race"></button>
-      </div>
+      <button class="btn-big" id="btn-create-room" data-i18n="create_room"></button>
     </section>
 
     <!-- ============ FRIEND (private code) ============ -->
@@ -107,31 +99,40 @@
       </div>
     </section>
 
-    <!-- ============ RACE MODE ============ -->
-    <section class="screen" id="screen-race">
-      <header class="sub-head">
-        <button class="btn-back" data-back>‹</button>
-        <h2>🏁 <span data-i18n="race_title"></span></h2>
-      </header>
-      <p class="hint" style="text-align:center;padding:0 18px 10px" data-i18n="race_rules"></p>
-      <div class="cards">
-        <button class="card card-primary" id="race-quick">
-          <div class="card-icon">⚡</div>
-          <div class="card-text"><b data-i18n="quick_match"></b><small data-i18n="quick_match_sub"></small></div>
-          <div class="card-arrow">›</div>
-        </button>
-        <button class="card card-violet2" id="race-friend">
-          <div class="card-icon">🤝</div>
-          <div class="card-text"><b data-i18n="play_friend"></b><small data-i18n="play_friend_sub"></small></div>
-          <div class="card-arrow">›</div>
-        </button>
-        <button class="card card-light" id="race-rooms">
-          <div class="card-icon dark">🌐</div>
-          <div class="card-text"><b data-i18n="play_online"></b><small data-i18n="play_online_sub"></small></div>
-          <div class="card-arrow">›</div>
-        </button>
+    <!-- ============ CREATE ROOM SETTINGS (overlay) ============ -->
+    <div class="overlay" id="overlay-create" hidden>
+      <div class="modal">
+        <h2 data-i18n="create_room"></h2>
+        <div class="cr-group">
+          <p class="cr-label" data-i18n="mode_label"></p>
+          <div class="cr-opts" id="cr-mode">
+            <button data-val="duel" class="on">⚔️ <span data-i18n="duel_title"></span></button>
+            <button data-val="race">🏁 <span data-i18n="race_title"></span></button>
+          </div>
+          <p class="hint" id="cr-mode-hint"></p>
+        </div>
+        <div class="cr-group">
+          <p class="cr-label" data-i18n="walls_label"></p>
+          <div class="cr-opts" id="cr-walls">
+            <button data-val="10" class="on">10 🧱</button>
+            <button data-val="15" hidden>15 🧱</button>
+          </div>
+        </div>
+        <div class="cr-group">
+          <p class="cr-label" data-i18n="time_label"></p>
+          <div class="cr-opts" id="cr-time">
+            <button data-val="0">∞ <span data-i18n="no_time"></span></button>
+            <button data-val="3">3 <span data-i18n="min_short"></span></button>
+            <button data-val="5" class="on">5 <span data-i18n="min_short"></span></button>
+          </div>
+          <p class="hint" data-i18n="no_time_hint"></p>
+        </div>
+        <div class="modal-buttons">
+          <button class="btn-big" id="cr-create" data-i18n="create_room"></button>
+          <button class="btn-big btn-outline" id="cr-cancel" data-i18n="cancel"></button>
+        </div>
       </div>
-    </section>
+    </div>
 
     <!-- ============ AI DIFFICULTY ============ -->
     <section class="screen" id="screen-ai">
@@ -381,7 +382,7 @@
     <div id="toast" hidden></div>
   </div>
 
-  <script src="vendor/supabase.js?v=37" defer></script>
-  <script type="module" src="js/app.js?v=37"></script>
+  <script src="vendor/supabase.js?v=38" defer></script>
+  <script type="module" src="js/app.js?v=38"></script>
 </body>
 </html>

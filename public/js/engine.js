@@ -13,17 +13,19 @@ export const WALLS_PER_PLAYER = 10;
 
 export const MODES = {
   duel: { cols: 9, rows: 9, walls: 10 },
-  race: { cols: 11, rows: 13, walls: 15 },
+  race: { cols: 9, rows: 13, walls: 15 }, // like the competitor: 9 wide, 13 tall
 };
 
-export function initialState(mode = 'duel') {
+// opts.walls lets a room choose the wall count (race offers 10 or 15)
+export function initialState(mode = 'duel', opts = {}) {
   const m = MODES[mode] || MODES.duel;
+  const w = Number(opts.walls) || m.walls;
   if (mode === 'race') {
     return {
       mode: 'race', cols: m.cols, rows: m.rows,
-      pawns: [{ r: m.rows - 1, c: 3 }, { r: m.rows - 1, c: m.cols - 4 }],
+      pawns: [{ r: m.rows - 1, c: 2 }, { r: m.rows - 1, c: m.cols - 3 }],
       walls: [],
-      left: [m.walls, m.walls],
+      left: [w, w],
       turn: 0,
       winner: null,
     };
@@ -32,7 +34,7 @@ export function initialState(mode = 'duel') {
     mode: 'duel', cols: 9, rows: 9,
     pawns: [{ r: 8, c: 4 }, { r: 0, c: 4 }],
     walls: [],
-    left: [m.walls, m.walls],
+    left: [w, w],
     turn: 0,
     winner: null,
   };

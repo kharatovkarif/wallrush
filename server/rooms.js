@@ -32,7 +32,10 @@ function lobbyRooms() {
   const list = [];
   for (const room of rooms.values()) {
     if (room.status === 'open' && !room.code) {
-      list.push({ id: room.id, nick: room.players[0].nick, mode: room.mode || 'duel' });
+      list.push({
+        id: room.id, nick: room.players[0].nick,
+        mode: room.mode || 'duel', walls: room.walls || 10, time: room.time || '5',
+      });
     }
   }
   return list;
@@ -54,6 +57,7 @@ function clockPayload(room) {
     moveLimit: MOVE_MS,
     turnStarted: room.turnStarted,
     serverNow: Date.now(),
+    noTime: Boolean(room.noTime), // no bank — only the 30s per-move rule
   };
 }
 
@@ -62,9 +66,11 @@ function stateMsg(room) {
 }
 
 function startGame(room) {
-  room.state = initialState(room.mode || 'duel');
+  room.state = initialState(room.mode || 'duel', { walls: room.walls });
   room.state.turn = crypto.randomInt(2); // random first move
-  room.bank = [BANK_MS, BANK_MS];
+  // no-time rooms get a huge bank that never runs out — only the 30s move cap
+  const bankMs = room.noTime ? 8_640_000_000 : (room.bankMs || BANK_MS);
+  room.bank = [bankMs, bankMs];
   room.status = 'playing';
   room.rematch = [false, false];
   room.turnStarted = Date.now();
@@ -146,12 +152,21 @@ function joinRoom(client, room) {
   startGame(room);
 }
 
-function createRoom(client, isPrivate, mode) {
+// opts: {mode:'duel'|'race', walls, time:'0'|'3'|'5'}
+// duel is always 10 walls; race offers 10 or 15; time '0' = no bank, 30s/move
+function createRoom(client, isPrivate, opts = {}) {
   if (client.roomId) leaveRoom(client, false);
+  const mode = opts.mode === 'race' ? 'race' : 'duel';
+  const walls = mode === 'race' ? (Number(opts.walls) === 10 ? 10 : 15) : 10;
+  const time = ['0', '3', '5'].includes(String(opts.time)) ? String(opts.time) : '5';
   const room = {
     id: rid(),
     code: isPrivate ? roomCode() : null,
-    mode: mode === 'race' ? 'race' : 'duel',
+    mode,
+    walls,
+    time,
+    noTime: time === '0',
+    bankMs: time === '3' ? 180_000 : 300_000,
     players: [client],
     status: 'open',
     state: null,
@@ -320,7 +335,7 @@ export function attachWs(wss) {
             break;
           case 'lobby_unsub': client.inLobby = false; break;
           case 'create_room':
-            createRoom(client, Boolean(msg.private), msg.mode);
+            createRoom(client, Boolean(msg.private), { mode: msg.mode, walls: msg.walls, time: msg.time });
             // a bot will come knocking if nobody joins the public room
             if (!msg.private && !client.isBot) {
               notifyUserWaiting(rooms.get(client.roomId), 8000 + Math.random() * 22_000);
@@ -345,7 +360,7 @@ export function attachWs(wss) {
               r.status === 'open' && !r.code && (r.mode || 'duel') === mode && r.players[0] !== client);
             if (open) joinRoom(client, open);
             else {
-              createRoom(client, false, mode);
+              createRoom(client, false, { mode });
               // quick match should feel quick — a bot arrives within seconds
               notifyUserWaiting(rooms.get(client.roomId), 2500 + Math.random() * 4500);
             }
