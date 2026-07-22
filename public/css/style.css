@@ -20,7 +20,8 @@
   --radius: 20px;
 }
 
-html, body { height: 100%; }
+html, body { min-height: 100%; }
+html { background: var(--bg); }
 body {
   font-family: 'Segoe UI', system-ui, -apple-system, Roboto, sans-serif;
   background:
