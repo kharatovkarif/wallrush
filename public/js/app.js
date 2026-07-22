@@ -1,7 +1,7 @@
 // WallRush client app: screens, board UI, online play (WebSocket), AI mode, auth.
-import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=40';
-import { aiMove } from './ai.js?v=40';
-import { makeT } from './i18n.js?v=40';
+import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=41';
+import { aiMove } from './ai.js?v=41';
+import { makeT } from './i18n.js?v=41';
 
 /* ================= state ================= */
 const $ = (id) => document.getElementById(id);
@@ -128,7 +128,7 @@ function getAiWorker() {
   if (aiWorker === false) return null;
   if (!aiWorker) {
     try {
-      aiWorker = new Worker('js/ai-worker.js?v=40', { type: 'module' });
+      aiWorker = new Worker('js/ai-worker.js?v=41', { type: 'module' });
       aiWorker.onmessage = (e) => {
         const cb = aiPending.get(e.data.id);
         aiPending.delete(e.data.id);
@@ -1317,6 +1317,16 @@ function maybeShowIosInstall() {
   }
 }
 maybeShowIosInstall();
+
+/* ================= legal / info pages ================= */
+document.querySelectorAll('.legal-links a[data-legal]').forEach(a =>
+  a.addEventListener('click', () => {
+    const p = a.dataset.legal; // rules | help | terms | privacy
+    $('legal-title').textContent = t(p + '_title');
+    $('legal-text').textContent = t(p + '_body');
+    $('overlay-legal').hidden = false;
+  }));
+$('legal-close').addEventListener('click', () => { $('overlay-legal').hidden = true; });
 
 $('theme-toggle').addEventListener('change', (e) => {
   localStorage.setItem('wr_theme', e.target.checked ? 'dark' : 'light');

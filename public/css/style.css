@@ -158,6 +158,18 @@ html[data-theme="dark"] #install-banner { background: #1c2033; }
 html[data-theme="dark"] .cr-opts button { background: #232a40; }
 html[data-theme="dark"] .cr-opts button.on { background: rgba(47,109,246,.22); }
 
+/* legal footer links */
+.legal-links { display: flex; flex-wrap: wrap; justify-content: center; gap: 7px; margin-top: 18px; }
+.legal-links a { color: var(--muted); font-size: 12px; cursor: pointer; }
+.legal-links a:active { color: var(--violet); }
+.legal-links span { color: var(--bezel); font-size: 12px; }
+.legal-agree { text-align: center; color: var(--muted); font-size: 10.5px; margin: 8px 12px 0; opacity: .8; }
+/* legal page text: preserve line breaks, scrollable */
+.legal-modal { text-align: left; max-height: 82vh; display: flex; flex-direction: column; }
+.legal-modal h2 { text-align: center; }
+.legal-text { white-space: pre-line; font-size: 13.5px; line-height: 1.55; color: var(--text); overflow-y: auto; margin: 8px 0; }
+html[data-theme="dark"] .legal-links span { color: #333c5c; }
+
 /* social links (home footer): brand-colored app-style tiles */
 .social-block { margin: 24px 0 6px; }
 .social-label { text-align: center; color: var(--muted); font-size: 12px; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 12px; }

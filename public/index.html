@@ -8,7 +8,7 @@
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect x='8' y='14' width='84' height='30' rx='8' fill='%237c5cff'/><rect x='8' y='56' width='40' height='30' rx='8' fill='%237c5cff'/><rect x='56' y='56' width='36' height='30' rx='8' fill='%23b3a1ff'/></svg>">
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <link rel="stylesheet" href="css/style.css?v=40">
+  <link rel="stylesheet" href="css/style.css?v=41">
 </head>
 <body>
   <div id="app">
@@ -71,6 +71,13 @@
             <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#fff" d="M22 8.2a3 3 0 0 0-2.1-2.1C18 5.5 12 5.5 12 5.5s-6 0-7.9.6A3 3 0 0 0 2 8.2 31 31 0 0 0 1.7 12 31 31 0 0 0 2 15.8a3 3 0 0 0 2.1 2.1c1.9.6 7.9.6 7.9.6s6 0 7.9-.6a3 3 0 0 0 2.1-2.1A31 31 0 0 0 22.3 12 31 31 0 0 0 22 8.2zM10 15V9l5.2 3z"/></svg>
           </a>
         </div>
+        <nav class="legal-links">
+          <a data-legal="rules" data-i18n="legal_rules"></a><span>·</span>
+          <a data-legal="help" data-i18n="legal_help"></a><span>·</span>
+          <a data-legal="terms" data-i18n="legal_terms"></a><span>·</span>
+          <a data-legal="privacy" data-i18n="legal_privacy"></a>
+        </nav>
+        <p class="legal-agree" data-i18n="legal_agree"></p>
       </div>
     </section>
 
@@ -98,6 +105,17 @@
         <button class="btn-big btn-outline" id="btn-friend-join" data-i18n="friend_join"></button>
       </div>
     </section>
+
+    <!-- ============ LEGAL / INFO PAGES (overlay) ============ -->
+    <div class="overlay" id="overlay-legal" hidden>
+      <div class="modal legal-modal">
+        <h2 id="legal-title"></h2>
+        <p class="legal-text" id="legal-text"></p>
+        <div class="modal-buttons">
+          <button class="btn-big" id="legal-close" data-i18n="legal_close"></button>
+        </div>
+      </div>
+    </div>
 
     <!-- ============ CREATE ROOM SETTINGS (overlay) ============ -->
     <div class="overlay" id="overlay-create" hidden>
@@ -382,7 +400,7 @@
     <div id="toast" hidden></div>
   </div>
 
-  <script src="vendor/supabase.js?v=40" defer></script>
-  <script type="module" src="js/app.js?v=40"></script>
+  <script src="vendor/supabase.js?v=41" defer></script>
+  <script type="module" src="js/app.js?v=41"></script>
 </body>
 </html>
