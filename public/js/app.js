@@ -1,7 +1,7 @@
 // WallRush client app: screens, board UI, online play (WebSocket), AI mode, auth.
-import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=39';
-import { aiMove } from './ai.js?v=39';
-import { makeT } from './i18n.js?v=39';
+import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=40';
+import { aiMove } from './ai.js?v=40';
+import { makeT } from './i18n.js?v=40';
 
 /* ================= state ================= */
 const $ = (id) => document.getElementById(id);
@@ -128,7 +128,7 @@ function getAiWorker() {
   if (aiWorker === false) return null;
   if (!aiWorker) {
     try {
-      aiWorker = new Worker('js/ai-worker.js?v=39', { type: 'module' });
+      aiWorker = new Worker('js/ai-worker.js?v=40', { type: 'module' });
       aiWorker.onmessage = (e) => {
         const cb = aiPending.get(e.data.id);
         aiPending.delete(e.data.id);
@@ -1298,7 +1298,25 @@ $('btn-install').addEventListener('click', doInstall);
 $('install-banner-go').addEventListener('click', doInstall);
 $('install-banner-close').addEventListener('click', () => {
   $('install-banner').hidden = true; // just for this view — returns on next reload
+  iosDismissed = true;
 });
+
+// iPhone/iPad: Safari never fires beforeinstallprompt, so show a manual hint
+// (Share → Add to Home Screen). Only in Safari (other iOS browsers can't do it).
+let iosDismissed = false;
+function maybeShowIosInstall() {
+  const ua = navigator.userAgent;
+  const isIOS = /iphone|ipad|ipod/i.test(ua);
+  const iosSafari = isIOS && /safari/i.test(ua) && !/crios|fxios|edgios|yabrowser|opios/i.test(ua);
+  if (iosSafari && !runsInstalled() && !iosDismissed) {
+    $('install-banner-go').hidden = true;          // no auto-install button on iOS
+    const el = $('install-banner-text');
+    el.removeAttribute('data-i18n');               // stop applyI18n from overwriting it
+    el.textContent = t('install_ios');
+    $('install-banner').hidden = false;
+  }
+}
+maybeShowIosInstall();
 
 $('theme-toggle').addEventListener('change', (e) => {
   localStorage.setItem('wr_theme', e.target.checked ? 'dark' : 'light');
