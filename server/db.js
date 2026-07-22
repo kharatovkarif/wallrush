@@ -73,6 +73,16 @@ export async function createProfile(userId, nick) {
   return { ok: true };
 }
 
+// count a finished game between two real humans (for the owner's stats)
+export async function recordHumanMatch(mode) {
+  if (!dbEnabled) return;
+  try {
+    await supa.from('human_matches').insert({ mode: mode === 'race' ? 'race' : 'duel' });
+  } catch (e) {
+    console.error('recordHumanMatch failed:', e.message);
+  }
+}
+
 export async function recordResult(winnerUserId, loserUserId) {
   if (!dbEnabled) return;
   try {

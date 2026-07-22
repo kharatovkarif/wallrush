@@ -1,7 +1,7 @@
 // WallRush online rooms: lobby, matches, clocks, reconnect, rematch, emoji.
 // Server is authoritative: it validates every move with the shared engine.
 import { initialState, applyMove } from '../public/js/engine.js';
-import { verifyUser, getProfile, recordResult, recordBotResult } from './db.js';
+import { verifyUser, getProfile, recordResult, recordBotResult, recordHumanMatch } from './db.js';
 import { initBots, fakeOnline, notifyUserWaiting } from './bots.js';
 import crypto from 'crypto';
 
@@ -111,6 +111,8 @@ async function finish(room, winnerIdx, reason) {
   }
   if (w.isBot) recordBotResult(w.nick, true);
   if (l.isBot) recordBotResult(l.nick, false);
+  // both sides are real people → a genuine human-vs-human match
+  if (!w.isBot && !l.isBot) recordHumanMatch(room.mode || 'duel');
 }
 
 function destroyRoom(room) {
@@ -356,8 +358,10 @@ export function attachWs(wss) {
           }
           case 'quick': {
             const mode = msg.mode === 'race' ? 'race' : 'duel';
-            const open = [...rooms.values()].find(r =>
+            const opens = [...rooms.values()].filter(r =>
               r.status === 'open' && !r.code && (r.mode || 'duel') === mode && r.players[0] !== client);
+            // prefer a real human's room over a bot's, so live players meet live players
+            const open = opens.find(r => !r.players[0].isBot) || opens[0];
             if (open) joinRoom(client, open);
             else {
               createRoom(client, false, { mode });

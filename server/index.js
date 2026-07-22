@@ -256,13 +256,22 @@ app.get('/admin', async (req, res) => {
   const byId = new Map((profs || []).map(p => [p.id, p]));
   const all = rows || [];
 
-  const played = all.filter(v => v.games > 0).length;
-  const regs = all.filter(v => v.user_id).length;
-  const installs = all.filter(v => v.installed_at).length;
-  const totalGames = all.reduce((s, v) => s + v.games, 0);
+  // exact counts via the DB (the 500-row fetch above is only for the journal list)
   const today = mskDayStart(Date.now());
-  const newToday = all.filter(v => mskDayStart(new Date(v.first_seen).getTime()) === today).length;
-  const activeToday = all.filter(v => mskDayStart(new Date(v.last_seen).getTime()) === today).length;
+  const todayStartIso = new Date(today * dayMs - 3 * 3600e3).toISOString();
+  const yStartIso = new Date((today - 1) * dayMs - 3 * 3600e3).toISOString();
+  const cnt = async (q) => (await q).count || 0;
+  const [totalPeople, played, regs, installs, newToday, activeToday, humansToday, humansTotal] = await Promise.all([
+    cnt(supa.from('visitors').select('*', { count: 'exact', head: true })),
+    cnt(supa.from('visitors').select('*', { count: 'exact', head: true }).gt('games', 0)),
+    cnt(supa.from('visitors').select('*', { count: 'exact', head: true }).not('user_id', 'is', null)),
+    cnt(supa.from('visitors').select('*', { count: 'exact', head: true }).not('installed_at', 'is', null)),
+    cnt(supa.from('visitors').select('*', { count: 'exact', head: true }).gte('first_seen', todayStartIso)),
+    cnt(supa.from('visitors').select('*', { count: 'exact', head: true }).gte('last_seen', todayStartIso)),
+    cnt(supa.from('human_matches').select('*', { count: 'exact', head: true }).gte('at', todayStartIso)),
+    cnt(supa.from('human_matches').select('*', { count: 'exact', head: true })),
+  ]);
+  const totalGames = await cnt(supa.from('visit_log').select('*', { count: 'exact', head: true }).eq('kind', 'game'));
 
   const view = String(req.query.view || 'people');
   const viewTab = (id, label) =>
@@ -325,11 +334,11 @@ app.get('/admin', async (req, res) => {
       return `<tr class="click" onclick="location.href='${href}'"><td>${esc(visName(v, byId))} ›</td><td>${badge}</td><td>${mskFmt(v.first_seen)}</td><td>${mskFmt(v.last_seen)}</td><td>${v.visits}</td><td>${games}</td><td>${esc(v.lang || '—')}</td><td>${esc(region)}</td></tr>`;
     }).join('');
     content = `
-<h2>Журнал — нажми на человека, чтобы увидеть его историю (📲 = установил приложение)</h2>
+<h2>Журнал — последние 500, нажми на человека (📲 = установил приложение)</h2>
 <div class="tabs">
-  ${tab('all', 'Все', all.length)}
+  ${tab('all', 'Все', totalPeople)}
   ${tab('played', '🎮 Играли', played)}
-  ${tab('zero', '👀 Только смотрели', all.length - played)}
+  ${tab('zero', '👀 Только смотрели', totalPeople - played)}
   ${tab('inst', '📲 Установили', installs)}
   ${tab('reg', '✔ Регистрация', regs)}
 </div>
@@ -339,12 +348,15 @@ ${trs}
 </table></div>`;
   }
 
-  // new devices per day, last 14 days (chart shown in both views)
+  // new devices per day, last 14 days — counted in the DB (no 500-row cap)
+  const { data: npd } = await supa.rpc('new_per_day', {
+    from_ts: new Date((today - 13) * dayMs - 3 * 3600e3).toISOString(),
+  });
+  const npdMap = new Map((npd || []).map(r => [Number(r.day), Number(r.n)]));
   const days = [];
   for (let i = 13; i >= 0; i--) {
     const day = today - i;
-    const n = all.filter(v => mskDayStart(new Date(v.first_seen).getTime()) === day).length;
-    days.push({ label: mskDayLabel(day), n });
+    days.push({ label: mskDayLabel(day), n: npdMap.get(day) || 0 });
   }
   const maxDay = Math.max(1, ...days.map(d => d.n));
   const bars = days.map(d =>
@@ -358,8 +370,10 @@ ${trs}
   <div class="c"><b>${realOnline() + fakeOnline()}</b><span>показано «онлайн»</span></div>
   <div class="c"><b>${newToday}</b><span>новых сегодня</span></div>
   <div class="c"><b>${activeToday}</b><span>заходили сегодня</span></div>
+  <div class="c"><b>${humansToday}</b><span>🤝 живой vs живой (сегодня)</span></div>
+  <div class="c"><b>${humansTotal}</b><span>🤝 живых матчей всего</span></div>
   <div class="c"><b>${installs}</b><span>📲 установили приложение</span></div>
-  <div class="c"><b>${all.length}</b><span>всего людей</span></div>
+  <div class="c"><b>${totalPeople}</b><span>всего людей</span></div>
   <div class="c"><b>${totalGames}</b><span>партий всего</span></div>
 </div>
 <div class="tabs" style="margin-top:14px">
