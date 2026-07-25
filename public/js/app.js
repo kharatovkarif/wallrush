@@ -1,7 +1,7 @@
 // WallRush client app: screens, board UI, online play (WebSocket), AI mode, auth.
-import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=51';
-import { aiMove } from './ai.js?v=51';
-import { makeT } from './i18n.js?v=51';
+import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=50';
+import { aiMove } from './ai.js?v=50';
+import { makeT } from './i18n.js?v=50';
 
 /* ================= state ================= */
 const $ = (id) => document.getElementById(id);
@@ -76,44 +76,6 @@ function runsInstalled() {
   } catch { return false; }
 }
 
-/* Which platform sent this player here. Worked out once, on the very first
-   visit, and remembered — later visits keep the original source so the owner
-   sees what actually brought the person in.
-   ?from=ig / ?utm_source=… wins; otherwise we read the referring site. */
-function detectSource() {
-  const saved = localStorage.getItem('wr_src');
-  if (saved) return saved;
-  let src = '';
-  try {
-    const p = new URLSearchParams(location.search);
-    const tag = (p.get('from') || p.get('utm_source') || '').toLowerCase().slice(0, 24);
-    const byTag = {
-      ig: 'instagram', insta: 'instagram', instagram: 'instagram',
-      tt: 'tiktok', tiktok: 'tiktok',
-      yt: 'youtube', youtube: 'youtube',
-      tg: 'telegram', telegram: 'telegram',
-      fb: 'facebook', facebook: 'facebook',
-    };
-    if (tag) src = byTag[tag] || tag;
-    if (!src && document.referrer) {
-      const h = new URL(document.referrer).hostname.replace(/^www\./, '');
-      if (/instagram\.com|l\.instagram/.test(h)) src = 'instagram';
-      else if (/tiktok\.com|musical\.ly/.test(h)) src = 'tiktok';
-      else if (/youtube\.com|youtu\.be/.test(h)) src = 'youtube';
-      else if (/t\.me|telegram/.test(h)) src = 'telegram';
-      else if (/facebook\.com|fb\.me|l\.facebook/.test(h)) src = 'facebook';
-      else if (/google\./.test(h)) src = 'google';
-      else if (/yandex\./.test(h)) src = 'yandex';
-      else if (/wallrush\.online|railway\.app/.test(h)) src = '';   // our own pages
-      else src = h.slice(0, 40);
-    }
-  } catch { /* malformed referrer — treat as direct */ }
-  src = src || 'direct';
-  localStorage.setItem('wr_src', src);
-  return src;
-}
-const trafficSource = detectSource();
-
 function logVisit(game = false, installed = false) {
   try {
     fetch('/api/visit', {
@@ -127,8 +89,6 @@ function logVisit(game = false, installed = false) {
         // language + timezone → the owner sees who comes from where
         lang: navigator.language || '',
         tz: Intl.DateTimeFormat().resolvedOptions().timeZone || '',
-        // which platform sent them (first visit wins)
-        source: trafficSource,
         // installed-the-app flag: fires on install and on standalone launches
         installed: installed || runsInstalled(),
       }),
@@ -168,7 +128,7 @@ function getAiWorker() {
   if (aiWorker === false) return null;
   if (!aiWorker) {
     try {
-      aiWorker = new Worker('js/ai-worker.js?v=51', { type: 'module' });
+      aiWorker = new Worker('js/ai-worker.js?v=50', { type: 'module' });
       aiWorker.onmessage = (e) => {
         const cb = aiPending.get(e.data.id);
         aiPending.delete(e.data.id);
