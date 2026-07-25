@@ -119,9 +119,10 @@ app.post('/api/visit', async (req, res) => {
     const lang = String(req.body?.lang || '').slice(0, 16) || null;
     const tz = String(req.body?.tz || '').slice(0, 48) || null;
     const installed = req.body?.installed === true;
+    const source = String(req.body?.source || '').toLowerCase().slice(0, 40) || null;
     const user = await verifyUser(bearer(req));
     const { data: ex } = await supa.from('visitors')
-      .select('visits, games, installed_at').eq('device_id', device).maybeSingle();
+      .select('visits, games, installed_at, source').eq('device_id', device).maybeSingle();
     if (ex) {
       await supa.from('visitors').update({
         last_seen: new Date().toISOString(),
@@ -130,6 +131,8 @@ app.post('/api/visit', async (req, res) => {
         ...(nick ? { last_nick: nick } : {}),
         ...(lang ? { lang } : {}),
         ...(tz ? { tz } : {}),
+        // first touch wins — never overwrite where the player originally came from
+        ...(source && !ex.source ? { source } : {}),
         ...(user ? { user_id: user.id } : {}),
         ...(installed && !ex.installed_at ? { installed_at: new Date().toISOString() } : {}),
         ...(installed ? { standalone_at: new Date().toISOString() } : {}), // every launch from the icon
@@ -139,7 +142,7 @@ app.post('/api/visit', async (req, res) => {
         device_id: device,
         last_nick: nick,
         games: game ? 1 : 0,
-        lang, tz,
+        lang, tz, source,
         user_id: user ? user.id : null,
         installed_at: installed ? new Date().toISOString() : null,
         standalone_at: installed ? new Date().toISOString() : null,
@@ -261,6 +264,14 @@ const adminPage = (title, body) => `<!DOCTYPE html><html lang="ru"><head><meta c
 const maybeDeleted = (v) => Boolean(v.installed_at) &&
   (!v.standalone_at || (Date.now() - new Date(v.standalone_at).getTime() > 7 * dayMs &&
     new Date(v.last_seen).getTime() > new Date(v.standalone_at).getTime()));
+
+// pretty names for traffic sources (raw values are set by the client)
+const SRC_NICE = {
+  instagram: '📸 Instagram', tiktok: '🎵 TikTok', youtube: '▶️ YouTube',
+  telegram: '✈️ Telegram', facebook: '👥 Facebook',
+  google: '🔍 Google', yandex: '🔍 Яндекс',
+  direct: '🔗 Прямой',
+};
 
 /* The browser gives us a timezone, not a country, so map the common zones to
    a country name. Anything unknown falls back to the zone's own city. */
@@ -395,6 +406,37 @@ app.get('/admin', async (req, res) => {
     }
     content = `<h2>По дням — нажми на день, чтобы увидеть по часам</h2>` +
       (blocks.join('') || '<p class="note">Подневная история пишется с 19.07 — строки появятся по мере заходов.</p>');
+  } else if (view === 'src') {
+    // ----- where players come from: TikTok / Instagram / YouTube / direct -----
+    const period = String(req.query.p || 'all');
+    const fromTs = period === 'today' ? todayStartIso
+      : period === 'week' ? new Date(Date.now() - 7 * dayMs).toISOString() : null;
+    const { data: srcRows } = await supa.rpc('admin_sources', { from_ts: fromTs });
+    const list = (srcRows || []).map(r => ({
+      name: SRC_NICE[r.source] || '🌐 ' + r.source,
+      people: Number(r.people) || 0, games: Number(r.games) || 0,
+    })).sort((a, b) => b.people - a.people);
+    const sum = list.reduce((s, c) => s + c.people, 0) || 1;
+    const pTab = (id, label) =>
+      `<a class="${period === id ? 'on' : ''}" href="/admin?key=${ADMIN_KEY}&view=src&p=${id}">${label}</a>`;
+    const rowsHtml = list.map(c => {
+      const pct = 100 * c.people / sum;
+      return `<div class="geo">
+        <div class="top"><span class="name">${esc(c.name)}</span><span class="pct">${pct.toFixed(1)}%</span></div>
+        <div class="track"><i style="width:${Math.max(1, pct).toFixed(1)}%"></i></div>
+        <div class="num">${c.people.toLocaleString('ru')} чел. · ${c.games.toLocaleString('ru')} партий</div>
+      </div>`;
+    }).join('');
+    content = `<h2>Откуда приходят игроки</h2>
+<div class="tabs">${pTab('all', 'За всё время')}${pTab('week', 'За 7 дней')}${pTab('today', 'Сегодня')}</div>
+${rowsHtml || '<p class="note">Пока нет данных.</p>'}
+<p class="note">Отслеживание включено ${mskFmt(new Date().toISOString())} — у тех, кто заходил раньше, источник неизвестен («Прямой заход»).<br><br>
+<b>Чтобы видеть точно</b>, ставь в каждую соцсеть свою ссылку:<br>
+• Instagram — <code>wallrush.online/?from=ig</code><br>
+• TikTok — <code>wallrush.online/?from=tt</code><br>
+• YouTube — <code>wallrush.online/?from=yt</code><br>
+• Telegram — <code>wallrush.online/?from=tg</code><br>
+Тогда каждый переход будет подписан, даже если соцсеть прячет реферер.</p>`;
   } else if (view === 'geo') {
     // ----- countries: share of the audience, aggregated in the DB -----
     const period = String(req.query.p || 'all');
@@ -451,7 +493,7 @@ ${rest ? `<p class="note">+ ещё ${rest.toLocaleString('ru')} чел. из о�
     const [{ count: found }, { data: pageRows }] = await Promise.all([
       applyFilter(supa.from('visitors').select('*', { count: 'exact', head: true })),
       applyFilter(supa.from('visitors')
-        .select('device_id, first_seen, last_seen, visits, games, last_nick, user_id, lang, tz, installed_at, standalone_at'))
+        .select('device_id, first_seen, last_seen, visits, games, last_nick, user_id, lang, tz, source, installed_at, standalone_at'))
         .order('last_seen', { ascending: false })
         .range((page - 1) * PAGE, page * PAGE - 1),
     ]);
@@ -468,8 +510,8 @@ ${rest ? `<p class="note">+ ещё ${rest.toLocaleString('ru')} чел. из о�
       const badge = prof ? '<b style="color:#21c07a">✔ рег.</b>' : '<span style="color:#8892b0">гость</span>';
       const games = v.games > 0 ? `<b>${v.games}</b>` : '<span style="color:#c0392b">0</span>';
       const href = `/admin/v?key=${ADMIN_KEY}&d=${encodeURIComponent(v.device_id)}`;
-      return `<tr class="click" onclick="location.href='${href}'"><td>${esc(visName(v, byId))} ›</td><td>${badge}</td><td>${esc(countryOf(v.tz))}</td><td>${mskFmt(v.first_seen)}</td><td>${mskFmt(v.last_seen)}</td><td>${v.visits}</td><td>${games}</td><td>${esc(v.lang || '—')}</td></tr>`;
-    }).join('') || '<tr><td colspan="8" style="color:#8892b0">Никого не нашлось</td></tr>';
+      return `<tr class="click" onclick="location.href='${href}'"><td>${esc(visName(v, byId))} ›</td><td>${badge}</td><td>${esc(countryOf(v.tz))}</td><td>${esc(SRC_NICE[v.source] || v.source || '—')}</td><td>${mskFmt(v.first_seen)}</td><td>${mskFmt(v.last_seen)}</td><td>${v.visits}</td><td>${games}</td><td>${esc(v.lang || '—')}</td></tr>`;
+    }).join('') || '<tr><td colspan="9" style="color:#8892b0">Никого не нашлось</td></tr>';
 
     const pager = pages > 1 ? `<div class="tabs" style="margin-top:12px">
       ${page > 1 ? `<a href="${link({ pg: page - 1 })}">‹ Назад</a>` : ''}
@@ -494,7 +536,7 @@ ${rest ? `<p class="note">+ ещё ${rest.toLocaleString('ru')} чел. из о�
 </div>
 <p class="note">${q ? `Найдено: ${total.toLocaleString('ru')}` : `Всего в этом фильтре: ${total.toLocaleString('ru')}`} · показано по ${PAGE} на странице</p>
 <div class="wrap"><table>
-<tr><th>Ник</th><th>Статус</th><th>Страна</th><th>Первый заход (МСК)</th><th>Последний</th><th>Заходов</th><th>Партий</th><th>Язык</th></tr>
+<tr><th>Ник</th><th>Статус</th><th>Страна</th><th>Источник</th><th>Первый заход (МСК)</th><th>Последний</th><th>Заходов</th><th>Партий</th><th>Язык</th></tr>
 ${trs}
 </table></div>
 ${pager}`;
@@ -554,6 +596,7 @@ ${pager}`;
   ${viewTab('people', '👥 Люди')}
   ${viewTab('days', '📅 По дням')}
   ${viewTab('geo', '🌍 Страны')}
+  ${viewTab('src', '📲 Источники')}
 </div>
 ${content}`));
 });
@@ -675,7 +718,7 @@ app.get('/admin/v', async (req, res) => {
   if (!dbEnabled) return res.send('DB is off');
   const device = String(req.query.d || '');
   const { data: v } = await supa.from('visitors')
-    .select('device_id, first_seen, last_seen, visits, games, last_nick, user_id, lang, tz, installed_at, standalone_at')
+    .select('device_id, first_seen, last_seen, visits, games, last_nick, user_id, lang, tz, source, installed_at, standalone_at')
     .eq('device_id', device).maybeSingle();
   if (!v) return res.send(adminPage('Не найден', `<a class="back" href="/admin?key=${ADMIN_KEY}">‹ Назад</a><p>Человек не найден.</p>`));
   const prof = v.user_id ? (await supa.from('profiles').select('nick, wins, losses').eq('id', v.user_id).maybeSingle()).data : null;
