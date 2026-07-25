@@ -37,6 +37,11 @@ body {
 
 #app { max-width: 520px; margin: 0 auto; min-height: 100dvh; position: relative; }
 
+/* The Monetag in-page banner is injected as a direct <body> child (outside #app).
+   While a match is on screen (<html class="in-game">) hide it so ads never
+   cover or interrupt the game — banner shows in menus only. */
+html.in-game > body > *:not(#app):not(script):not(style) { display: none !important; }
+
 /* ============ screens ============ */
 .screen {
   display: none;

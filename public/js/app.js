@@ -1,7 +1,7 @@
 // WallRush client app: screens, board UI, online play (WebSocket), AI mode, auth.
-import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=43';
-import { aiMove } from './ai.js?v=43';
-import { makeT } from './i18n.js?v=43';
+import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=44';
+import { aiMove } from './ai.js?v=44';
+import { makeT } from './i18n.js?v=44';
 
 /* ================= state ================= */
 const $ = (id) => document.getElementById(id);
@@ -128,7 +128,7 @@ function getAiWorker() {
   if (aiWorker === false) return null;
   if (!aiWorker) {
     try {
-      aiWorker = new Worker('js/ai-worker.js?v=43', { type: 'module' });
+      aiWorker = new Worker('js/ai-worker.js?v=44', { type: 'module' });
       aiWorker.onmessage = (e) => {
         const cb = aiPending.get(e.data.id);
         aiPending.delete(e.data.id);
@@ -204,7 +204,10 @@ function show(screenId) {
   $(screenId).classList.add('active');
   currentScreen = screenId;
   const nav = $('bottom-nav');
-  nav.classList.toggle('hidden', screenId === 'screen-game' || screenId === 'screen-waiting');
+  const playing = screenId === 'screen-game' || screenId === 'screen-waiting';
+  nav.classList.toggle('hidden', playing);
+  // Ads (Monetag in-page banner) only in menus, never during a match
+  document.documentElement.classList.toggle('in-game', playing);
   document.querySelectorAll('.nav-btn').forEach(b =>
     b.classList.toggle('active', b.dataset.screen === screenId));
   if (screenId === 'screen-leaderboard') loadLeaderboard();
