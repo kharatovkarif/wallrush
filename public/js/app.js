@@ -1,7 +1,7 @@
 // WallRush client app: screens, board UI, online play (WebSocket), AI mode, auth.
-import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=48';
-import { aiMove } from './ai.js?v=48';
-import { makeT } from './i18n.js?v=48';
+import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=49';
+import { aiMove } from './ai.js?v=49';
+import { makeT } from './i18n.js?v=49';
 
 /* ================= state ================= */
 const $ = (id) => document.getElementById(id);
@@ -128,7 +128,7 @@ function getAiWorker() {
   if (aiWorker === false) return null;
   if (!aiWorker) {
     try {
-      aiWorker = new Worker('js/ai-worker.js?v=48', { type: 'module' });
+      aiWorker = new Worker('js/ai-worker.js?v=49', { type: 'module' });
       aiWorker.onmessage = (e) => {
         const cb = aiPending.get(e.data.id);
         aiPending.delete(e.data.id);
@@ -913,6 +913,10 @@ function onGameOver(iWon, reason) {
     spawnConfetti(iWon);
     $('btn-rematch').style.display = '';
     $('rematch-status').hidden = true;
+    // support button is offered fresh after every match
+    $('btn-support').disabled = false;
+    $('btn-support').textContent = t('support');
+    $('support-hint').hidden = false;
     $('overlay-gameover').hidden = false;
   }, 600);
   vibrate(iWon ? [40, 60, 40, 60, 80] : 60);
@@ -940,6 +944,17 @@ $('btn-rematch').addEventListener('click', () => {
   wsSend({ t: 'rematch', yes: true });
   $('rematch-status').hidden = false;
   $('rematch-status').textContent = t('rematch_wait');
+});
+
+// Voluntary support: opens a sponsor link in a new tab. Nothing runs unless
+// the player taps it, so ads never appear on their own or during a match.
+const SUPPORT_URL = 'https://fluffy-machine.com/b.3WVy0MPn3MpavebhmvVGJLZQDk0D3xMhjAUU1PO/DGAj5pL/TOcpyYNkTkU/4/MhTTM_';
+$('btn-support').addEventListener('click', () => {
+  window.open(SUPPORT_URL, '_blank', 'noopener');
+  const btn = $('btn-support');
+  btn.disabled = true;
+  btn.textContent = t('support_thanks');
+  $('support-hint').hidden = true;
 });
 
 $('btn-to-menu').addEventListener('click', () => {
