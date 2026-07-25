@@ -334,17 +334,12 @@ const visName = (v, byId) => {
 app.get('/admin', async (req, res) => {
   if ((req.query.key || '') !== ADMIN_KEY) return res.status(404).send('Not found');
   if (!dbEnabled) return res.send('DB is off');
-  const { data: rows } = await supa.from('visitors')
-    .select('device_id, first_seen, last_seen, visits, games, last_nick, user_id, lang, tz, installed_at, standalone_at')
-    .order('last_seen', { ascending: false }).limit(500);
   const { data: profs } = await supa.from('profiles').select('id, nick, wins, losses');
   const byId = new Map((profs || []).map(p => [p.id, p]));
-  const all = rows || [];
 
-  // exact counts via the DB (the 500-row fetch above is only for the journal list)
+  // every headline number is counted in the DB — never from a fetched page
   const today = mskDayStart(Date.now());
   const todayStartIso = new Date(today * dayMs - 3 * 3600e3).toISOString();
-  const yStartIso = new Date((today - 1) * dayMs - 3 * 3600e3).toISOString();
   const cnt = async (q) => (await q).count || 0;
   const [totalPeople, played, regs, installs, newToday, activeToday, humansToday, humansTotal] = await Promise.all([
     cnt(supa.from('visitors').select('*', { count: 'exact', head: true })),
@@ -437,24 +432,59 @@ ${rowsHtml || '<p class="note">Пока нет данных за этот пер
 ${rest ? `<p class="note">+ ещё ${rest.toLocaleString('ru')} чел. из остальных стран</p>` : ''}
 <p class="note">Страна определяется по часовому поясу устройства — это близко к правде, но не паспорт: через VPN человек может выглядеть как из другой страны.</p>`;
   } else {
-    // ----- people view: the journal with filters -----
+    // ----- people view: journal, filtered and paged IN the database so the
+    // filters and counts apply to everyone, not just the first page -----
     const f = String(req.query.f || 'all');
-    const shown = all.filter(v =>
-      f === 'played' ? v.games > 0 :
-      f === 'zero' ? v.games === 0 :
-      f === 'inst' ? Boolean(v.installed_at) :
-      f === 'reg' ? Boolean(v.user_id) : true);
+    const q = String(req.query.q || '').trim().slice(0, 40);
+    const PAGE = 100;
+    const page = Math.max(1, parseInt(String(req.query.pg || '1'), 10) || 1);
+
+    const applyFilter = (sel) => {
+      let x = sel;
+      if (f === 'played') x = x.gt('games', 0);
+      else if (f === 'zero') x = x.eq('games', 0);
+      else if (f === 'inst') x = x.not('installed_at', 'is', null);
+      else if (f === 'reg') x = x.not('user_id', 'is', null);
+      if (q) x = x.ilike('last_nick', `%${likeEscape(q)}%`);
+      return x;
+    };
+    const [{ count: found }, { data: pageRows }] = await Promise.all([
+      applyFilter(supa.from('visitors').select('*', { count: 'exact', head: true })),
+      applyFilter(supa.from('visitors')
+        .select('device_id, first_seen, last_seen, visits, games, last_nick, user_id, lang, tz, installed_at, standalone_at'))
+        .order('last_seen', { ascending: false })
+        .range((page - 1) * PAGE, page * PAGE - 1),
+    ]);
+    const total = found || 0;
+    const pages = Math.max(1, Math.ceil(total / PAGE));
+    const link = (o = {}) => {
+      const p = { key: ADMIN_KEY, view: 'people', f, ...(q ? { q } : {}), ...o };
+      return '/admin?' + Object.entries(p).map(([k, v]) => `${k}=${encodeURIComponent(v)}`).join('&');
+    };
     const tab = (id, label, n) =>
-      `<a class="${f === id ? 'on' : ''}" href="/admin?key=${ADMIN_KEY}&view=people&f=${id}">${label} (${n})</a>`;
-    const trs = shown.map(v => {
+      `<a class="${f === id ? 'on' : ''}" href="${link({ f: id, pg: 1 })}">${label} (${Number(n).toLocaleString('ru')})</a>`;
+    const trs = (pageRows || []).map(v => {
       const prof = v.user_id ? byId.get(v.user_id) : null;
       const badge = prof ? '<b style="color:#21c07a">✔ рег.</b>' : '<span style="color:#8892b0">гость</span>';
       const games = v.games > 0 ? `<b>${v.games}</b>` : '<span style="color:#c0392b">0</span>';
       const href = `/admin/v?key=${ADMIN_KEY}&d=${encodeURIComponent(v.device_id)}`;
       return `<tr class="click" onclick="location.href='${href}'"><td>${esc(visName(v, byId))} ›</td><td>${badge}</td><td>${esc(countryOf(v.tz))}</td><td>${mskFmt(v.first_seen)}</td><td>${mskFmt(v.last_seen)}</td><td>${v.visits}</td><td>${games}</td><td>${esc(v.lang || '—')}</td></tr>`;
-    }).join('');
+    }).join('') || '<tr><td colspan="8" style="color:#8892b0">Никого не нашлось</td></tr>';
+
+    const pager = pages > 1 ? `<div class="tabs" style="margin-top:12px">
+      ${page > 1 ? `<a href="${link({ pg: page - 1 })}">‹ Назад</a>` : ''}
+      <a class="on">${page} из ${pages}</a>
+      ${page < pages ? `<a href="${link({ pg: page + 1 })}">Дальше ›</a>` : ''}
+    </div>` : '';
+
     content = `
-<h2>Журнал — последние 500, нажми на человека (📲 = установил приложение)</h2>
+<h2>Люди — нажми на человека, чтобы увидеть его историю (📲 = установил приложение)</h2>
+<form method="get" action="/admin" style="margin:10px 0">
+  <input type="hidden" name="key" value="${ADMIN_KEY}"><input type="hidden" name="view" value="people">
+  <input type="hidden" name="f" value="${esc(f)}">
+  <input name="q" value="${esc(q)}" placeholder="Поиск по нику…" autocomplete="off"
+    style="width:100%;max-width:340px;padding:10px 13px;border-radius:11px;border:1px solid #232842;background:#191d2e;color:#e8ecf8;font-size:14px">
+</form>
 <div class="tabs">
   ${tab('all', 'Все', totalPeople)}
   ${tab('played', '🎮 Играли', played)}
@@ -462,10 +492,12 @@ ${rest ? `<p class="note">+ ещё ${rest.toLocaleString('ru')} чел. из о�
   ${tab('inst', '📲 Установили', installs)}
   ${tab('reg', '✔ Регистрация', regs)}
 </div>
+<p class="note">${q ? `Найдено: ${total.toLocaleString('ru')}` : `Всего в этом фильтре: ${total.toLocaleString('ru')}`} · показано по ${PAGE} на странице</p>
 <div class="wrap"><table>
 <tr><th>Ник</th><th>Статус</th><th>Страна</th><th>Первый заход (МСК)</th><th>Последний</th><th>Заходов</th><th>Партий</th><th>Язык</th></tr>
 ${trs}
-</table></div>`;
+</table></div>
+${pager}`;
   }
 
   const days = [];
