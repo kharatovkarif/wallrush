@@ -194,29 +194,51 @@ const mskDayLabel = (dayIdx) => {
 };
 
 const ADMIN_CSS = `
-  body { font-family: system-ui, sans-serif; background: #12141f; color: #e8ecf8; margin: 0; padding: 14px; }
-  h1 { font-size: 19px; margin: 4px 0 12px; } h2 { font-size: 15px; margin: 20px 0 8px; color: #aab3d0; }
+  * { box-sizing: border-box; }
+  body { font-family: system-ui, sans-serif; background: #0f111c; color: #e8ecf8; margin: 0; padding: 14px 14px 30px; }
+  h1 { font-size: 20px; margin: 4px 0 4px; }
+  h2 { font-size: 15px; margin: 22px 0 8px; color: #aab3d0; }
+  .sect { font-size: 11px; letter-spacing: .8px; text-transform: uppercase; color: #6d7796; margin: 16px 0 7px; }
   a { color: #6d9bf8; text-decoration: none; }
-  .cards { display: flex; flex-wrap: wrap; gap: 8px; }
-  .c { background: #1c2033; border-radius: 12px; padding: 10px 14px; min-width: 96px; }
-  .c b { font-size: 22px; display: block; } .c span { font-size: 11px; color: #8892b0; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; }
+  .c { background: #191d2e; border: 1px solid #232842; border-radius: 14px; padding: 11px 13px; }
+  .c b { font-size: 23px; display: block; line-height: 1.15; }
+  .c span { font-size: 11px; color: #8892b0; display: block; margin-top: 2px; }
+  .c.hi b { color: #4d8dff; } .c.good b { color: #21c07a; }
   table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
-  th, td { text-align: left; padding: 7px 8px; border-bottom: 1px solid #262c42; white-space: nowrap; }
-  th { color: #8892b0; font-size: 11px; position: sticky; top: 0; background: #12141f; }
-  tr.click { cursor: pointer; } tr.click:active { background: #1c2033; }
-  .wrap { overflow-x: auto; }
-  .chart { display: flex; align-items: flex-end; gap: 5px; height: 110px; padding-top: 14px; }
+  th, td { text-align: left; padding: 8px; border-bottom: 1px solid #232842; white-space: nowrap; }
+  th { color: #8892b0; font-size: 11px; position: sticky; top: 0; background: #0f111c; }
+  tr.click { cursor: pointer; } tr.click:active { background: #191d2e; }
+  .wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .chart { display: flex; align-items: flex-end; gap: 5px; height: 120px; padding-top: 14px; }
   .bar { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; height: 100%; }
-  .bar .fill { width: 100%; background: #2f6df6; border-radius: 4px 4px 0 0; min-height: 2px; }
-  .bar small { font-size: 10px; color: #cfd6ee; margin: 2px 0; } .bar span { font-size: 9px; color: #667; }
-  .tabs { display: flex; gap: 8px; margin: 10px 0; flex-wrap: wrap; }
-  .tabs a { background: #1c2033; border-radius: 10px; padding: 7px 12px; font-size: 13px; color: #cfd6ee; }
-  .tabs a.on { background: #2f6df6; color: #fff; }
-  .person { background: #1c2033; border-radius: 14px; padding: 14px; margin-bottom: 14px; }
+  .bar .fill { width: 100%; background: linear-gradient(180deg, #5b8cff, #2f6df6); border-radius: 5px 5px 0 0; min-height: 2px; }
+  .bar small { font-size: 10px; color: #cfd6ee; margin: 3px 0 1px; } .bar span { font-size: 9px; color: #667; }
+  .tabs { display: flex; gap: 8px; margin: 12px 0; flex-wrap: wrap; }
+  .tabs a { background: #191d2e; border: 1px solid #232842; border-radius: 11px; padding: 8px 13px; font-size: 13px; color: #cfd6ee; }
+  .tabs a.on { background: #2f6df6; border-color: #2f6df6; color: #fff; font-weight: 600; }
+  .person { background: #191d2e; border: 1px solid #232842; border-radius: 14px; padding: 14px; margin-bottom: 12px; }
   .person b.nick { font-size: 20px; }
   .kv { display: grid; grid-template-columns: auto 1fr; gap: 4px 14px; margin-top: 10px; font-size: 13px; }
   .kv span { color: #8892b0; }
-  .back { display: inline-block; margin-bottom: 10px; font-size: 14px; }`;
+  .back { display: inline-block; margin-bottom: 10px; font-size: 14px; }
+  /* day rows */
+  .dayrow { display: flex; align-items: center; gap: 10px; background: #191d2e; border: 1px solid #232842;
+            border-radius: 13px; padding: 12px 14px; margin-bottom: 8px; }
+  .dayrow .d { font-size: 15px; font-weight: 700; min-width: 74px; }
+  .dayrow .m { display: flex; gap: 16px; flex: 1; flex-wrap: wrap; }
+  .dayrow .m i { font-style: normal; font-size: 11px; color: #8892b0; display: block; }
+  .dayrow .m u { text-decoration: none; font-size: 15px; font-weight: 600; }
+  .dayrow .go { color: #6d9bf8; font-size: 20px; }
+  /* country rows */
+  .geo { background: #191d2e; border: 1px solid #232842; border-radius: 13px; padding: 11px 13px; margin-bottom: 7px; }
+  .geo .top { display: flex; align-items: baseline; gap: 8px; }
+  .geo .name { font-size: 14px; font-weight: 600; flex: 1; }
+  .geo .pct { font-size: 15px; font-weight: 700; color: #4d8dff; }
+  .geo .num { font-size: 11px; color: #8892b0; margin-left: 6px; }
+  .geo .track { height: 6px; background: #232842; border-radius: 4px; margin-top: 7px; overflow: hidden; }
+  .geo .track i { display: block; height: 100%; background: linear-gradient(90deg, #5b8cff, #2f6df6); border-radius: 4px; }
+  .note { color: #6d7796; font-size: 12px; line-height: 1.6; }`;
 
 const nowMskHms = () => {
   const d = new Date(Date.now() + 3 * 3600e3);
@@ -239,6 +261,69 @@ const adminPage = (title, body) => `<!DOCTYPE html><html lang="ru"><head><meta c
 const maybeDeleted = (v) => Boolean(v.installed_at) &&
   (!v.standalone_at || (Date.now() - new Date(v.standalone_at).getTime() > 7 * dayMs &&
     new Date(v.last_seen).getTime() > new Date(v.standalone_at).getTime()));
+
+/* The browser gives us a timezone, not a country, so map the common zones to
+   a country name. Anything unknown falls back to the zone's own city. */
+const COUNTRY_BY_TZ = {
+  'Asia/Tehran': '🇮🇷 Иран',
+  'Asia/Calcutta': '🇮🇳 Индия', 'Asia/Kolkata': '🇮🇳 Индия',
+  'Asia/Tashkent': '🇺🇿 Узбекистан', 'Asia/Samarkand': '🇺🇿 Узбекистан',
+  'Europe/Istanbul': '🇹🇷 Турция', 'Asia/Istanbul': '🇹🇷 Турция',
+  'Asia/Dushanbe': '🇹🇯 Таджикистан',
+  'Asia/Bishkek': '🇰🇬 Киргизия',
+  'Asia/Ashgabat': '🇹🇲 Туркменистан',
+  'Asia/Baku': '🇦🇿 Азербайджан', 'Asia/Yerevan': '🇦🇲 Армения', 'Asia/Tbilisi': '🇬🇪 Грузия',
+  'Europe/Kiev': '🇺🇦 Украина', 'Europe/Kyiv': '🇺🇦 Украина', 'Europe/Uzhgorod': '🇺🇦 Украина', 'Europe/Zaporozhye': '🇺🇦 Украина',
+  'Europe/Minsk': '🇧🇾 Беларусь',
+  'Europe/Chisinau': '🇲🇩 Молдова', 'Europe/Tiraspol': '🇲🇩 Молдова',
+  'Asia/Baghdad': '🇮🇶 Ирак', 'Asia/Kabul': '🇦🇫 Афганистан', 'Asia/Karachi': '🇵🇰 Пакистан',
+  'Asia/Dhaka': '🇧🇩 Бангладеш', 'Asia/Kathmandu': '🇳🇵 Непал', 'Asia/Colombo': '🇱🇰 Шри-Ланка',
+  'Asia/Dubai': '🇦🇪 ОАЭ', 'Asia/Riyadh': '🇸🇦 Саудовская Аравия', 'Asia/Qatar': '🇶🇦 Катар',
+  'Asia/Kuwait': '🇰🇼 Кувейт', 'Asia/Muscat': '🇴🇲 Оман', 'Asia/Bahrain': '🇧🇭 Бахрейн',
+  'Asia/Amman': '🇯🇴 Иордания', 'Asia/Beirut': '🇱🇧 Ливан', 'Asia/Damascus': '🇸🇾 Сирия',
+  'Asia/Jerusalem': '🇮🇱 Израиль', 'Asia/Tel_Aviv': '🇮🇱 Израиль',
+  'Asia/Tokyo': '🇯🇵 Япония', 'Asia/Seoul': '🇰🇷 Южная Корея', 'Asia/Shanghai': '🇨🇳 Китай',
+  'Asia/Hong_Kong': '🇭🇰 Гонконг', 'Asia/Taipei': '🇹🇼 Тайвань',
+  'Asia/Jakarta': '🇮🇩 Индонезия', 'Asia/Manila': '🇵🇭 Филиппины', 'Asia/Bangkok': '🇹🇭 Таиланд',
+  'Asia/Ho_Chi_Minh': '🇻🇳 Вьетнам', 'Asia/Saigon': '🇻🇳 Вьетнам',
+  'Asia/Kuala_Lumpur': '🇲🇾 Малайзия', 'Asia/Singapore': '🇸🇬 Сингапур',
+  'Africa/Cairo': '🇪🇬 Египет', 'Africa/Algiers': '🇩🇿 Алжир', 'Africa/Casablanca': '🇲🇦 Марокко',
+  'Africa/Tunis': '🇹🇳 Тунис', 'Africa/Tripoli': '🇱🇾 Ливия', 'Africa/Lagos': '🇳🇬 Нигерия',
+  'Africa/Nairobi': '🇰🇪 Кения', 'Africa/Johannesburg': '🇿🇦 ЮАР', 'Africa/Khartoum': '🇸🇩 Судан',
+  'Europe/London': '🇬🇧 Великобритания', 'Europe/Dublin': '🇮🇪 Ирландия',
+  'Europe/Berlin': '🇩🇪 Германия', 'Europe/Paris': '🇫🇷 Франция', 'Europe/Madrid': '🇪🇸 Испания',
+  'Europe/Rome': '🇮🇹 Италия', 'Europe/Lisbon': '🇵🇹 Португалия', 'Europe/Amsterdam': '🇳🇱 Нидерланды',
+  'Europe/Brussels': '🇧🇪 Бельгия', 'Europe/Vienna': '🇦🇹 Австрия', 'Europe/Zurich': '🇨🇭 Швейцария',
+  'Europe/Warsaw': '🇵🇱 Польша', 'Europe/Prague': '🇨🇿 Чехия', 'Europe/Budapest': '🇭🇺 Венгрия',
+  'Europe/Bucharest': '🇷🇴 Румыния', 'Europe/Sofia': '🇧🇬 Болгария', 'Europe/Athens': '🇬🇷 Греция',
+  'Europe/Stockholm': '🇸🇪 Швеция', 'Europe/Oslo': '🇳🇴 Норвегия', 'Europe/Helsinki': '🇫🇮 Финляндия',
+  'Europe/Copenhagen': '🇩🇰 Дания', 'Europe/Belgrade': '🇷🇸 Сербия', 'Europe/Zagreb': '🇭🇷 Хорватия',
+  'Europe/Vilnius': '🇱🇹 Литва', 'Europe/Riga': '🇱🇻 Латвия', 'Europe/Tallinn': '🇪🇪 Эстония',
+  'America/Sao_Paulo': '🇧🇷 Бразилия', 'America/Bahia': '🇧🇷 Бразилия', 'America/Fortaleza': '🇧🇷 Бразилия',
+  'America/Recife': '🇧🇷 Бразилия', 'America/Manaus': '🇧🇷 Бразилия', 'America/Belem': '🇧🇷 Бразилия',
+  'America/Mexico_City': '🇲🇽 Мексика', 'America/Bogota': '🇨🇴 Колумбия', 'America/Lima': '🇵🇪 Перу',
+  'America/Santiago': '🇨🇱 Чили', 'America/Caracas': '🇻🇪 Венесуэла',
+  'America/Argentina/Buenos_Aires': '🇦🇷 Аргентина', 'America/Buenos_Aires': '🇦🇷 Аргентина',
+  'America/Toronto': '🇨🇦 Канада', 'America/Vancouver': '🇨🇦 Канада', 'America/Edmonton': '🇨🇦 Канада',
+  'America/Winnipeg': '🇨🇦 Канада', 'America/Halifax': '🇨🇦 Канада',
+  'Australia/Sydney': '🇦🇺 Австралия', 'Australia/Melbourne': '🇦🇺 Австралия',
+  'Australia/Brisbane': '🇦🇺 Австралия', 'Australia/Perth': '🇦🇺 Австралия',
+  'Pacific/Auckland': '🇳🇿 Новая Зеландия',
+};
+// whole-country zone families that would be tedious to list one by one
+const TZ_PREFIX_COUNTRY = [
+  [/^Asia\/(Almaty|Qostanay|Kostanay|Aqtobe|Aktobe|Aqtau|Aktau|Atyrau|Oral|Qyzylorda|Kyzylorda)$/, '🇰🇿 Казахстан'],
+  [/^America\/(New_York|Chicago|Denver|Los_Angeles|Phoenix|Detroit|Anchorage|Boise|Indiana|Kentucky|Juneau|Nome|Sitka|Adak|Menominee|North_Dakota)/, '🇺🇸 США'],
+  [/^Pacific\/(Honolulu)$/, '🇺🇸 США'],
+  [/^Europe\/(Moscow|Kaliningrad|Samara|Volgograd|Saratov|Astrakhan|Kirov|Ulyanovsk)$/, '🇷🇺 Россия'],
+  [/^Asia\/(Yekaterinburg|Omsk|Novosibirsk|Barnaul|Tomsk|Novokuznetsk|Krasnoyarsk|Irkutsk|Chita|Yakutsk|Khandyga|Vladivostok|Ust-Nera|Magadan|Sakhalin|Srednekolymsk|Kamchatka|Anadyr)$/, '🇷🇺 Россия'],
+];
+function countryOf(tz) {
+  if (!tz) return '🏳️ Неизвестно';
+  if (COUNTRY_BY_TZ[tz]) return COUNTRY_BY_TZ[tz];
+  for (const [re, name] of TZ_PREFIX_COUNTRY) if (re.test(tz)) return name;
+  return '🌍 ' + String(tz).split('/').pop().replace(/_/g, ' ');
+}
 
 const visName = (v, byId) => {
   const prof = v.user_id ? byId.get(v.user_id) : null;
@@ -271,7 +356,17 @@ app.get('/admin', async (req, res) => {
     cnt(supa.from('human_matches').select('*', { count: 'exact', head: true }).gte('at', todayStartIso)),
     cnt(supa.from('human_matches').select('*', { count: 'exact', head: true })),
   ]);
-  const totalGames = await cnt(supa.from('visit_log').select('*', { count: 'exact', head: true }).eq('kind', 'game'));
+  const [totalGames, gamesToday] = await Promise.all([
+    cnt(supa.from('visit_log').select('*', { count: 'exact', head: true }).eq('kind', 'game')),
+    cnt(supa.from('visit_log').select('*', { count: 'exact', head: true }).eq('kind', 'game').gte('at', todayStartIso)),
+  ]);
+
+  // new people per MSK day, counted IN the database — the 500-row journal fetch
+  // above must never be used for these numbers (it silently truncates them)
+  const { data: npd } = await supa.rpc('new_per_day', {
+    from_ts: new Date((today - 13) * dayMs - 3 * 3600e3).toISOString(),
+  });
+  const npdMap = new Map((npd || []).map(r => [Number(r.day), Number(r.n)]));
 
   const view = String(req.query.view || 'people');
   const viewTab = (id, label) =>
@@ -291,30 +386,56 @@ app.get('/admin', async (req, res) => {
     const blocks = [];
     for (let day = today; day > today - 14; day--) {
       const rec = dmap.get(day);
-      const fresh = all.filter(v => mskDayStart(new Date(v.first_seen).getTime()) === day);
-      if (!rec && !fresh.length) continue;
-      // list of who was active that day (distinct devices, small result)
-      const { data: devs } = await supa.rpc('admin_devices', {
-        from_ts: new Date(day * dayMs - 3 * 3600e3).toISOString(),
-        to_ts: new Date((day + 1) * dayMs - 3 * 3600e3).toISOString(),
-      });
-      const byDevice = new Map(all.map(v => [v.device_id, v]));
-      const people = (devs || []).map(d => byDevice.get(d.device_id)).filter(Boolean);
-      const list = (people.length ? people : fresh).map(v =>
-        `<a href="/admin/v?key=${ADMIN_KEY}&d=${encodeURIComponent(v.device_id)}">${esc(visName(v, byId))}</a>`
-      ).join(', ') || '—';
-      blocks.push(`<div class="person">
-        <b><a href="/admin/day?key=${ADMIN_KEY}&day=${day}">${mskDayLabel(day)}${day === today ? ' — сегодня' : ''} · по часам →</a></b>
-        <div class="kv">
-          <span>Новых</span><b>${fresh.length}</b>
-          <span>Заходили</span><b>${rec ? rec.people : fresh.length}</b>
-          <span>Партий</span><b>${rec ? rec.games : '—'}</b>
-        </div>
-        <p style="font-size:13px;line-height:1.8;margin:8px 0 0">${list}</p>
-      </div>`);
+      const fresh = npdMap.get(day) || 0;      // exact, straight from the DB
+      if (!rec && !fresh) continue;
+      blocks.push(`<a class="dayrow" href="/admin/day?key=${ADMIN_KEY}&day=${day}">
+        <span class="d">${mskDayLabel(day)}${day === today ? ' <span style="color:#21c07a;font-size:11px">сегодня</span>' : ''}</span>
+        <span class="m">
+          <span><i>Новых</i><u style="color:#4d8dff">${fresh}</u></span>
+          <span><i>Заходили</i><u>${rec ? rec.people : '—'}</u></span>
+          <span><i>Партий</i><u>${rec ? rec.games : '—'}</u></span>
+        </span>
+        <span class="go">›</span>
+      </a>`);
     }
-    content = `<h2>Каждый день отдельно (нажми на ник — вся история человека)</h2>` +
-      (blocks.join('') || '<p style="color:#8892b0">Подневная история пишется с 19.07 — блоки появятся по мере заходов.</p>');
+    content = `<h2>По дням — нажми на день, чтобы увидеть по часам</h2>` +
+      (blocks.join('') || '<p class="note">Подневная история пишется с 19.07 — строки появятся по мере заходов.</p>');
+  } else if (view === 'geo') {
+    // ----- countries: share of the audience, aggregated in the DB -----
+    const period = String(req.query.p || 'all');
+    const fromTs = period === 'today' ? todayStartIso
+      : period === 'week' ? new Date(Date.now() - 7 * dayMs).toISOString() : null;
+    const { data: tzRows } = await supa.rpc('admin_timezones', { from_ts: fromTs });
+    const agg = new Map();                     // country -> { people, games }
+    for (const r of (tzRows || [])) {
+      const name = countryOf(r.tz);
+      const cur = agg.get(name) || { people: 0, games: 0 };
+      cur.people += Number(r.people) || 0;
+      cur.games += Number(r.games) || 0;
+      agg.set(name, cur);
+    }
+    const list = [...agg.entries()].map(([name, v]) => ({ name, ...v }))
+      .sort((a, b) => b.people - a.people);
+    const sum = list.reduce((s, c) => s + c.people, 0) || 1;
+    const pTab = (id, label) =>
+      `<a class="${period === id ? 'on' : ''}" href="/admin?key=${ADMIN_KEY}&view=geo&p=${id}">${label}</a>`;
+    const rowsHtml = list.slice(0, 30).map(c => {
+      const pct = (100 * c.people / sum);
+      return `<div class="geo">
+        <div class="top">
+          <span class="name">${esc(c.name)}</span>
+          <span class="pct">${pct.toFixed(1)}%</span>
+        </div>
+        <div class="track"><i style="width:${Math.max(1, pct).toFixed(1)}%"></i></div>
+        <div class="num">${c.people.toLocaleString('ru')} чел. · ${c.games.toLocaleString('ru')} партий</div>
+      </div>`;
+    }).join('');
+    const rest = list.slice(30).reduce((s, c) => s + c.people, 0);
+    content = `<h2>Откуда игроки — ${list.length} стран</h2>
+<div class="tabs">${pTab('all', 'За всё время')}${pTab('week', 'За 7 дней')}${pTab('today', 'Сегодня')}</div>
+${rowsHtml || '<p class="note">Пока нет данных за этот период.</p>'}
+${rest ? `<p class="note">+ ещё ${rest.toLocaleString('ru')} чел. из остальных стран</p>` : ''}
+<p class="note">Страна определяется по часовому поясу устройства — это близко к правде, но не паспорт: через VPN человек может выглядеть как из другой страны.</p>`;
   } else {
     // ----- people view: the journal with filters -----
     const f = String(req.query.f || 'all');
@@ -329,9 +450,8 @@ app.get('/admin', async (req, res) => {
       const prof = v.user_id ? byId.get(v.user_id) : null;
       const badge = prof ? '<b style="color:#21c07a">✔ рег.</b>' : '<span style="color:#8892b0">гость</span>';
       const games = v.games > 0 ? `<b>${v.games}</b>` : '<span style="color:#c0392b">0</span>';
-      const region = v.tz ? v.tz.split('/').pop().replace(/_/g, ' ') : '—';
       const href = `/admin/v?key=${ADMIN_KEY}&d=${encodeURIComponent(v.device_id)}`;
-      return `<tr class="click" onclick="location.href='${href}'"><td>${esc(visName(v, byId))} ›</td><td>${badge}</td><td>${mskFmt(v.first_seen)}</td><td>${mskFmt(v.last_seen)}</td><td>${v.visits}</td><td>${games}</td><td>${esc(v.lang || '—')}</td><td>${esc(region)}</td></tr>`;
+      return `<tr class="click" onclick="location.href='${href}'"><td>${esc(visName(v, byId))} ›</td><td>${badge}</td><td>${esc(countryOf(v.tz))}</td><td>${mskFmt(v.first_seen)}</td><td>${mskFmt(v.last_seen)}</td><td>${v.visits}</td><td>${games}</td><td>${esc(v.lang || '—')}</td></tr>`;
     }).join('');
     content = `
 <h2>Журнал — последние 500, нажми на человека (📲 = установил приложение)</h2>
@@ -343,16 +463,11 @@ app.get('/admin', async (req, res) => {
   ${tab('reg', '✔ Регистрация', regs)}
 </div>
 <div class="wrap"><table>
-<tr><th>Ник</th><th>Статус</th><th>Первый заход (МСК)</th><th>Последний</th><th>Заходов</th><th>Партий</th><th>Язык</th><th>Регион</th></tr>
+<tr><th>Ник</th><th>Статус</th><th>Страна</th><th>Первый заход (МСК)</th><th>Последний</th><th>Заходов</th><th>Партий</th><th>Язык</th></tr>
 ${trs}
 </table></div>`;
   }
 
-  // new devices per day, last 14 days — counted in the DB (no 500-row cap)
-  const { data: npd } = await supa.rpc('new_per_day', {
-    from_ts: new Date((today - 13) * dayMs - 3 * 3600e3).toISOString(),
-  });
-  const npdMap = new Map((npd || []).map(r => [Number(r.day), Number(r.n)]));
   const days = [];
   for (let i = 13; i >= 0; i--) {
     const day = today - i;
@@ -363,25 +478,51 @@ ${trs}
     `<div class="bar"><div class="fill" style="height:${Math.round(100 * d.n / maxDay)}%"></div><small>${d.n}</small><span>${d.label}</span></div>`
   ).join('');
 
+  const num = (n) => Number(n || 0).toLocaleString('ru');
+  // yesterday, so today's numbers have something to be compared against
+  const yesterday = npdMap.get(today - 1) || 0;
+  const trend = yesterday
+    ? (newToday >= yesterday
+        ? `<span style="color:#21c07a">▲ +${Math.round(100 * (newToday - yesterday) / yesterday)}%</span>`
+        : `<span style="color:#e06">▼ −${Math.round(100 * (yesterday - newToday) / yesterday)}%</span>`)
+    : '';
+
   res.send(adminPage('WallRush — статистика', `
-<h1>🧱 WallRush — статистика <span style="font-size:11px;color:#667">(обновляется каждую минуту)</span></h1>
+<h1>🧱 WallRush — статистика</h1>
+<p class="note" style="margin:0 0 4px">Всё время московское. Страница сама обновляется.</p>
+
+<p class="sect">🟢 Прямо сейчас</p>
 <div class="cards">
-  <div class="c"><b>${realOnline()}</b><span>сейчас на сайте (реально)</span></div>
-  <div class="c"><b>${realOnline() + fakeOnline()}</b><span>показано «онлайн»</span></div>
-  <div class="c"><b>${newToday}</b><span>новых сегодня</span></div>
-  <div class="c"><b>${activeToday}</b><span>заходили сегодня</span></div>
-  <div class="c"><b>${humansToday}</b><span>🤝 живой vs живой (сегодня)</span></div>
-  <div class="c"><b>${humansTotal}</b><span>🤝 живых матчей всего</span></div>
-  <div class="c"><b>${installs}</b><span>📲 установили приложение</span></div>
-  <div class="c"><b>${totalPeople}</b><span>всего людей</span></div>
-  <div class="c"><b>${totalGames}</b><span>партий всего</span></div>
+  <div class="c good"><b>${num(realOnline())}</b><span>на сайте (реально)</span></div>
+  <div class="c"><b>${num(realOnline() + fakeOnline())}</b><span>показано «онлайн»</span></div>
 </div>
-<div class="tabs" style="margin-top:14px">
-  ${viewTab('people', '👥 Люди')}
-  ${viewTab('days', '📅 По дням')}
+
+<p class="sect">📅 Сегодня ${trend ? '· к вчера ' + trend : ''}</p>
+<div class="cards">
+  <div class="c hi"><b>${num(newToday)}</b><span>новых людей</span></div>
+  <div class="c"><b>${num(activeToday)}</b><span>заходили</span></div>
+  <div class="c"><b>${num(gamesToday)}</b><span>партий сыграно</span></div>
+  <div class="c"><b>${num(humansToday)}</b><span>🤝 живой vs живой</span></div>
 </div>
+
+<p class="sect">📊 За всё время</p>
+<div class="cards">
+  <div class="c"><b>${num(totalPeople)}</b><span>всего людей</span></div>
+  <div class="c"><b>${num(totalGames)}</b><span>партий всего</span></div>
+  <div class="c"><b>${num(humansTotal)}</b><span>🤝 живых матчей</span></div>
+  <div class="c"><b>${num(installs)}</b><span>📲 установили</span></div>
+  <div class="c"><b>${num(regs)}</b><span>✔ регистраций</span></div>
+  <div class="c"><b>${num(played)}</b><span>🎮 играли хоть раз</span></div>
+</div>
+
 <h2>Новые люди по дням (14 дней)</h2>
 <div class="chart">${bars}</div>
+
+<div class="tabs" style="margin-top:18px">
+  ${viewTab('people', '👥 Люди')}
+  ${viewTab('days', '📅 По дням')}
+  ${viewTab('geo', '🌍 Страны')}
+</div>
 ${content}`));
 });
 
@@ -397,13 +538,14 @@ app.get('/admin/day', async (req, res) => {
   const { data: hbk } = await supa.rpc('admin_buckets', {
     from_ts: startIso, to_ts: endIso, bucket_secs: 3600, offset_secs: 10800,
   });
-  const { data: devs } = await supa.rpc('admin_devices', { from_ts: startIso, to_ts: endIso });
-  const { data: rows } = await supa.from('visitors')
-    .select('device_id, first_seen, last_nick, user_id, installed_at, standalone_at')
-    .limit(500);
-  const { data: profs } = await supa.from('profiles').select('id, nick');
-  const byId = new Map((profs || []).map(p => [p.id, p]));
-  const byDevice = new Map((rows || []).map(v => [v.device_id, v]));
+  // day totals and new-people count come from DB aggregates — counting fetched
+  // rows here silently truncated the numbers (11 355 visitors showed as ~500)
+  const [{ data: dayBk }, { data: npdDay }] = await Promise.all([
+    supa.rpc('admin_buckets', { from_ts: startIso, to_ts: endIso, bucket_secs: 86400, offset_secs: 10800 }),
+    supa.rpc('new_per_day', { from_ts: startIso }),
+  ]);
+  const dayDevices = Number(dayBk?.[0]?.people || 0);
+  const fresh = Number((npdDay || []).find(r => Number(r.day) === day)?.n || 0);
 
   const hours = Array.from({ length: 24 }, () => ({ people: 0, games: 0 }));
   let dayGames = 0;
@@ -412,30 +554,24 @@ app.get('/admin/day', async (req, res) => {
     hours[h] = { people: Number(b.people), games: Number(b.games) };
     dayGames += Number(b.games);
   }
-  const dayDevices = (devs || []).length;
-  const fresh = (rows || []).filter(v => mskDayStart(new Date(v.first_seen).getTime()) === day).length;
+  const peakHour = hours.reduce((best, x, h) => (x.people > hours[best].people ? h : best), 0);
   const trs = hours.map((x, h) => {
     const dim = x.people === 0 && x.games === 0;
     const href = `/admin/hour?key=${ADMIN_KEY}&day=${day}&h=${h}`;
     return `<tr class="click"${dim ? ' style="opacity:.35"' : ''} onclick="location.href='${href}'"><td>${String(h).padStart(2, '0')}:00 ›</td><td>${x.people ? `<b>${x.people}</b>` : 0}</td><td>${x.games ? `<b>${x.games}</b>` : 0}</td></tr>`;
   }).join('');
-  const people = (devs || []).map(d => byDevice.get(d.device_id)).filter(Boolean).map(v =>
-    `<a href="/admin/v?key=${ADMIN_KEY}&d=${encodeURIComponent(v.device_id)}">${esc(visName(v, byId))}</a>`).join(', ') || '—';
-
+  const n = (x) => Number(x || 0).toLocaleString('ru');
   res.send(adminPage(`${mskDayLabel(day)} — WallRush`, `
 <a class="back" href="/admin?key=${ADMIN_KEY}&view=days">‹ Назад к дням</a>
-<div class="person">
-  <b>${mskDayLabel(day)}${day === mskDayStart(Date.now()) ? ' — сегодня' : ''}</b>
-  <div class="kv">
-    <span>Заходили</span><b>${dayDevices}</b>
-    <span>Новых</span><b>${fresh}</b>
-    <span>Партий</span><b>${dayGames}</b>
-  </div>
+<h1>${mskDayLabel(day)}${day === mskDayStart(Date.now()) ? ' — сегодня' : ''}</h1>
+<div class="cards">
+  <div class="c hi"><b>${n(fresh)}</b><span>новых людей</span></div>
+  <div class="c"><b>${n(dayDevices)}</b><span>заходили</span></div>
+  <div class="c"><b>${n(dayGames)}</b><span>партий</span></div>
+  <div class="c"><b>${String(peakHour).padStart(2, '0')}:00</b><span>пик посещений</span></div>
 </div>
-<h2>По часам (МСК)</h2>
-<div class="wrap"><table><tr><th>Час</th><th>Людей</th><th>Партий</th></tr>${trs}</table></div>
-<h2>Кто был в этот день (нажми на ник)</h2>
-<p style="font-size:13px;line-height:1.9">${people}</p>`));
+<h2>По часам (МСК) — нажми на час, чтобы увидеть людей</h2>
+<div class="wrap"><table><tr><th>Час</th><th>Людей</th><th>Партий</th></tr>${trs}</table></div>`));
 });
 
 // one hour's page: minute-by-minute breakdown inside a chosen hour
@@ -454,9 +590,18 @@ app.get('/admin/hour', async (req, res) => {
   const { data: mbk } = await supa.rpc('admin_buckets', {
     from_ts: startIso, to_ts: endIso, bucket_secs: 60, offset_secs: 10800,
   });
-  const { data: devs } = await supa.rpc('admin_devices', { from_ts: startIso, to_ts: endIso });
-  const { data: rows } = await supa.from('visitors')
-    .select('device_id, last_nick, user_id, installed_at, standalone_at').limit(500);
+  // exact hour total from the DB aggregate; the device list below is only for
+  // showing who was here and is deliberately capped
+  const [{ data: hourBk }, { data: devs }] = await Promise.all([
+    supa.rpc('admin_buckets', { from_ts: startIso, to_ts: endIso, bucket_secs: 3600, offset_secs: 10800 }),
+    supa.rpc('admin_devices', { from_ts: startIso, to_ts: endIso }),
+  ]);
+  const hourDevices = Number(hourBk?.[0]?.people || 0);
+  const shownDevs = (devs || []).slice(0, 150).map(d => d.device_id);
+  const { data: rows } = shownDevs.length
+    ? await supa.from('visitors')
+        .select('device_id, last_nick, user_id, installed_at, standalone_at').in('device_id', shownDevs)
+    : { data: [] };
   const { data: profs } = await supa.from('profiles').select('id, nick');
   const byId = new Map((profs || []).map(p => [p.id, p]));
   const byDevice = new Map((rows || []).map(v => [v.device_id, v]));
@@ -468,13 +613,12 @@ app.get('/admin/hour', async (req, res) => {
     mins[m] = { people: Number(b.people), games: Number(b.games) };
     hourGames += Number(b.games);
   }
-  const hourDevices = (devs || []).length;
   const hh = String(h).padStart(2, '0');
   const trs = mins.map((x, m) => {
     const dim = x.people === 0 && x.games === 0;
     return `<tr${dim ? ' style="opacity:.3"' : ''}><td>${hh}:${String(m).padStart(2, '0')}</td><td>${x.people ? `<b>${x.people}</b>` : 0}</td><td>${x.games ? `<b>${x.games}</b>` : 0}</td></tr>`;
   }).join('');
-  const people = (devs || []).map(d => byDevice.get(d.device_id)).filter(Boolean).map(v =>
+  const people = shownDevs.map(id => byDevice.get(id)).filter(Boolean).map(v =>
     `<a href="/admin/v?key=${ADMIN_KEY}&d=${encodeURIComponent(v.device_id)}">${esc(visName(v, byId))}</a>`).join(', ') || '—';
 
   res.send(adminPage(`${mskDayLabel(day)} ${hh}:00 — WallRush`, `
@@ -482,14 +626,15 @@ app.get('/admin/hour', async (req, res) => {
 <div class="person">
   <b>${mskDayLabel(day)}, час ${hh}:00–${hh}:59 (МСК)</b>
   <div class="kv">
-    <span>Людей за час</span><b>${hourDevices}</b>
-    <span>Партий за час</span><b>${hourGames}</b>
+    <span>Людей за час</span><b>${hourDevices.toLocaleString('ru')}</b>
+    <span>Партий за час</span><b>${hourGames.toLocaleString('ru')}</b>
   </div>
 </div>
 <h2>По минутам</h2>
 <div class="wrap"><table><tr><th>Минута</th><th>Людей</th><th>Партий</th></tr>${trs}</table></div>
 <h2>Кто был в этот час (нажми на ник)</h2>
-<p style="font-size:13px;line-height:1.9">${people}</p>`));
+<p style="font-size:13px;line-height:1.9">${people}</p>
+${hourDevices > shownDevs.length ? `<p class="note">Показаны первые ${shownDevs.length} из ${hourDevices.toLocaleString('ru')} — полный список ищи во вкладке «Люди».</p>` : ''}`));
 });
 
 // one person's page: everything about a single device + day-by-day timeline
