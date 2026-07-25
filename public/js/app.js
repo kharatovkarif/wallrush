@@ -1,7 +1,7 @@
 // WallRush client app: screens, board UI, online play (WebSocket), AI mode, auth.
-import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=50';
-import { aiMove } from './ai.js?v=50';
-import { makeT } from './i18n.js?v=50';
+import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=52';
+import { aiMove } from './ai.js?v=52';
+import { makeT } from './i18n.js?v=52';
 
 /* ================= state ================= */
 const $ = (id) => document.getElementById(id);
@@ -128,7 +128,7 @@ function getAiWorker() {
   if (aiWorker === false) return null;
   if (!aiWorker) {
     try {
-      aiWorker = new Worker('js/ai-worker.js?v=50', { type: 'module' });
+      aiWorker = new Worker('js/ai-worker.js?v=52', { type: 'module' });
       aiWorker.onmessage = (e) => {
         const cb = aiPending.get(e.data.id);
         aiPending.delete(e.data.id);
@@ -956,6 +956,36 @@ $('btn-support').addEventListener('click', () => {
   btn.textContent = t('support_thanks');
   $('support-hint').hidden = true;
 });
+
+/* Support / advertise dialogs on the home screen. Both are opt-in: nothing
+   loads or fires until the player opens them. */
+$('btn-open-support').addEventListener('click', () => { $('overlay-support').hidden = false; });
+$('support-close').addEventListener('click', () => { $('overlay-support').hidden = true; });
+$('support-watch').addEventListener('click', () => {
+  window.open(SUPPORT_URL, '_blank', 'noopener');
+  const b = $('support-watch');
+  b.disabled = true;
+  b.textContent = t('support_thanks');
+});
+$('wallet-copy').addEventListener('click', async () => {
+  const addr = $('wallet-addr').textContent.trim();
+  try {
+    await navigator.clipboard.writeText(addr);
+  } catch {
+    // older browsers / no clipboard permission — select it so it can be copied by hand
+    const r = document.createRange();
+    r.selectNodeContents($('wallet-addr'));
+    const sel = getSelection();
+    sel.removeAllRanges();
+    sel.addRange(r);
+  }
+  const b = $('wallet-copy');
+  b.textContent = t('copied');
+  setTimeout(() => { b.textContent = t('copy'); }, 2000);
+});
+
+$('btn-open-ads').addEventListener('click', () => { $('overlay-ads').hidden = false; });
+$('ads-close').addEventListener('click', () => { $('overlay-ads').hidden = true; });
 
 $('btn-to-menu').addEventListener('click', () => {
   if (game?.mode === 'online') wsSend({ t: 'rematch', yes: false });

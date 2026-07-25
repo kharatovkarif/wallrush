@@ -9,7 +9,7 @@
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect x='8' y='14' width='84' height='30' rx='8' fill='%237c5cff'/><rect x='8' y='56' width='40' height='30' rx='8' fill='%237c5cff'/><rect x='56' y='56' width='36' height='30' rx='8' fill='%23b3a1ff'/></svg>">
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <link rel="stylesheet" href="css/style.css?v=50">
+  <link rel="stylesheet" href="css/style.css?v=52">
 </head>
 <body>
   <div id="app">
@@ -57,6 +57,12 @@
           <div class="card-text"><b data-i18n="how_title"></b></div>
           <div class="card-arrow">›</div>
         </button>
+      </div>
+
+      <!-- support the project / buy advertising — visible, but below the game -->
+      <div class="side-row">
+        <button class="side-btn side-support" id="btn-open-support" data-i18n="support_short"></button>
+        <button class="side-btn side-ads" id="btn-open-ads" data-i18n="ads_short"></button>
       </div>
 
       <div class="social-block">
@@ -122,6 +128,38 @@
         <button class="btn-big btn-outline" id="btn-friend-join" data-i18n="friend_join"></button>
       </div>
     </section>
+
+    <!-- ============ SUPPORT: watch an ad, or donate (overlay) ============ -->
+    <div class="overlay" id="overlay-support" hidden>
+      <div class="modal">
+        <h2 data-i18n="support_title"></h2>
+        <p class="hint" data-i18n="support_intro"></p>
+        <button class="btn-big" id="support-watch" data-i18n="support_watch"></button>
+        <p class="hint" data-i18n="support_watch_sub"></p>
+        <div class="divider">•</div>
+        <p class="hint" data-i18n="support_donate_sub"></p>
+        <div class="wallet">
+          <span class="wallet-net">USDT · TRC20</span>
+          <code id="wallet-addr">TJohpPCR4LJPm9EZiKqoSLWaH7bZhX7AiP</code>
+          <button id="wallet-copy" data-i18n="copy"></button>
+        </div>
+        <div class="modal-buttons">
+          <button class="btn-big btn-outline" id="support-close" data-i18n="legal_close"></button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ ADVERTISE WITH US (overlay) ============ -->
+    <div class="overlay" id="overlay-ads" hidden>
+      <div class="modal">
+        <h2 data-i18n="ads_title"></h2>
+        <p class="legal-text" data-i18n="ads_body"></p>
+        <a class="btn-big" id="ads-contact" href="https://t.me/Karoboev" target="_blank" rel="noopener noreferrer" data-i18n="ads_contact"></a>
+        <div class="modal-buttons">
+          <button class="btn-big btn-outline" id="ads-close" data-i18n="legal_close"></button>
+        </div>
+      </div>
+    </div>
 
     <!-- ============ LEGAL / INFO PAGES (overlay) ============ -->
     <div class="overlay" id="overlay-legal" hidden>
@@ -436,7 +474,7 @@
     <div id="toast" hidden></div>
   </div>
 
-  <script src="vendor/supabase.js?v=50" defer></script>
-  <script type="module" src="js/app.js?v=50"></script>
+  <script src="vendor/supabase.js?v=52" defer></script>
+  <script type="module" src="js/app.js?v=52"></script>
 </body>
 </html>

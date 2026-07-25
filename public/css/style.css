@@ -61,6 +61,35 @@ html.in-game > body > *:not(#app):not(script):not(style) { display: none !import
 .support-hint { text-align: center; color: var(--muted); font-size: 11.5px; margin-top: 6px; }
 html[data-theme="dark"] .btn-support { color: #ffd76a; background: rgba(255, 199, 0, .12); }
 
+/* Support / advertise pair on the home screen: visible under the game cards,
+   deliberately quieter than the play buttons so the game stays the focus. */
+.side-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 14px; }
+.side-btn {
+  border: none; border-radius: 15px; padding: 13px 10px; cursor: pointer;
+  font: inherit; font-size: 14px; font-weight: 600;
+  background: var(--card); box-shadow: var(--shadow); color: var(--text);
+  transition: transform .15s ease;
+}
+.side-btn:active { transform: scale(.97); }
+.side-support { color: #7a5b00; background: rgba(255, 199, 0, .18); box-shadow: none; }
+.side-ads { color: var(--violet-dark); background: rgba(47, 109, 246, .12); box-shadow: none; }
+html[data-theme="dark"] .side-support { color: #ffd76a; background: rgba(255, 199, 0, .12); }
+html[data-theme="dark"] .side-ads { color: #8fb2ff; background: rgba(47, 109, 246, .16); }
+
+/* USDT address block inside the support dialog */
+.wallet { background: var(--bg2); border-radius: 14px; padding: 12px; margin-top: 10px; text-align: center; }
+.wallet-net { display: block; font-size: 11px; letter-spacing: .6px; color: var(--muted); text-transform: uppercase; }
+.wallet code {
+  display: block; margin: 7px 0 10px; font-size: 12.5px; line-height: 1.5;
+  word-break: break-all; user-select: all; -webkit-user-select: all; color: var(--text);
+}
+.wallet button {
+  border: none; border-radius: 10px; padding: 9px 20px; cursor: pointer;
+  font: inherit; font-size: 13px; font-weight: 600;
+  background: var(--violet); color: #fff;
+}
+.wallet button:active { transform: scale(.97); }
+
 /* ============ screens ============ */
 .screen {
   display: none;
