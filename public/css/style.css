@@ -42,6 +42,10 @@ body {
    cover or interrupt the game — banner shows in menus only. */
 html.in-game > body > *:not(#app):not(script):not(style) { display: none !important; }
 
+/* Menu banner slot (HilltopAds 300x100): centered under the home content. */
+.ad-slot { display: flex; justify-content: center; align-items: center; margin: 16px auto 6px; min-height: 100px; overflow: hidden; }
+.ad-slot iframe, .ad-slot img { max-width: 100%; }
+
 /* ============ screens ============ */
 .screen {
   display: none;

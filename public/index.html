@@ -9,7 +9,7 @@
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect x='8' y='14' width='84' height='30' rx='8' fill='%237c5cff'/><rect x='8' y='56' width='40' height='30' rx='8' fill='%237c5cff'/><rect x='56' y='56' width='36' height='30' rx='8' fill='%23b3a1ff'/></svg>">
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <link rel="stylesheet" href="css/style.css?v=46">
+  <link rel="stylesheet" href="css/style.css?v=47">
 </head>
 <body>
   <div id="app">
@@ -78,6 +78,23 @@
           <a data-legal="terms" data-i18n="legal_terms"></a><span>·</span>
           <a data-legal="privacy" data-i18n="legal_privacy"></a>
         </nav>
+      </div>
+
+      <!-- HilltopAds 300x100 banner: lives inside the home screen, so it shows
+           in the menu only and is never present on the game screen. -->
+      <div class="ad-slot" aria-hidden="true">
+        <script>
+        (function(osjgznp){
+        var d = document,
+            s = d.createElement('script'),
+            l = d.scripts[d.scripts.length - 1];
+        s.settings = osjgznp || {};
+        s.src = "\/\/massivesalad.com\/b\/XoVds\/d.G\/la0_Y\/WQcM\/Oe\/mq9SufZ\/UWl\/k\/P\/THcly\/NBTCUL2NMIT-MAtLNmzVIO1tNmT\/YyxKNCwO";
+        s.async = true;
+        s.referrerPolicy = 'no-referrer-when-downgrade';
+        l.parentNode.insertBefore(s, l);
+        })({})
+        </script>
       </div>
     </section>
 
@@ -400,7 +417,7 @@
     <div id="toast" hidden></div>
   </div>
 
-  <script src="vendor/supabase.js?v=46" defer></script>
-  <script type="module" src="js/app.js?v=46"></script>
+  <script src="vendor/supabase.js?v=47" defer></script>
+  <script type="module" src="js/app.js?v=47"></script>
 </body>
 </html>
