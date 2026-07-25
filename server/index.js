@@ -248,10 +248,10 @@ const nowMskHms = () => {
 const adminPage = (title, body) => `<!DOCTYPE html><html lang="ru"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#12141f">
-<meta http-equiv="refresh" content="30">
+<meta http-equiv="refresh" content="60">
 <meta http-equiv="Cache-Control" content="no-store">
 <title>${title}</title><style>${ADMIN_CSS}</style></head><body>${body}
-<p style="text-align:center;color:#5b6480;font-size:12px;margin:18px 0 6px">🕐 обновлено в ${nowMskHms()} МСК · страница сама обновляется каждые 30 сек</p>
+<p style="text-align:center;color:#5b6480;font-size:12px;margin:18px 0 6px">🕐 обновлено в ${nowMskHms()} МСК · страница сама обновляется раз в минуту</p>
 </body></html>`;
 
 // display name for a visitor row: 📲 = installed the game as an app
