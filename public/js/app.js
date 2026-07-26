@@ -1,7 +1,7 @@
 // WallRush client app: screens, board UI, online play (WebSocket), AI mode, auth.
-import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=52';
-import { aiMove } from './ai.js?v=52';
-import { makeT } from './i18n.js?v=52';
+import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=53';
+import { aiMove } from './ai.js?v=53';
+import { makeT } from './i18n.js?v=53';
 
 /* ================= state ================= */
 const $ = (id) => document.getElementById(id);
@@ -128,7 +128,7 @@ function getAiWorker() {
   if (aiWorker === false) return null;
   if (!aiWorker) {
     try {
-      aiWorker = new Worker('js/ai-worker.js?v=52', { type: 'module' });
+      aiWorker = new Worker('js/ai-worker.js?v=53', { type: 'module' });
       aiWorker.onmessage = (e) => {
         const cb = aiPending.get(e.data.id);
         aiPending.delete(e.data.id);
@@ -913,10 +913,12 @@ function onGameOver(iWon, reason) {
     spawnConfetti(iWon);
     $('btn-rematch').style.display = '';
     $('rematch-status').hidden = true;
-    // support button is offered fresh after every match
+    // support button is offered fresh after every match; the ad script is
+    // armed here (match already over) so the tap opens it right away
     $('btn-support').disabled = false;
     $('btn-support').textContent = t('support');
     $('support-hint').hidden = false;
+    armSupportAd();
     $('overlay-gameover').hidden = false;
   }, 600);
   vibrate(iWon ? [40, 60, 40, 60, 80] : 60);
@@ -946,12 +948,27 @@ $('btn-rematch').addEventListener('click', () => {
   $('rematch-status').textContent = t('rematch_wait');
 });
 
-// Voluntary support: opens a sponsor link in a new tab. Nothing runs unless
-// the player taps it, so ads never appear on their own or during a match.
-const SUPPORT_URL = 'https://fluffy-machine.com/b.3WVy0MPn3MpavebhmvVGJLZQDk0D3xMhjAUU1PO/DGAj5pL/TOcpyYNkTkU/4/MhTTM_';
+/* Voluntary support ad (RichAds popunder).
+
+   The script arms itself and opens the ad on a user click, so it is injected
+   only once a support surface is actually on screen — never on page load and
+   never while a match is running. Loading it as the dialog opens gives it time
+   to be ready by the time the player taps the button. */
+let popsArmed = false;
+function armSupportAd() {
+  if (popsArmed) return;
+  popsArmed = true;
+  const s = document.createElement('script');
+  s.src = 'https://richinfo.co/richpartners/pops/js/richads-pu-ob.js';
+  s.async = true;
+  s.setAttribute('data-pubid', '1014201');
+  s.setAttribute('data-siteid', '402712');
+  s.setAttribute('data-cfasync', 'false');
+  document.head.appendChild(s);
+}
+
 $('btn-support').addEventListener('click', () => {
-  window.open(SUPPORT_URL, '_blank', 'noopener');
-  const btn = $('btn-support');
+  const btn = $('btn-support');           // the click itself opens the popunder
   btn.disabled = true;
   btn.textContent = t('support_thanks');
   $('support-hint').hidden = true;
@@ -959,10 +976,12 @@ $('btn-support').addEventListener('click', () => {
 
 /* Support / advertise dialogs on the home screen. Both are opt-in: nothing
    loads or fires until the player opens them. */
-$('btn-open-support').addEventListener('click', () => { $('overlay-support').hidden = false; });
+$('btn-open-support').addEventListener('click', () => {
+  armSupportAd();
+  $('overlay-support').hidden = false;
+});
 $('support-close').addEventListener('click', () => { $('overlay-support').hidden = true; });
 $('support-watch').addEventListener('click', () => {
-  window.open(SUPPORT_URL, '_blank', 'noopener');
   const b = $('support-watch');
   b.disabled = true;
   b.textContent = t('support_thanks');
