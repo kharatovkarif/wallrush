@@ -9,7 +9,7 @@
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect x='8' y='14' width='84' height='30' rx='8' fill='%237c5cff'/><rect x='8' y='56' width='40' height='30' rx='8' fill='%237c5cff'/><rect x='56' y='56' width='36' height='30' rx='8' fill='%23b3a1ff'/></svg>">
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <link rel="stylesheet" href="css/style.css?v=53">
+  <link rel="stylesheet" href="css/style.css?v=54">
 </head>
 <body>
   <div id="app">
@@ -23,6 +23,9 @@
         <button id="install-banner-close" aria-label="close">✕</button>
       </div>
       <header class="home-head">
+        <!-- Language is reachable in one tap from the very first screen: the
+             globe plus the code is readable whatever language you speak. -->
+        <button class="lang-fab" id="btn-lang" aria-label="Language">🌐 EN</button>
         <div class="logo">
           <div class="logo-mark"><span></span><span></span><span></span></div>
           <h1>WallRush</h1>
@@ -157,6 +160,17 @@
         <a class="btn-big" id="ads-contact" href="https://t.me/Karoboev" target="_blank" rel="noopener noreferrer" data-i18n="ads_contact"></a>
         <div class="modal-buttons">
           <button class="btn-big btn-outline" id="ads-close" data-i18n="legal_close"></button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ LANGUAGE PICKER (overlay) ============ -->
+    <div class="overlay" id="overlay-lang" hidden>
+      <div class="modal">
+        <h2>🌐 <span data-i18n="lang_label"></span></h2>
+        <div class="lang-list" id="lang-list"></div>
+        <div class="modal-buttons">
+          <button class="btn-big btn-outline" id="lang-close" data-i18n="legal_close"></button>
         </div>
       </div>
     </div>
@@ -434,10 +448,7 @@
       <div class="settings-box">
         <div class="setting-row">
           <span data-i18n="lang_label"></span>
-          <div class="lang-switch">
-            <button data-lang="ru" id="lang-ru">RU</button>
-            <button data-lang="en" id="lang-en">EN</button>
-          </div>
+          <button class="lang-current" id="lang-current">🌐 English</button>
         </div>
         <div class="setting-row">
           <span data-i18n="vibration"></span>
@@ -474,7 +485,7 @@
     <div id="toast" hidden></div>
   </div>
 
-  <script src="vendor/supabase.js?v=53" defer></script>
-  <script type="module" src="js/app.js?v=53"></script>
+  <script src="vendor/supabase.js?v=54" defer></script>
+  <script type="module" src="js/app.js?v=54"></script>
 </body>
 </html>

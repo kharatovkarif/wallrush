@@ -101,7 +101,16 @@ html[data-theme="dark"] .side-ads { color: #8fb2ff; background: rgba(47, 109, 24
 @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 
 /* ============ home ============ */
-.home-head { text-align: center; padding: 26px 0 20px; }
+.home-head { text-align: center; padding: 26px 0 20px; position: relative; }
+/* Language chip in the corner of the very first screen — a globe reads the same
+   in every language, so nobody has to hunt through the profile to switch. */
+.lang-fab {
+  position: absolute; top: 10px; inset-inline-end: 2px; z-index: 3;
+  border: none; cursor: pointer; font: inherit; font-size: 13px; font-weight: 700;
+  padding: 7px 12px; border-radius: 999px;
+  background: var(--card); color: var(--text); box-shadow: var(--shadow);
+}
+.lang-fab:active { transform: scale(.95); }
 .logo { display: flex; align-items: center; justify-content: center; gap: 12px; }
 .logo h1 { font-size: 34px; letter-spacing: -1px; }
 .logo-mark {
@@ -550,12 +559,26 @@ html[data-theme="dark"] .soc-tt { box-shadow: inset 0 0 0 1px #2f3550, var(--sha
   padding: 15px 18px; font-weight: 600;
 }
 .setting-row + .setting-row { border-top: 1px solid var(--bg2); }
-.lang-switch { display: flex; gap: 6px; }
-.lang-switch button {
+.lang-current {
   border: none; cursor: pointer; font: inherit; font-weight: 700; font-size: 13px;
-  padding: 7px 14px; border-radius: 10px; background: var(--bg2); color: var(--muted);
+  padding: 8px 14px; border-radius: 10px; background: var(--bg2); color: var(--text);
 }
-.lang-switch button.active { background: var(--violet); color: #fff; }
+.lang-list { display: grid; gap: 8px; margin-top: 14px; }
+.lang-list button {
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  border: none; cursor: pointer; font: inherit; font-size: 15px; font-weight: 600;
+  padding: 13px 15px; border-radius: 14px; background: var(--bg2); color: var(--text);
+  text-align: start;
+}
+.lang-list button .lf { font-size: 19px; line-height: 1; }
+.lang-list button.active { background: var(--violet); color: #fff; }
+/* Right-to-left languages flip the menus, but never the board: the grid must
+   keep filling left to right or the position would be shown mirrored. */
+html[dir="rtl"] .board-wrap, html[dir="rtl"] #board,
+html[dir="rtl"] .wall-dock, html[dir="rtl"] .vs-row,
+html[dir="rtl"] .code, html[dir="rtl"] .wallet code { direction: ltr; }
+/* Chevrons are drawn as characters, so they need flipping by hand. */
+html[dir="rtl"] .card-arrow, html[dir="rtl"] .btn-back { transform: scaleX(-1); }
 .toggle { position: relative; display: inline-block; width: 50px; height: 28px; }
 .toggle input { opacity: 0; width: 0; height: 0; }
 .toggle span {
@@ -648,7 +671,10 @@ html[data-theme="dark"] .card-icon.lvl-normal { background: #1f2c4d; }
 html[data-theme="dark"] .card-icon.lvl-hard { background: #45301c; }
 html[data-theme="dark"] .result-stats { background: #232841; }
 html[data-theme="dark"] .toggle span { background: #2c3349; }
-html[data-theme="dark"] .lang-switch button { background: #2c3349; }
+html[data-theme="dark"] .lang-current,
+html[data-theme="dark"] .lang-list button { background: #2c3349; }
+html[data-theme="dark"] .lang-list button.active { background: var(--violet); }
+html[data-theme="dark"] .lang-fab { background: #1c2033; }
 html[data-theme="dark"] .setting-row + .setting-row { border-top-color: #262c42; }
 html[data-theme="dark"] .emoji-bar button, html[data-theme="dark"] .btn-outline { color: var(--violet2); }
 

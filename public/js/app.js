@@ -1,21 +1,39 @@
 // WallRush client app: screens, board UI, online play (WebSocket), AI mode, auth.
-import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=53';
-import { aiMove } from './ai.js?v=53';
-import { makeT } from './i18n.js?v=53';
+import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=54';
+import { aiMove } from './ai.js?v=54';
+import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=54';
 
 /* ================= state ================= */
 const $ = (id) => document.getElementById(id);
 
-// first visit: CIS system language or CIS timezone → RU, otherwise EN (user can change it in the profile)
+const SUPPORTED = new Set(LANG_CODES);
+// CIS languages we do not translate: Russian is the common second language there.
+const CIS_LANGS = ['uk', 'be', 'kk', 'ky', 'uz', 'tg', 'az', 'hy', 'ka', 'tk'];
+const CIS_TZ = /Moscow|Kaliningrad|Samara|Volgograd|Saratov|Astrakhan|Kirov|Ulyanovsk|Yekaterinburg|Omsk|Novosibirsk|Barnaul|Tomsk|Novokuznetsk|Krasnoyarsk|Irkutsk|Chita|Yakutsk|Khandyga|Vladivostok|Ust-Nera|Magadan|Sakhalin|Srednekolymsk|Kamchatka|Anadyr|Minsk|Kiev|Kyiv|Uzhgorod|Zaporozhye|Simferopol|Chisinau|Tiraspol|Almaty|Astana|Qostanay|Aqtobe|Aqtau|Atyrau|Oral|Qyzylorda|Tashkent|Samarkand|Bishkek|Dushanbe|Ashgabat|Baku|Yerevan|Tbilisi/i;
+// Second hint only, for phones kept in English while the owner is elsewhere.
+// Neither the phone language nor the timezone is changed by a VPN, so this
+// never guesses from the IP address and never fights with a VPN.
+const TZ_LANG = [
+  [/Tehran/i, 'fa'],
+  [/Istanbul/i, 'tr'],
+  [/Paris|Brussels|Monaco|Casablanca|Algiers|Tunis|Dakar|Abidjan|Kinshasa|Lubumbashi|Douala|Libreville|Bamako|Ouagadougou|Niamey|Conakry|Antananarivo|Port-au-Prince/i, 'fr'],
+  [/Madrid|Canary|Ceuta|Mexico_City|Tijuana|Monterrey|Bogota|Lima|Santiago|Buenos_Aires|Cordoba|Caracas|Guayaquil|Asuncion|Montevideo|La_Paz|Havana|Santo_Domingo|Guatemala|Tegucigalpa|Managua|El_Salvador|Panama|Costa_Rica|Puerto_Rico/i, 'es'],
+  [CIS_TZ, 'ru'],
+];
+
+// First visit: the phone's own language wins, then its timezone, then English.
+// Whatever the player picks by hand is remembered and always beats detection.
 function detectLang() {
   const saved = localStorage.getItem('wr_lang');
-  if (saved === 'ru' || saved === 'en') return saved;
-  const cisLangs = ['ru', 'uk', 'be', 'kk', 'ky', 'uz', 'tg', 'az', 'hy', 'ka', 'tk'];
+  if (saved && SUPPORTED.has(saved)) return saved;
   const langs = navigator.languages?.length ? navigator.languages : [navigator.language || ''];
-  if (langs.some(l => cisLangs.includes(String(l).slice(0, 2).toLowerCase()))) return 'ru';
+  for (const l of langs) {
+    const base = String(l).slice(0, 2).toLowerCase();
+    if (SUPPORTED.has(base)) return base;
+    if (CIS_LANGS.includes(base)) return 'ru';
+  }
   const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
-  const cisTz = /Moscow|Kaliningrad|Samara|Volgograd|Saratov|Astrakhan|Kirov|Ulyanovsk|Yekaterinburg|Omsk|Novosibirsk|Barnaul|Tomsk|Novokuznetsk|Krasnoyarsk|Irkutsk|Chita|Yakutsk|Khandyga|Vladivostok|Ust-Nera|Magadan|Sakhalin|Srednekolymsk|Kamchatka|Anadyr|Minsk|Kiev|Kyiv|Uzhgorod|Zaporozhye|Simferopol|Chisinau|Tiraspol|Almaty|Astana|Qostanay|Aqtobe|Aqtau|Atyrau|Oral|Qyzylorda|Tashkent|Samarkand|Bishkek|Dushanbe|Ashgabat|Baku|Yerevan|Tbilisi/i;
-  if (cisTz.test(tz)) return 'ru';
+  for (const [re, code] of TZ_LANG) if (re.test(tz)) return code;
   return 'en';
 }
 let lang = detectLang();
@@ -128,7 +146,7 @@ function getAiWorker() {
   if (aiWorker === false) return null;
   if (!aiWorker) {
     try {
-      aiWorker = new Worker('js/ai-worker.js?v=53', { type: 'module' });
+      aiWorker = new Worker('js/ai-worker.js?v=54', { type: 'module' });
       aiWorker.onmessage = (e) => {
         const cb = aiPending.get(e.data.id);
         aiPending.delete(e.data.id);
@@ -188,11 +206,35 @@ function toast(msg) {
 /* ================= i18n ================= */
 function applyI18n() {
   t = makeT(lang);
+  document.documentElement.lang = lang;
+  document.documentElement.dir = RTL.has(lang) ? 'rtl' : 'ltr';
   document.querySelectorAll('[data-i18n]').forEach(el => { el.textContent = t(el.dataset.i18n); });
   document.querySelectorAll('[data-i18n-ph]').forEach(el => { el.placeholder = t(el.dataset.i18nPh); });
-  $('lang-ru').classList.toggle('active', lang === 'ru');
-  $('lang-en').classList.toggle('active', lang === 'en');
+  const cur = LANGS.find(l => l.code === lang) || LANGS[0];
+  $('btn-lang').textContent = cur.flag + ' ' + cur.code.toUpperCase();
+  $('lang-current').textContent = cur.flag + ' ' + cur.native;
+  document.querySelectorAll('#lang-list button').forEach(b =>
+    b.classList.toggle('active', b.dataset.lang === lang));
   updateProfileUI();
+}
+
+// The list is built once from LANGS, each entry written in its own language.
+function buildLangList() {
+  $('lang-list').innerHTML = LANGS
+    .map(l => `<button data-lang="${l.code}"><span class="lf">${l.flag}</span>${l.native}</button>`)
+    .join('');
+  $('lang-list').querySelectorAll('button').forEach(b =>
+    b.addEventListener('click', () => setLang(b.dataset.lang)));
+}
+
+async function setLang(code) {
+  if (!SUPPORTED.has(code)) return;
+  await loadLang(code);            // no-op for ru/en, which ship with the app
+  lang = code;
+  localStorage.setItem('wr_lang', code);
+  applyI18n();
+  if (game) renderGame();
+  $('overlay-lang').hidden = true;
 }
 
 /* ================= navigation ================= */
@@ -1316,13 +1358,9 @@ $('btn-logout').addEventListener('click', async () => {
 });
 
 /* ================= settings ================= */
-document.querySelectorAll('.lang-switch button').forEach(b =>
-  b.addEventListener('click', () => {
-    lang = b.dataset.lang;
-    localStorage.setItem('wr_lang', lang);
-    applyI18n();
-    if (game) renderGame();
-  }));
+$('btn-lang').addEventListener('click', () => { $('overlay-lang').hidden = false; });
+$('lang-current').addEventListener('click', () => { $('overlay-lang').hidden = false; });
+$('lang-close').addEventListener('click', () => { $('overlay-lang').hidden = true; });
 
 $('vibro-toggle').addEventListener('change', (e) => {
   vibroOn = e.target.checked;
@@ -1406,6 +1444,8 @@ window.addEventListener('resize', () => {
 });
 
 async function boot() {
+  buildLangList();
+  await loadLang(lang);            // detected pack, if it is not ru/en
   applyI18n();
   logVisit(false);
   updateProfileUI();

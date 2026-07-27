@@ -1,4 +1,5 @@
-// WallRush i18n — RU / EN
+// WallRush i18n. RU and EN live here (EN is the fallback for every missing key);
+// the other languages sit in js/lang/<code>.js and are fetched only when picked.
 export const I18N = {
   ru: {
     tagline: 'Перекрой ему путь',
@@ -321,6 +322,33 @@ export const I18N = {
     ai_hardcore_sub: 'No mercy 💀',
   },
 };
+
+// Languages offered in the picker, in display order. Each one is shown in its
+// own script, so a player who speaks none of the others can still find theirs.
+export const LANGS = [
+  { code: 'en', native: 'English', flag: '🇬🇧' },
+  { code: 'ru', native: 'Русский', flag: '🇷🇺' },
+  { code: 'fa', native: 'فارسی', flag: '🇮🇷' },
+  { code: 'tr', native: 'Türkçe', flag: '🇹🇷' },
+  { code: 'fr', native: 'Français', flag: '🇫🇷' },
+  { code: 'es', native: 'Español', flag: '🇪🇸' },
+];
+export const LANG_CODES = LANGS.map((l) => l.code);
+export const RTL = new Set(['fa']);
+
+const V = '54';
+
+// Loads a translation file on demand. Safe to call repeatedly and safe to fail:
+// if the request never lands, makeT keeps falling back to English.
+export async function loadLang(code) {
+  if (I18N[code] || !LANG_CODES.includes(code)) return;
+  try {
+    const mod = await import(`./lang/${code}.js?v=${V}`);
+    I18N[code] = mod.default;
+  } catch (e) {
+    console.warn('language pack failed to load:', code, e);
+  }
+}
 
 export function makeT(lang) {
   return (key) => (I18N[lang] && I18N[lang][key]) || I18N.en[key] || key;
