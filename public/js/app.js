@@ -1,7 +1,8 @@
 // WallRush client app: screens, board UI, online play (WebSocket), AI mode, auth.
-import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=54';
-import { aiMove } from './ai.js?v=54';
-import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=54';
+import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=55';
+import { aiMove } from './ai.js?v=55';
+import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=55';
+import { rankOf, nextRank } from './ranks.js?v=55';
 
 /* ================= state ================= */
 const $ = (id) => document.getElementById(id);
@@ -135,6 +136,20 @@ let wsToken = sessionStorage.getItem('wr_ws_token') || null;
 
 // game context
 let game = null; // { mode:'ai'|'online', state, myIndex, oppNick, clocks, over }
+
+/* ================= ladder ================= */
+// Points live on the server; these are the last values it told us.
+let myPoints = 0;
+let myVeteran = false;
+
+const rankName = (points) => t(rankOf(points).key);
+const rankIcon = (points) => rankOf(points).icon;
+
+// Compact badge for lists and the match header: icon plus name, no number —
+// the raw score is noise next to a nickname.
+function rankChip(points) {
+  return `${rankIcon(points)} ${rankName(points)}`;
+}
 let aiTimer = null;
 
 /* ---- AI runs in a Web Worker so the UI never freezes while it thinks ---- */
@@ -146,7 +161,7 @@ function getAiWorker() {
   if (aiWorker === false) return null;
   if (!aiWorker) {
     try {
-      aiWorker = new Worker('js/ai-worker.js?v=54', { type: 'module' });
+      aiWorker = new Worker('js/ai-worker.js?v=55', { type: 'module' });
       aiWorker.onmessage = (e) => {
         const cb = aiPending.get(e.data.id);
         aiPending.delete(e.data.id);
@@ -253,6 +268,7 @@ function show(screenId) {
   document.querySelectorAll('.nav-btn').forEach(b =>
     b.classList.toggle('active', b.dataset.screen === screenId));
   if (screenId === 'screen-leaderboard') loadLeaderboard();
+  if (screenId === 'screen-profile') updateProfileUI(); // points move every match
   if (screenId === 'screen-rooms') wsSend({ t: 'lobby_sub' });
   else wsSend({ t: 'lobby_unsub' });
 }
@@ -297,6 +313,9 @@ function handleWsMessage(msg) {
       wsToken = msg.token;
       sessionStorage.setItem('wr_ws_token', wsToken);
       $('online-count').textContent = msg.online;
+      myPoints = msg.points || 0;
+      myVeteran = Boolean(msg.veteran);
+      updateProfileUI();
       break;
     case 'lobby':
       $('online-count').textContent = msg.online;
@@ -324,7 +343,14 @@ function handleWsMessage(msg) {
       }
       break;
     case 'game_over':
-      if (game?.mode === 'online') onGameOver(msg.winner === msg.you, msg.reason);
+      if (game?.mode === 'online') {
+        if (msg.points) {
+          myPoints = msg.points.total ?? myPoints;
+          game.award = msg.points;
+          updateProfileUI();
+        }
+        onGameOver(msg.winner === msg.you, msg.reason);
+      }
       break;
     case 'emoji':
       showEmoji(msg.e);
@@ -366,11 +392,12 @@ function renderRooms(rooms) {
     const letter = (room.nick || '?')[0].toUpperCase();
     el.innerHTML = `<div class="r-avatar"></div><div class="r-info"><b></b><small></small></div><button class="btn-join"></button>`;
     el.querySelector('.r-avatar').textContent = letter;
-    el.querySelector('b').textContent = room.nick;
+    // the rank sits with the nickname, so you know who you are about to face
+    el.querySelector('b').textContent = `${rankIcon(room.points || 0)} ${room.nick}`;
     // show what kind of room it is: mode · walls · time
     const modeLabel = room.mode === 'race' ? '🏁 ' + t('race_title') : '⚔️ ' + t('duel_title');
     const timeLabel = room.time === '0' ? '∞' : room.time + t('min_short');
-    el.querySelector('small').textContent = `${modeLabel} · ${room.walls}🧱 · ${timeLabel}`;
+    el.querySelector('small').textContent = `${rankName(room.points || 0)} · ${modeLabel} · ${room.walls}🧱 · ${timeLabel}`;
     const btn = el.querySelector('.btn-join');
     btn.textContent = t('join');
     btn.addEventListener('click', () => wsSend({ t: 'join_room', roomId: room.id }));
@@ -595,9 +622,12 @@ function renderGame() {
     el.classList.toggle('legal', isLegal);
   }
 
-  // HUD
+  // HUD — rank icons only during play; the number belongs on the result screen
   $('me-nick').textContent = myNick();
   $('opp-nick').textContent = game.oppNick;
+  const online = game.mode === 'online';
+  $('me-rank').textContent = online ? rankIcon(myPoints) : '';
+  $('opp-rank').textContent = online ? rankIcon(game.oppPoints || 0) : '';
   $('me-walls').textContent = s.left[me];
   $('opp-walls').textContent = s.left[1 - me];
   $('dock-walls').textContent = s.left[me];
@@ -907,13 +937,17 @@ for (const lvl of ['easy', 'normal', 'hard', 'hardcore']) {
 
 /* ================= online game ================= */
 function startOnlineGame(msg) {
+  if (msg.me) { myPoints = msg.me.points || 0; myVeteran = Boolean(msg.me.veteran); }
   game = {
     mode: 'online',
     state: msg.state,
     myIndex: msg.you,
     oppNick: msg.opp?.nick || '???',
+    oppPoints: msg.opp?.points || 0,
+    ranked: msg.ranked !== false,
     clocks: { ...msg.clocks, recvAt: Date.now() },
     over: false,
+    award: null,
     history: [cloneState(msg.state)], // for the post-game replay
   };
   stopReplay();
@@ -952,6 +986,7 @@ function onGameOver(iWon, reason) {
     $('rs-tag-me').className = iWon ? 'win' : 'loss';
     $('rs-tag-opp').textContent = iWon ? 'LOSS' : 'WIN';
     $('rs-tag-opp').className = iWon ? 'loss' : 'win';
+    showAward();
     spawnConfetti(iWon);
     $('btn-rematch').style.display = '';
     $('rematch-status').hidden = true;
@@ -964,6 +999,35 @@ function onGameOver(iWon, reason) {
     $('overlay-gameover').hidden = false;
   }, 600);
   vibrate(iWon ? [40, 60, 40, 60, 80] : 60);
+}
+
+// The points line under the result. This is the number people come back for,
+// so it gets its own row rather than being tucked into the stats strip.
+function showAward() {
+  const row = $('pts-row'), up = $('rank-up'), note = $('pts-note');
+  row.hidden = true; up.hidden = true; note.hidden = true;
+  if (game?.mode !== 'online') return;
+  const a = game.award;
+  if (game.ranked === false || a?.ranked === false) {
+    // friendly game via a private code — say so instead of showing nothing
+    note.textContent = t('unranked_hint');
+    note.hidden = false;
+    return;
+  }
+  // nothing moved: either the floor at zero held, or a rematch hit the cap
+  if (!a || !a.delta) return;
+  const before = (a.total || 0) - a.delta;
+  row.hidden = false;
+  $('pts-delta').textContent = (a.delta > 0 ? '+' : '') + a.delta;
+  $('pts-delta').className = 'pts-delta ' + (a.delta > 0 ? 'up' : 'down');
+  $('pts-total').textContent = `${a.total} ${t('points_label')}`;
+  if (rankOf(a.total).key !== rankOf(before).key) {
+    const climbed = a.delta > 0;
+    up.textContent = (climbed ? t('rank_up') : t('rank_down')) + ' ' + rankChip(a.total);
+    up.className = 'rank-up ' + (climbed ? 'up' : 'down');
+    up.hidden = false;
+    if (climbed) vibrate([30, 50, 30, 50, 60]);
+  }
 }
 
 function spawnConfetti(on) {
@@ -1168,11 +1232,16 @@ async function loadLeaderboard() {
       el.innerHTML = `<div class="lb-rank"></div><div class="r-avatar"></div>
         <div class="lb-nick"></div>
         <div class="lb-score"><b></b><small></small></div>`;
+      const pts = row.points || 0;
       el.querySelector('.lb-rank').textContent = medal;
       el.querySelector('.r-avatar').textContent = (row.nick || '?')[0].toUpperCase();
-      el.querySelector('.lb-nick').textContent = row.nick;
-      el.querySelector('.lb-score b').textContent = row.wins;
-      el.querySelector('.lb-score small').textContent = `${t('lb_wins')} · ${row.losses} ${t('lb_losses')}`;
+      el.querySelector('.lb-nick').innerHTML =
+        `<span class="lb-name"></span><small class="lb-badge"></small>`;
+      el.querySelector('.lb-name').textContent = row.nick;
+      el.querySelector('.lb-badge').textContent = rankChip(pts);
+      el.querySelector('.lb-score b').textContent = pts.toLocaleString();
+      el.querySelector('.lb-score small').textContent =
+        `${t('points_label')} · ${row.wins} ${t('lb_wins')}`;
       list.appendChild(el);
     });
   } catch {
@@ -1185,6 +1254,7 @@ function updateProfileUI() {
   const nick = myNick();
   $('profile-nick').textContent = nick;
   $('profile-avatar').textContent = nick[0].toUpperCase();
+  renderRankCard();
   const wins = profile?.wins || 0, losses = profile?.losses || 0;
   $('stat-games').textContent = wins + losses;
   $('stat-wins').textContent = wins;
@@ -1198,6 +1268,30 @@ function updateProfileUI() {
   $('logged-box').hidden = !logged;
   $('vibro-toggle').checked = vibroOn;
   $('sound-toggle').checked = soundOn;
+}
+
+// Rank, points, and how far the next rank is. The bar is the whole point:
+// "97 to go" pulls far harder than a bare number.
+function renderRankCard() {
+  const pts = myPoints;
+  const cur = rankOf(pts);
+  const next = nextRank(pts);
+  $('rank-badge').textContent = cur.icon;
+  $('rank-name').textContent = t(cur.key);
+  $('rank-points').textContent = `${pts.toLocaleString()} ${t('points_label')}`;
+  $('veteran-badge').hidden = !myVeteran;
+  if (next) {
+    const span = next.min - cur.min;
+    const done = Math.max(0, Math.min(1, (pts - cur.min) / span));
+    $('rank-fill').style.width = (done * 100).toFixed(1) + '%';
+    $('rank-next').textContent = t('rank_next')
+      .replace('%n', (next.min - pts).toLocaleString())
+      .replace('%r', t(next.key));
+    $('rank-bar').hidden = false;
+  } else {
+    $('rank-bar').hidden = true;
+    $('rank-next').textContent = t('rank_top');
+  }
 }
 
 let authMode = 'login'; // 'login' | 'register' | 'nick' | 'reset'

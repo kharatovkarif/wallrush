@@ -60,8 +60,69 @@ export async function verifyUser(jwt) {
 
 export async function getProfile(userId) {
   if (!dbEnabled) return null;
-  const { data } = await supa.from('profiles').select('id, nick, wins, losses').eq('id', userId).maybeSingle();
+  const { data } = await supa.from('profiles').select('id, nick, wins, losses, points').eq('id', userId).maybeSingle();
   return data || null;
+}
+
+/* ---- ladder points ----
+   A registered player carries them on the profile; a guest carries them on the
+   device row, which is the only identity 94% of players ever have. */
+
+export async function getPoints({ userId, deviceId }) {
+  if (!dbEnabled) return { points: 0, veteran: false };
+  try {
+    if (userId) {
+      const { data } = await supa.from('profiles').select('points').eq('id', userId).maybeSingle();
+      return { points: data?.points || 0, veteran: false };
+    }
+    if (deviceId) {
+      const { data } = await supa.from('visitors')
+        .select('points, veteran').eq('device_id', deviceId).maybeSingle();
+      return { points: data?.points || 0, veteran: Boolean(data?.veteran) };
+    }
+  } catch (e) {
+    console.error('getPoints failed:', e.message);
+  }
+  return { points: 0, veteran: false };
+}
+
+// Returns the new total, or null when there is nothing to write it to.
+export async function addPoints({ userId, deviceId }, delta) {
+  if (!dbEnabled || !delta) return null;
+  try {
+    if (userId) {
+      const { data } = await supa.rpc('add_points_user', { uid: userId, delta });
+      return typeof data === 'number' ? data : null;
+    }
+    if (deviceId) {
+      const { data } = await supa.rpc('add_points_device', { dev: deviceId, delta });
+      return typeof data === 'number' ? data : null;
+    }
+  } catch (e) {
+    console.error('addPoints failed:', e.message);
+  }
+  return null;
+}
+
+export async function addBotPoints(nick, delta) {
+  if (!dbEnabled || !delta) return null;
+  try {
+    const { data } = await supa.rpc('add_points_bot', { bnick: nick, delta });
+    return typeof data === 'number' ? data : null;
+  } catch (e) {
+    console.error('addBotPoints failed:', e.message);
+    return null;
+  }
+}
+
+export async function botPoints() {
+  if (!dbEnabled) return new Map();
+  try {
+    const { data } = await supa.from('bot_players').select('nick, points');
+    return new Map((data || []).map(b => [b.nick, b.points || 0]));
+  } catch {
+    return new Map();
+  }
 }
 
 export async function createProfile(userId, nick) {
@@ -93,14 +154,16 @@ export async function recordResult(winnerUserId, loserUserId) {
   }
 }
 
+// Ranked by ladder points, not by raw wins: the old order simply put whoever
+// played the most on top, which is what the ladder exists to fix.
 export async function leaderboard(limit = 50) {
   if (!dbEnabled) return [];
   const [{ data: people }, { data: bots }] = await Promise.all([
-    supa.from('profiles').select('nick, wins, losses').limit(200),
-    supa.from('bot_players').select('nick, wins, losses').limit(200),
+    supa.from('profiles').select('nick, wins, losses, points').order('points', { ascending: false }).limit(200),
+    supa.from('bot_players').select('nick, wins, losses, points').order('points', { ascending: false }).limit(200),
   ]);
-  const all = [...(people || []), ...(bots || [])];
-  all.sort((a, b) => (b.wins - a.wins) || (a.losses - b.losses));
+  const all = [...(people || []), ...(bots || [])].map(r => ({ ...r, points: r.points || 0 }));
+  all.sort((a, b) => (b.points - a.points) || (b.wins - a.wins) || (a.losses - b.losses));
   return all.slice(0, limit);
 }
 
@@ -140,7 +203,7 @@ export async function recordBotResult(nick, won) {
 export async function growBots(botWinChance, activeChance = 0.07) {
   if (!dbEnabled) return;
   try {
-    const { data: bots } = await supa.from('bot_players').select('nick, wins, losses');
+    const { data: bots } = await supa.from('bot_players').select('nick, wins, losses, points');
     if (!bots) return;
     for (const b of bots) {
       if (Math.random() > activeChance) continue;
@@ -148,9 +211,13 @@ export async function growBots(botWinChance, activeChance = 0.07) {
       const games = 1 + Math.floor(Math.random() * 4); // a session: 1–4 games
       let w = 0;
       for (let i = 0; i < games; i++) if (Math.random() < p) w++;
+      // points move with the wins, at the same rate a person would earn them,
+      // so a bot's badge always matches its record on the leaderboard
+      const gained = w * 25 - (games - w) * 10;
       await supa.from('bot_players').update({
         wins: b.wins + w,
         losses: b.losses + (games - w),
+        points: Math.max(0, (b.points || 0) + gained),
       }).eq('nick', b.nick);
     }
   } catch (e) {

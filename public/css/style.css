@@ -311,8 +311,14 @@ html[data-theme="dark"] .soc-tt { box-shadow: inset 0 0 0 1px #2f3550, var(--sha
 .p-pill.blue { background: linear-gradient(160deg, #33549c, #24407e); }
 .p-pill.red { background: linear-gradient(160deg, #d8404d, #b32538); }
 .p-pill .chip-ball {
-  width: 34px; height: 34px; border-radius: 50%; flex: none;
+  width: 34px; height: 34px; border-radius: 50%; flex: none; position: relative;
   box-shadow: inset -4px -6px 8px rgba(0,0,0,.35), inset 3px 4px 6px rgba(255,255,255,.35), 0 3px 6px rgba(0,0,0,.3);
+}
+/* Rank rides on the ball rather than beside the nickname: the pill is narrow
+   and the nickname must stay readable. */
+.p-pill .chip-ball .rank-ic {
+  position: absolute; inset-inline-end: -5px; bottom: -4px;
+  font-size: 13px; line-height: 1; text-shadow: 0 1px 3px rgba(0, 0, 0, .5);
 }
 .pill-info { flex: 1; display: flex; flex-direction: column; line-height: 1.15; min-width: 0; }
 .pill-info b { font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -559,6 +565,38 @@ html[data-theme="dark"] .soc-tt { box-shadow: inset 0 0 0 1px #2f3550, var(--sha
   padding: 15px 18px; font-weight: 600;
 }
 .setting-row + .setting-row { border-top: 1px solid var(--bg2); }
+/* ============ ladder: rank card, badges, points ============ */
+.rank-card {
+  display: flex; align-items: center; gap: 13px;
+  background: var(--bg2); border-radius: 16px; padding: 12px 14px; margin: 14px 0 4px;
+  text-align: start;
+}
+.rank-badge { font-size: 30px; line-height: 1; flex: none; }
+.rank-meta { flex: 1; min-width: 0; }
+.rank-meta b { display: block; font-size: 16px; }
+.rank-meta small { display: block; color: var(--muted); font-size: 12px; }
+.rank-bar { height: 6px; border-radius: 99px; background: var(--card); margin: 7px 0 5px; overflow: hidden; }
+.rank-bar i { display: block; height: 100%; border-radius: 99px; background: linear-gradient(90deg, var(--violet2), var(--violet)); transition: width .5s ease; }
+.veteran-badge { font-size: 12px; font-weight: 700; color: #a37500; margin-top: 6px; }
+
+/* rank icon beside a nickname during the match — icon only, no number */
+.rank-ic:not(:empty) { margin-inline-end: 4px; }
+
+/* points earned, on the result screen */
+.pts-row { display: flex; align-items: baseline; justify-content: center; gap: 10px; margin-top: 14px; }
+.pts-delta { font-size: 27px; font-weight: 800; letter-spacing: -.5px; }
+.pts-delta.up { color: var(--green); }
+.pts-delta.down { color: var(--red); }
+.pts-total { color: var(--muted); font-size: 13px; }
+.rank-up { text-align: center; font-weight: 700; font-size: 15px; margin-top: 7px; }
+.rank-up.up { color: var(--violet); }
+.rank-up.down { color: var(--muted); }
+
+.lb-item .lb-nick { min-width: 0; }
+.lb-nick .lb-name { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lb-nick .lb-badge { display: block; color: var(--muted); font-size: 11.5px; font-weight: 600; }
+.lb-item .lb-score small { text-align: end; }
+
 .lang-current {
   border: none; cursor: pointer; font: inherit; font-weight: 700; font-size: 13px;
   padding: 8px 14px; border-radius: 10px; background: var(--bg2); color: var(--text);
@@ -671,6 +709,10 @@ html[data-theme="dark"] .card-icon.lvl-normal { background: #1f2c4d; }
 html[data-theme="dark"] .card-icon.lvl-hard { background: #45301c; }
 html[data-theme="dark"] .result-stats { background: #232841; }
 html[data-theme="dark"] .toggle span { background: #2c3349; }
+html[data-theme="dark"] .rank-card { background: #232841; }
+html[data-theme="dark"] .rank-bar { background: #12141f; }
+html[data-theme="dark"] .veteran-badge { color: #ffd76a; }
+html[data-theme="dark"] .rank-up.up { color: var(--violet2); }
 html[data-theme="dark"] .lang-current,
 html[data-theme="dark"] .lang-list button { background: #2c3349; }
 html[data-theme="dark"] .lang-list button.active { background: var(--violet); }

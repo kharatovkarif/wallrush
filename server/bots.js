@@ -5,7 +5,7 @@
 // respond to rematch offers.
 import { aiMove } from '../public/js/ai.js';
 import { distToGoal, goalRow } from '../public/js/engine.js';
-import { seedBots, growBots } from './db.js';
+import { seedBots, growBots, botPoints } from './db.js';
 
 // skill: 'easy' | 'normal' | 'hard' | 'ace' (ace = the real engine, capped budget)
 // speed: multiplier on think time (0.6 = snappy player, 1.4 = slow thinker)
@@ -95,6 +95,7 @@ function makeBot(p) {
     graceTimer: null,
     alive: true,
     isBot: true,
+    points: 0,     // filled from bot_players once initBots has loaded them
     p,
     // per-game state
     me: -1,
@@ -374,6 +375,15 @@ export function initBots(hooks) {
   api = hooks;
   for (const p of ROSTER) bots.push(makeBot(p));
   seedBots(ROSTER.map(p => p.nick));
+  // Bots wear the same rank badge as everyone else, so their standings have to
+  // be loaded — a lobby full of Rookies who play like masters gives them away.
+  // Refreshed periodically because growBots keeps moving them.
+  const loadPoints = async () => {
+    const map = await botPoints();
+    for (const b of bots) if (map.has(b.nick)) b.points = map.get(b.nick);
+  };
+  loadPoints();
+  setInterval(loadPoints, 30 * 60 * 1000);
 
   // leaderboard lives its own life: every hour a slice of bots "plays a
   // session" — active by day, busiest in the MSK evening, asleep at night.

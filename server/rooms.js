@@ -1,7 +1,11 @@
 // WallRush online rooms: lobby, matches, clocks, reconnect, rematch, emoji.
 // Server is authoritative: it validates every move with the shared engine.
 import { initialState, applyMove } from '../public/js/engine.js';
-import { verifyUser, getProfile, recordResult, recordBotResult, recordHumanMatch } from './db.js';
+import { pointsDelta } from '../public/js/ranks.js';
+import {
+  verifyUser, getProfile, recordResult, recordBotResult, recordHumanMatch,
+  getPoints, addPoints, addBotPoints,
+} from './db.js';
 import { initBots, fakeOnline, notifyUserWaiting } from './bots.js';
 import crypto from 'crypto';
 
@@ -33,7 +37,7 @@ function lobbyRooms() {
   for (const room of rooms.values()) {
     if (room.status === 'open' && !room.code) {
       list.push({
-        id: room.id, nick: room.players[0].nick,
+        id: room.id, nick: room.players[0].nick, points: room.players[0].points || 0,
         mode: room.mode || 'duel', walls: room.walls || 10, time: room.time || '5',
       });
     }
@@ -72,6 +76,7 @@ function startGame(room) {
   const bankMs = room.noTime ? 8_640_000_000 : (room.bankMs || BANK_MS);
   room.bank = [bankMs, bankMs];
   room.status = 'playing';
+  room.played = (room.played || 0) + 1;
   room.rematch = [false, false];
   room.turnStarted = Date.now();
   armMoveTimer(room);
@@ -81,7 +86,9 @@ function startGame(room) {
       you: i,
       state: room.state,
       clocks: clockPayload(room),
-      opp: { nick: room.players[1 - i].nick },
+      opp: { nick: room.players[1 - i].nick, points: room.players[1 - i].points || 0 },
+      me: { points: pl.points || 0, veteran: Boolean(pl.veteran) },
+      ranked: isRanked(room),
     });
   });
   broadcastLobby();
@@ -97,15 +104,56 @@ function armMoveTimer(room) {
   }, ms + 250); // small grace for network latency
 }
 
+// Private rooms are practice. Two friends sharing a code could otherwise trade
+// wins all evening and walk out as Legends.
+function isRanked(room) { return !room.code; }
+
+// Rematches against the same person pay less and then nothing, so a pair that
+// finds each other in the public lobby cannot pump each other up either.
+function rematchFactor(room) {
+  const n = room.played || 1;
+  if (n <= 3) return 1;
+  if (n <= 6) return 0.5;
+  return 0;
+}
+
+function persistPoints(pl, delta) {
+  if (!delta) return;
+  if (pl.isBot) addBotPoints(pl.nick, delta);
+  else addPoints({ userId: pl.userId, deviceId: pl.deviceId }, delta);
+}
+
+// Updates the in-memory totals straight away so the game_over message is
+// already correct, and writes to the database in the background.
+function awardPoints(room, w, l) {
+  const deltas = [0, 0];
+  const factor = isRanked(room) ? rematchFactor(room) : 0;
+  if (!factor) return deltas;
+  const wp = w.points || 0, lp = l.points || 0;
+  const dw = Math.round(pointsDelta(wp, lp, true) * factor);
+  const dl = Math.round(pointsDelta(lp, wp, false) * factor);
+  w.points = wp + dw;
+  l.points = Math.max(0, lp + dl);          // a beginner never digs a hole
+  deltas[room.players.indexOf(w)] = dw;
+  deltas[room.players.indexOf(l)] = l.points - lp;  // report what was really lost
+  persistPoints(w, deltas[room.players.indexOf(w)]);
+  persistPoints(l, deltas[room.players.indexOf(l)]);
+  return deltas;
+}
+
 async function finish(room, winnerIdx, reason) {
   if (room.status !== 'playing') return;
   room.status = 'over';
   clearTimeout(room.moveTimer);
   for (const pl of room.players) clearTimeout(pl.graceTimer);
-  room.players.forEach((pl, i) => {
-    send(pl, { t: 'game_over', winner: winnerIdx, you: i, reason });
-  });
   const w = room.players[winnerIdx], l = room.players[1 - winnerIdx];
+  const deltas = awardPoints(room, w, l);
+  room.players.forEach((pl, i) => {
+    send(pl, {
+      t: 'game_over', winner: winnerIdx, you: i, reason,
+      points: { delta: deltas[i], total: pl.points || 0, ranked: isRanked(room) },
+    });
+  });
   if (w.userId || l.userId) {
     await recordResult(w.userId || null, l.userId || null);
   }
@@ -197,6 +245,13 @@ async function handleHello(client, msg) {
   }
   client.nick = nick;
   client.userId = userId;
+  // The device id is the only identity 94% of players ever have, so it is what
+  // carries a guest's ladder points between sessions.
+  const dev = String(msg.device || '');
+  client.deviceId = /^[A-Za-z0-9-]{8,64}$/.test(dev) ? dev : null;
+  const pts = await getPoints({ userId, deviceId: client.deviceId });
+  client.points = pts.points;
+  client.veteran = pts.veteran;
 
   // reconnect to a live game?
   if (msg.token && byToken.has(msg.token)) {
@@ -206,6 +261,9 @@ async function handleHello(client, msg) {
       client.roomId = old.roomId;
       client.nick = old.nick;
       client.userId = old.userId;
+      client.deviceId = old.deviceId ?? client.deviceId;
+      client.points = old.points ?? client.points;
+      client.veteran = old.veteran ?? client.veteran;
       byToken.set(client.token, client);
       clients.delete(old.ws);
       const room = rooms.get(client.roomId);
@@ -220,7 +278,9 @@ async function handleHello(client, msg) {
               you: idx,
               state: room.state,
               clocks: clockPayload(room),
-              opp: { nick: room.players[1 - idx].nick },
+              opp: { nick: room.players[1 - idx].nick, points: room.players[1 - idx].points || 0 },
+              me: { points: client.points || 0, veteran: Boolean(client.veteran) },
+              ranked: isRanked(room),
               resumed: true,
             });
             send(room.players[1 - idx], { t: 'opp_reconnected' });
@@ -233,7 +293,10 @@ async function handleHello(client, msg) {
     client.token = rid();
     byToken.set(client.token, client);
   }
-  send(client, { t: 'hello_ok', token: client.token, nick: client.nick, online: onlineCount() });
+  send(client, {
+    t: 'hello_ok', token: client.token, nick: client.nick, online: onlineCount(),
+    points: client.points || 0, veteran: Boolean(client.veteran),
+  });
 }
 
 function handleMove(client, msg) {

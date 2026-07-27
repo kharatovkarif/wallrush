@@ -9,7 +9,7 @@
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect x='8' y='14' width='84' height='30' rx='8' fill='%237c5cff'/><rect x='8' y='56' width='40' height='30' rx='8' fill='%237c5cff'/><rect x='56' y='56' width='36' height='30' rx='8' fill='%23b3a1ff'/></svg>">
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <link rel="stylesheet" href="css/style.css?v=54">
+  <link rel="stylesheet" href="css/style.css?v=55">
 </head>
 <body>
   <div id="app">
@@ -276,13 +276,13 @@
 
       <div class="vs-row">
         <div class="p-pill" id="chip-me">
-          <div class="chip-ball"></div>
+          <div class="chip-ball"><span class="rank-ic" id="me-rank"></span></div>
           <div class="pill-info"><b id="me-nick"></b><small><span id="me-walls">10</span> 🧱</small></div>
           <div class="chip-clock" id="me-clock">5:00</div>
         </div>
         <div class="vs-badge">VS</div>
         <div class="p-pill" id="chip-opp">
-          <div class="chip-ball"></div>
+          <div class="chip-ball"><span class="rank-ic" id="opp-rank"></span></div>
           <div class="pill-info"><b id="opp-nick"></b><small><span id="opp-walls">10</span> 🧱</small></div>
           <div class="chip-clock" id="opp-clock">5:00</div>
         </div>
@@ -332,6 +332,13 @@
             <b id="rs-nick-opp"></b><small id="rs-tag-opp"></small>
           </div>
         </div>
+        <!-- ladder result: the number people come back for -->
+        <div class="pts-row" id="pts-row" hidden>
+          <span class="pts-delta" id="pts-delta"></span>
+          <span class="pts-total" id="pts-total"></span>
+        </div>
+        <p class="rank-up" id="rank-up" hidden></p>
+        <p class="hint" id="pts-note" hidden></p>
         <div class="modal-buttons">
           <button class="btn-big" id="btn-rematch" data-i18n="rematch"></button>
           <button class="btn-big btn-ghost" id="btn-replay" data-i18n="replay"></button>
@@ -413,6 +420,16 @@
       <div class="profile-card">
         <div class="avatar" id="profile-avatar">U</div>
         <h3 id="profile-nick">User0000</h3>
+        <div class="rank-card">
+          <div class="rank-badge" id="rank-badge">🟢</div>
+          <div class="rank-meta">
+            <b id="rank-name"></b>
+            <small id="rank-points"></small>
+            <div class="rank-bar" id="rank-bar"><i id="rank-fill"></i></div>
+            <small class="rank-next" id="rank-next"></small>
+          </div>
+        </div>
+        <p class="veteran-badge" id="veteran-badge" data-i18n="veteran" hidden></p>
         <div class="stats-row" id="profile-stats">
           <div class="stat"><b id="stat-games">0</b><small data-i18n="stats_games"></small></div>
           <div class="stat"><b id="stat-wins">0</b><small data-i18n="stats_wins"></small></div>
@@ -485,7 +502,7 @@
     <div id="toast" hidden></div>
   </div>
 
-  <script src="vendor/supabase.js?v=54" defer></script>
-  <script type="module" src="js/app.js?v=54"></script>
+  <script src="vendor/supabase.js?v=55" defer></script>
+  <script type="module" src="js/app.js?v=55"></script>
 </body>
 </html>
