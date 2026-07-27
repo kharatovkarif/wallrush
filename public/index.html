@@ -9,7 +9,7 @@
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect x='8' y='14' width='84' height='30' rx='8' fill='%237c5cff'/><rect x='8' y='56' width='40' height='30' rx='8' fill='%237c5cff'/><rect x='56' y='56' width='36' height='30' rx='8' fill='%23b3a1ff'/></svg>">
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <link rel="stylesheet" href="css/style.css?v=55">
+  <link rel="stylesheet" href="css/style.css?v=56">
 </head>
 <body>
   <div id="app">
@@ -135,17 +135,31 @@
     <!-- ============ SUPPORT: watch an ad, or donate (overlay) ============ -->
     <div class="overlay" id="overlay-support" hidden>
       <div class="modal">
+        <div class="modal-emoji">💛</div>
         <h2 data-i18n="support_title"></h2>
         <p class="hint" data-i18n="support_intro"></p>
-        <button class="btn-big" id="support-watch" data-i18n="support_watch"></button>
-        <p class="hint" data-i18n="support_watch_sub"></p>
-        <div class="divider">•</div>
-        <p class="hint" data-i18n="support_donate_sub"></p>
-        <div class="wallet">
-          <span class="wallet-net">USDT · TRC20</span>
-          <code id="wallet-addr">TJohpPCR4LJPm9EZiKqoSLWaH7bZhX7AiP</code>
-          <button id="wallet-copy" data-i18n="copy"></button>
+
+        <!-- two ways to help, each in its own card so neither reads as the
+             fine print of the other -->
+        <div class="opt-card">
+          <div class="opt-head"><span class="opt-ico">📺</span><b data-i18n="support_watch_title"></b></div>
+          <p class="opt-sub" data-i18n="support_watch_sub"></p>
+          <button class="btn-big" id="support-watch" data-i18n="support_watch"></button>
         </div>
+
+        <div class="opt-or"><span data-i18n="or_word"></span></div>
+
+        <div class="opt-card">
+          <div class="opt-head"><span class="opt-ico">💸</span><b data-i18n="support_donate_title"></b></div>
+          <p class="opt-sub" data-i18n="support_donate_sub"></p>
+          <div class="wallet">
+            <span class="wallet-net">USDT · TRC20</span>
+            <code id="wallet-addr">TJohpPCR4LJPm9EZiKqoSLWaH7bZhX7AiP</code>
+            <button id="wallet-copy" data-i18n="copy"></button>
+          </div>
+        </div>
+
+        <p class="opt-foot" data-i18n="support_where"></p>
         <div class="modal-buttons">
           <button class="btn-big btn-outline" id="support-close" data-i18n="legal_close"></button>
         </div>
@@ -155,10 +169,17 @@
     <!-- ============ ADVERTISE WITH US (overlay) ============ -->
     <div class="overlay" id="overlay-ads" hidden>
       <div class="modal">
+        <div class="modal-emoji">📣</div>
         <h2 data-i18n="ads_title"></h2>
-        <p class="legal-text" data-i18n="ads_body"></p>
-        <a class="btn-big" id="ads-contact" href="https://t.me/Karoboev" target="_blank" rel="noopener noreferrer" data-i18n="ads_contact"></a>
+        <p class="hint" data-i18n="ads_intro"></p>
+        <div class="fmt-list">
+          <div class="fmt"><span class="fmt-ico">🖼️</span><div><b data-i18n="ads_f1"></b><small data-i18n="ads_f1_sub"></small></div></div>
+          <div class="fmt"><span class="fmt-ico">🤝</span><div><b data-i18n="ads_f2"></b><small data-i18n="ads_f2_sub"></small></div></div>
+          <div class="fmt"><span class="fmt-ico">🎯</span><div><b data-i18n="ads_f3"></b><small data-i18n="ads_f3_sub"></small></div></div>
+        </div>
+        <p class="opt-foot" data-i18n="ads_foot"></p>
         <div class="modal-buttons">
+          <a class="btn-big" id="ads-contact" href="https://t.me/Karoboev" target="_blank" rel="noopener noreferrer" data-i18n="ads_contact"></a>
           <button class="btn-big btn-outline" id="ads-close" data-i18n="legal_close"></button>
         </div>
       </div>
@@ -179,7 +200,8 @@
     <div class="overlay" id="overlay-legal" hidden>
       <div class="modal legal-modal">
         <h2 id="legal-title"></h2>
-        <p class="legal-text" id="legal-text"></p>
+        <p class="doc-updated" id="legal-updated" hidden></p>
+        <div class="legal-text" id="legal-text"></div>
         <div class="modal-buttons">
           <button class="btn-big" id="legal-close" data-i18n="legal_close"></button>
         </div>
@@ -502,7 +524,7 @@
     <div id="toast" hidden></div>
   </div>
 
-  <script src="vendor/supabase.js?v=55" defer></script>
-  <script type="module" src="js/app.js?v=55"></script>
+  <script src="vendor/supabase.js?v=56" defer></script>
+  <script type="module" src="js/app.js?v=56"></script>
 </body>
 </html>

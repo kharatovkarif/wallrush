@@ -1,8 +1,8 @@
 // WallRush client app: screens, board UI, online play (WebSocket), AI mode, auth.
-import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=55';
-import { aiMove } from './ai.js?v=55';
-import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=55';
-import { rankOf, nextRank } from './ranks.js?v=55';
+import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=56';
+import { aiMove } from './ai.js?v=56';
+import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=56';
+import { rankOf, nextRank } from './ranks.js?v=56';
 
 /* ================= state ================= */
 const $ = (id) => document.getElementById(id);
@@ -161,7 +161,7 @@ function getAiWorker() {
   if (aiWorker === false) return null;
   if (!aiWorker) {
     try {
-      aiWorker = new Worker('js/ai-worker.js?v=55', { type: 'module' });
+      aiWorker = new Worker('js/ai-worker.js?v=56', { type: 'module' });
       aiWorker.onmessage = (e) => {
         const cb = aiPending.get(e.data.id);
         aiPending.delete(e.data.id);
@@ -1518,12 +1518,48 @@ function maybeShowIosInstall() {
 maybeShowIosInstall();
 
 /* ================= legal / info pages ================= */
+
+// The documents are stored as plain text so they stay easy to translate, with
+// three markers the renderer understands: "## " starts a section heading,
+// "• " a list item, and a blank line separates paragraphs. Built with DOM
+// nodes rather than innerHTML so the text is never treated as markup.
+function renderDoc(target, text) {
+  target.textContent = '';
+  let list = null;
+  const flushList = () => { list = null; };
+  for (const raw of String(text).split('\n')) {
+    const line = raw.trim();
+    if (!line) { flushList(); continue; }
+    if (line.startsWith('## ')) {
+      flushList();
+      const h = document.createElement('h3');
+      h.textContent = line.slice(3);
+      target.appendChild(h);
+    } else if (line.startsWith('• ')) {
+      if (!list) { list = document.createElement('ul'); target.appendChild(list); }
+      const li = document.createElement('li');
+      li.textContent = line.slice(2);
+      list.appendChild(li);
+    } else {
+      flushList();
+      const p = document.createElement('p');
+      p.textContent = line;
+      target.appendChild(p);
+    }
+  }
+}
+
 document.querySelectorAll('.legal-links a[data-legal]').forEach(a =>
   a.addEventListener('click', () => {
     const p = a.dataset.legal; // rules | help | terms | privacy
     $('legal-title').textContent = t(p + '_title');
-    $('legal-text').textContent = t(p + '_body');
+    renderDoc($('legal-text'), t(p + '_body'));
+    // only the two legal documents carry a revision date
+    const dated = p === 'terms' || p === 'privacy';
+    $('legal-updated').hidden = !dated;
+    if (dated) $('legal-updated').textContent = t('doc_updated');
     $('overlay-legal').hidden = false;
+    $('legal-text').scrollTop = 0;   // only sticks once the dialog is laid out
   }));
 $('legal-close').addEventListener('click', () => { $('overlay-legal').hidden = true; });
 

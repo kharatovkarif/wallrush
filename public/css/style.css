@@ -77,10 +77,12 @@ html[data-theme="dark"] .side-support { color: #ffd76a; background: rgba(255, 19
 html[data-theme="dark"] .side-ads { color: #8fb2ff; background: rgba(47, 109, 246, .16); }
 
 /* USDT address block inside the support dialog */
-.wallet { background: var(--bg2); border-radius: 14px; padding: 12px; margin-top: 10px; text-align: center; }
+.wallet { background: var(--bg2); border-radius: 14px; padding: 11px; margin-top: 10px; text-align: center; }
 .wallet-net { display: block; font-size: 11px; letter-spacing: .6px; color: var(--muted); text-transform: uppercase; }
+/* A TRC20 address is 34 characters. Shrink it to fit one line rather than let
+   it break in half, which makes it look mistyped. */
 .wallet code {
-  display: block; margin: 7px 0 10px; font-size: 12.5px; line-height: 1.5;
+  display: block; margin: 6px 0 9px; font-size: 11.5px; line-height: 1.4; letter-spacing: -.2px;
   word-break: break-all; user-select: all; -webkit-user-select: all; color: var(--text);
 }
 .wallet button {
@@ -228,9 +230,44 @@ html[data-theme="dark"] .cr-opts button.on { background: rgba(47,109,246,.22); }
 .legal-links span { color: var(--bezel); font-size: 12px; }
 .legal-agree { text-align: center; color: var(--muted); font-size: 10.5px; margin: 8px 12px 0; opacity: .8; }
 /* legal page text: preserve line breaks, scrollable */
-.legal-modal { text-align: left; max-height: 82vh; display: flex; flex-direction: column; }
-.legal-modal h2 { text-align: center; }
-.legal-text { white-space: pre-line; font-size: 13.5px; line-height: 1.55; color: var(--text); overflow-y: auto; margin: 8px 0; }
+/* Documents keep their title and close button pinned while the body scrolls,
+   so a long text never hides the way out of the dialog. */
+/* .modal sets text-align:center further down the file and has equal
+   specificity, so this has to be stated more specifically to win. */
+.modal.legal-modal {
+  text-align: start; max-height: 88dvh; overflow: hidden;
+  display: flex; flex-direction: column; padding: 24px 0 20px;
+}
+.legal-modal h2 { text-align: center; flex: none; padding: 0 22px; font-size: 20px; }
+.legal-modal .doc-updated {
+  flex: none; text-align: center; padding: 6px 22px 0;
+  color: var(--muted); font-size: 11.5px;
+}
+.legal-modal .modal-buttons { flex: none; padding: 0 22px; margin-top: 14px; }
+.legal-text {
+  flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain;
+  padding: 14px 22px 4px; margin: 0;
+  font-size: 14px; line-height: 1.6; color: var(--text);
+  -webkit-overflow-scrolling: touch;
+}
+/* Long-form prose reads left-aligned; centring it was the main reason the
+   documents looked amateur. */
+.legal-text p { margin: 0 0 12px; }
+.legal-text h3 {
+  font-size: 14.5px; font-weight: 700; color: var(--text);
+  margin: 20px 0 7px; padding-bottom: 5px; border-bottom: 1px solid var(--bg2);
+}
+.legal-text h3:first-child { margin-top: 0; }
+.legal-text ul { margin: 0 0 12px; padding-inline-start: 18px; }
+.legal-text li { margin-bottom: 5px; }
+.legal-text strong { font-weight: 700; }
+.legal-text a { color: var(--violet); font-weight: 600; }
+/* fades that hint there is more text below */
+.legal-modal { position: relative; }
+.legal-modal::after {
+  content: ''; position: absolute; left: 0; right: 0; bottom: 74px; height: 22px;
+  background: linear-gradient(transparent, var(--card)); pointer-events: none;
+}
 html[data-theme="dark"] .legal-links span { color: #333c5c; }
 
 /* social links (home footer): brand-colored app-style tiles */
@@ -482,12 +519,17 @@ html[data-theme="dark"] .soc-tt { box-shadow: inset 0 0 0 1px #2f3550, var(--sha
   width: min(88vw, 380px); background: var(--card); border-radius: 24px;
   padding: 28px 22px; text-align: center; box-shadow: 0 20px 60px rgba(0,0,0,.3);
   animation: modalIn .28s cubic-bezier(.4,1.4,.5,1);
+  /* Content taller than the phone used to be clipped by the viewport with no
+     way to reach it. Every dialog now scrolls instead of losing its tail. */
+  max-height: 88dvh; overflow-y: auto; overscroll-behavior: contain;
 }
 @keyframes modalIn { from { transform: scale(.85); opacity: 0; } }
 .result-emoji { font-size: 58px; margin-bottom: 8px; }
-.modal h2 { margin-bottom: 6px; }
+.modal h2 { margin-bottom: 6px; font-size: 21px; text-wrap: balance; }
 .modal-buttons { display: flex; flex-direction: column; gap: 10px; margin-top: 20px; }
 .modal-buttons.row { flex-direction: row; }
+/* an <a> styled as a button must not keep the link underline */
+a.btn-big { text-decoration: none; display: block; }
 
 /* victory screen (competitor style) */
 .win-modal { border-top: 7px solid var(--blue); padding-top: 22px; position: relative; }
@@ -565,6 +607,29 @@ html[data-theme="dark"] .soc-tt { box-shadow: inset 0 0 0 1px #2f3550, var(--sha
   padding: 15px 18px; font-weight: 600;
 }
 .setting-row + .setting-row { border-top: 1px solid var(--bg2); }
+/* ============ support / advertise dialogs ============ */
+.modal-emoji { font-size: 34px; line-height: 1; margin-bottom: 4px; }
+
+/* each way to help gets its own card, so neither reads as a footnote of the other */
+.opt-card { background: var(--bg2); border-radius: 18px; padding: 13px 13px 12px; margin-top: 12px; text-align: start; }
+.opt-head { display: flex; align-items: center; gap: 9px; }
+.opt-head b { font-size: 15px; }
+.opt-ico { font-size: 19px; line-height: 1; }
+.opt-sub { color: var(--muted); font-size: 12.5px; line-height: 1.45; margin: 5px 0 10px; }
+.opt-card .btn-big { margin: 0; padding: 13px; }
+.opt-card .wallet { margin-top: 0; background: var(--card); }
+/* labelled separator instead of a stray bullet floating between blocks */
+.opt-or { display: flex; align-items: center; gap: 11px; margin: 12px 2px 0; color: var(--muted); font-size: 12px; }
+.opt-or::before, .opt-or::after { content: ''; flex: 1; height: 1px; background: var(--bg2); }
+.opt-foot { color: var(--muted); font-size: 12px; line-height: 1.5; margin-top: 13px; }
+
+/* advertising formats */
+.fmt-list { display: grid; gap: 9px; margin-top: 14px; text-align: start; }
+.fmt { display: flex; align-items: flex-start; gap: 11px; background: var(--bg2); border-radius: 14px; padding: 12px 13px; }
+.fmt-ico { font-size: 18px; line-height: 1.2; flex: none; }
+.fmt b { display: block; font-size: 14px; }
+.fmt small { display: block; color: var(--muted); font-size: 12px; line-height: 1.4; margin-top: 2px; }
+
 /* ============ ladder: rank card, badges, points ============ */
 .rank-card {
   display: flex; align-items: center; gap: 13px;
@@ -709,6 +774,11 @@ html[data-theme="dark"] .card-icon.lvl-normal { background: #1f2c4d; }
 html[data-theme="dark"] .card-icon.lvl-hard { background: #45301c; }
 html[data-theme="dark"] .result-stats { background: #232841; }
 html[data-theme="dark"] .toggle span { background: #2c3349; }
+html[data-theme="dark"] .opt-card,
+html[data-theme="dark"] .fmt { background: #232841; }
+html[data-theme="dark"] .opt-card .wallet { background: #12141f; }
+html[data-theme="dark"] .opt-or::before, html[data-theme="dark"] .opt-or::after { background: #2c3349; }
+html[data-theme="dark"] .legal-text h3 { border-bottom-color: #2c3349; }
 html[data-theme="dark"] .rank-card { background: #232841; }
 html[data-theme="dark"] .rank-bar { background: #12141f; }
 html[data-theme="dark"] .veteran-badge { color: #ffd76a; }
