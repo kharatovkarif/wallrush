@@ -115,6 +115,8 @@ export default {
   streak_keep: 'Vuelve mañana para no perderla',
   streak_saved: '🧊 Un congelado salvó tu racha —',
   streak_milestone: '¡%n %u seguidos!',
+  streak_wow: '¡Sigue así, no pierdas la racha!',
+  ok_word: 'Genial',
   profile_title: 'Perfil',
   guest_hint: 'Juegas como invitado. Tus puntos se guardan en este dispositivo — regístrate para no perderlos y entrar en la clasificación.',
   stats_games: 'Partidas',

@@ -9,7 +9,7 @@
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect x='8' y='14' width='84' height='30' rx='8' fill='%237c5cff'/><rect x='8' y='56' width='40' height='30' rx='8' fill='%237c5cff'/><rect x='56' y='56' width='36' height='30' rx='8' fill='%23b3a1ff'/></svg>">
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <link rel="stylesheet" href="css/style.css?v=60">
+  <link rel="stylesheet" href="css/style.css?v=61">
 </head>
 <body>
   <div id="app">
@@ -384,6 +384,21 @@
       </div>
     </div>
 
+    <!-- ============ STREAK MILESTONE (full-screen celebration) ============ -->
+    <!-- Sits above the result screen: the day someone's week of coming back
+         pays off should not slip by as one more line of text. -->
+    <div class="overlay streak-overlay" id="overlay-streak" hidden>
+      <div class="sparks" id="streak-sparks"></div>
+      <div class="cel">
+        <div class="cel-glow"></div>
+        <span class="flame fl-1 cel-flame" id="cel-flame">🔥</span>
+        <div class="cel-num" id="cel-num">0</div>
+        <h2 class="cel-title" id="cel-title"></h2>
+        <p class="cel-sub" data-i18n="streak_wow"></p>
+        <button class="btn-big" id="cel-close" data-i18n="ok_word"></button>
+      </div>
+    </div>
+
     <!-- ============ REPLAY CONTROLS (over the game board) ============ -->
     <div id="replay-bar" hidden>
       <div class="replay-inner">
@@ -542,7 +557,7 @@
     <div id="toast" hidden></div>
   </div>
 
-  <script src="vendor/supabase.js?v=60" defer></script>
-  <script type="module" src="js/app.js?v=60"></script>
+  <script src="vendor/supabase.js?v=61" defer></script>
+  <script type="module" src="js/app.js?v=61"></script>
 </body>
 </html>

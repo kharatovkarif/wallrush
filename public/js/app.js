@@ -1,9 +1,9 @@
 // WallRush client app: screens, board UI, online play (WebSocket), AI mode, auth.
-import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=60';
-import { aiMove } from './ai.js?v=60';
-import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=60';
-import { rankOf, nextRank } from './ranks.js?v=60';
-import { flameClass, isMilestone } from './streak.js?v=60';
+import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=61';
+import { aiMove } from './ai.js?v=61';
+import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=61';
+import { rankOf, nextRank } from './ranks.js?v=61';
+import { flameClass, isMilestone } from './streak.js?v=61';
 
 /* ================= state ================= */
 const $ = (id) => document.getElementById(id);
@@ -165,7 +165,7 @@ function getAiWorker() {
   if (aiWorker === false) return null;
   if (!aiWorker) {
     try {
-      aiWorker = new Worker('js/ai-worker.js?v=60', { type: 'module' });
+      aiWorker = new Worker('js/ai-worker.js?v=61', { type: 'module' });
       aiWorker.onmessage = (e) => {
         const cb = aiPending.get(e.data.id);
         aiPending.delete(e.data.id);
@@ -1021,6 +1021,8 @@ for (const lvl of ['easy', 'normal', 'hard', 'hardcore']) {
 /* ================= online game ================= */
 function startOnlineGame(msg) {
   if (msg.me) { myPoints = msg.me.points || 0; myVeteran = Boolean(msg.me.veteran); }
+  // a second match on the same day must not replay the same celebration
+  streakEvent = null;
   game = {
     mode: 'online',
     state: msg.state,
@@ -1385,18 +1387,42 @@ function renderStreak() {
   $('streak-flame').className = 'flame ' + flameClass(myStreak);
 }
 
-// One line on the result screen, and a louder one on a milestone day.
+// One line on the result screen — and on a milestone day, a celebration over
+// the top of it. A week of coming back should not pass as one more grey line.
 function showStreakLine() {
   const el = $('streak-line');
   if (!streakEvent) { el.hidden = true; return; }
   const { days, froze } = streakEvent;
-  const big = isMilestone(days);
-  el.className = 'streak-line ' + flameClass(days) + (big ? ' milestone' : '');
-  el.textContent = (froze ? t('streak_saved') + ' ' : '') +
-    '🔥 ' + daysPhrase(days, big ? 'streak_milestone' : 'streak_days');
+  el.className = 'streak-line ' + flameClass(days);
+  el.textContent = (froze ? t('streak_saved') + ' ' : '') + '🔥 ' + daysPhrase(days);
   el.hidden = false;
-  if (big) vibrate([40, 60, 40, 60, 90]);
+  if (isMilestone(days)) celebrateStreak(days);
 }
+
+function celebrateStreak(days) {
+  $('cel-flame').className = 'flame ' + flameClass(days) + ' cel-flame';
+  $('cel-num').textContent = days;
+  $('cel-title').textContent = daysPhrase(days, 'streak_milestone');
+  // sparks are built fresh so they restart their drift every time
+  const box = $('streak-sparks');
+  box.innerHTML = '';
+  for (let i = 0; i < 18; i++) {
+    const sp = document.createElement('i');
+    sp.style.left = Math.random() * 100 + '%';
+    sp.style.animationDuration = (2.6 + Math.random() * 2.4) + 's';
+    sp.style.animationDelay = (Math.random() * 1.3) + 's';
+    sp.style.opacity = '0';
+    box.appendChild(sp);
+  }
+  $('overlay-streak').hidden = false;
+  vibrate([40, 60, 40, 60, 90]);
+}
+
+$('cel-close').addEventListener('click', () => { $('overlay-streak').hidden = true; });
+// tapping the backdrop closes it too — nobody should have to hunt for the button
+$('overlay-streak').addEventListener('click', (e) => {
+  if (e.target === $('overlay-streak')) $('overlay-streak').hidden = true;
+});
 
 // Rank, points, and how far the next rank is. The bar is the whole point:
 // "97 to go" pulls far harder than a bare number.

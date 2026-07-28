@@ -14,8 +14,10 @@ export const FLAMES = [
   { min: 365, cls: 'fl-365' }, // rainbow — a full year
 ];
 
-// Days that earn a celebration of their own.
-export const MILESTONES = [7, 30, 50, 100, 200, 365];
+// Days that earn a celebration of their own. Three is deliberately early:
+// hardly anyone reaches a week, but almost everyone can reach three, and the
+// first celebration is what teaches a player that the streak is worth keeping.
+export const MILESTONES = [3, 7, 14, 30, 50, 100, 200, 365];
 
 export function flameClass(days) {
   let cls = FLAMES[0].cls;

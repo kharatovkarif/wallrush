@@ -665,6 +665,36 @@ a.btn-big { text-decoration: none; display: block; }
 .streak-line { text-align: center; font-weight: 700; font-size: 14.5px; margin-top: 6px; color: var(--text); }
 .streak-line.milestone { font-size: 16.5px; color: var(--violet); }
 
+/* milestone celebration */
+.streak-overlay { z-index: 120; background: rgba(10, 10, 26, .88); }
+.cel { position: relative; text-align: center; padding: 0 26px; animation: celIn .45s cubic-bezier(.3, 1.5, .5, 1); }
+@keyframes celIn { from { transform: scale(.7); opacity: 0; } }
+.cel-glow {
+  position: absolute; top: -30px; left: 50%; width: 260px; height: 260px;
+  transform: translateX(-50%); border-radius: 50%; pointer-events: none;
+  background: radial-gradient(circle, rgba(255, 160, 40, .55), transparent 65%);
+  animation: celPulse 2.2s ease-in-out infinite;
+}
+@keyframes celPulse { 50% { transform: translateX(-50%) scale(1.18); opacity: .75; } }
+.flame.cel-flame { position: relative; font-size: 88px; animation: celFlame 1.6s ease-in-out infinite; }
+@keyframes celFlame { 50% { transform: scale(1.09) translateY(-4px); } }
+.cel-num { position: relative; font-size: 62px; font-weight: 800; color: #fff; line-height: 1; margin-top: 4px; letter-spacing: -2px; }
+.cel-title { position: relative; color: #fff; font-size: 20px; margin-top: 8px; }
+.cel-sub { position: relative; color: rgba(255, 255, 255, .75); font-size: 14px; margin: 8px 0 22px; }
+.cel .btn-big { position: relative; min-width: 180px; }
+/* sparks drifting up behind the flame */
+.sparks { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+.sparks i {
+  position: absolute; bottom: -20px; width: 8px; height: 8px; border-radius: 50%;
+  background: #ffb340; box-shadow: 0 0 8px #ff8a1f; opacity: 0;
+  animation: spark linear infinite;
+}
+@keyframes spark {
+  0% { transform: translateY(0) scale(1); opacity: 0; }
+  15% { opacity: .9; }
+  100% { transform: translateY(-105vh) scale(.3); opacity: 0; }
+}
+
 /* ============ ladder: rank card, badges, points ============ */
 .rank-card {
   display: flex; align-items: center; gap: 13px;

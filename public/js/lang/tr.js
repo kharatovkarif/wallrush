@@ -115,6 +115,8 @@ export default {
   streak_keep: 'Kaybetmemek için yarın da gel',
   streak_saved: '🧊 Bir dondurma serini kurtardı —',
   streak_milestone: 'üst üste %n %u!',
+  streak_wow: 'Böyle devam — seriyi kaybetme!',
+  ok_word: 'Harika',
   profile_title: 'Profil',
   guest_hint: 'Misafir olarak oynuyorsun. Puanların bu cihazda tutuluyor — kaybetmemek ve sıralamaya girmek için kayıt ol.',
   stats_games: 'Oyun',
