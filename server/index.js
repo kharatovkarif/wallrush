@@ -7,6 +7,7 @@ import { WebSocketServer } from 'ws';
 import { attachWs, realOnline } from './rooms.js';
 import { fakeOnline } from './bots.js';
 import { RANKS } from '../public/js/ranks.js';
+import { initPush, pushPublicKey, saveSub, dropSub, pushTick } from './push.js';
 import { dbEnabled, dbStatus, dbDetail, cleanEnv, likeEscape, supa, verifyUser, getProfile, createProfile, leaderboard } from './db.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -25,6 +26,7 @@ app.get('/api/config', (req, res) => {
   const anon = cleanEnv(process.env.SUPABASE_ANON_KEY);
   res.json({
     auth: dbEnabled && Boolean(anon),
+    vapid: pushPublicKey(),
     dbStatus: !dbEnabled ? dbStatus : (anon ? 'ok' : 'no_anon_key'),
     dbDetail,
     supabaseUrl: cleanEnv(process.env.SUPABASE_URL),
@@ -172,6 +174,22 @@ app.post('/api/event', async (req, res) => {
   } catch (e) {
     console.error('event log failed:', e.message);
   }
+});
+
+app.post('/api/push/subscribe', async (req, res) => {
+  const device = String(req.body?.device || '');
+  if (!/^[A-Za-z0-9-]{8,64}$/.test(device)) return res.status(400).json({ error: 'bad_device' });
+  const ok = await saveSub(req.body?.sub, {
+    deviceId: device,
+    tzOffset: Number(req.body?.tz),
+    lang: String(req.body?.lang || '').slice(0, 8),
+  });
+  res.json({ ok });
+});
+
+app.post('/api/push/unsubscribe', async (req, res) => {
+  await dropSub(String(req.body?.endpoint || ''));
+  res.json({ ok: true });
 });
 
 // Login by nick: resolve a nickname to the account email.
@@ -399,13 +417,26 @@ app.get('/admin', async (req, res) => {
     cnt(supa.from('visit_log').select('*', { count: 'exact', head: true }).eq('kind', 'invite_join').gte('at', new Date(Date.now() - 7 * dayMs).toISOString())),
   ]);
   const bestStreak = streakTopRow?.data?.streak_best || 0;
-  // rank spread across everyone who has earned a point at all
-  const rankCounts = await Promise.all(RANKS.map((r, i) => {
+
+  // Rank spread. The leaderboard ranks guests, registered accounts and bots
+  // together, so counting only guests here made a real GOAT show up as zero.
+  // Bots are counted apart: they belong on the leaderboard but not in a
+  // headline about how the audience is doing.
+  const rankBand = (table, r, i, extra) => {
     const next = RANKS[i + 1];
-    let q = supa.from('visitors').select('*', { count: 'exact', head: true }).gte('points', r.min);
+    let q = supa.from(table).select('*', { count: 'exact', head: true }).gte('points', r.min);
     if (next) q = q.lt('points', next.min);
+    if (extra) q = extra(q);
     return cnt(q);
-  }));
+  };
+  const [guestBands, accountBands, botBands] = await Promise.all([
+    // guests who never played are not "Rookies", they are visitors — exclude them
+    Promise.all(RANKS.map((r, i) => rankBand('visitors', r, i, (q) => q.gt('games', 0)))),
+    Promise.all(RANKS.map((r, i) => rankBand('profiles', r, i))),
+    Promise.all(RANKS.map((r, i) => rankBand('bot_players', r, i))),
+  ]);
+  const rankCounts = RANKS.map((_, i) => guestBands[i] + accountBands[i]);
+  const botTotal = botBands.reduce((a, b) => a + b, 0);
   const ranked = rankCounts.reduce((a, b) => a + b, 0) - (rankCounts[0] || 0);
 
   // new people per MSK day, counted IN the database — the 500-row journal fetch
@@ -614,12 +645,15 @@ ${pager}`;
   <div class="c"><b>${num(invShareWeek)}</b><span>позвали за неделю</span></div>
   <div class="c"><b>${num(invJoinWeek)}</b><span>пришли за неделю</span></div>
 </div>
-<p class="note">Доходимость: ${invShareWeek ? Math.round(100 * invJoinWeek / invShareWeek) + '% приглашений превратились в игрока' : 'пока нет отправленных приглашений'}</p>
+<p class="note">${invShareWeek
+  ? `За неделю: ${num(invShareWeek)} отправлено · ${num(invJoinWeek)} переходов по ссылкам — ${(invJoinWeek / invShareWeek).toFixed(1)} перехода на приглашение. Одну ссылку могут открыть несколько человек, поэтому переходов бывает больше, чем приглашений.`
+  : 'Пока никто не отправлял приглашений.'}</p>
 
 <p class="sect">🏆 Звания <span class="note" style="font-weight:400">— ${num(ranked)} человек выбрались из Новичка</span></p>
 <div class="cards">
   ${RANKS.map((r, i) => `<div class="c"><b>${num(rankCounts[i])}</b><span>${r.icon} ${RANK_RU[r.key] || r.key}</span></div>`).join('')}
 </div>
+<p class="note">Считаются живые игроки — гости, сыгравшие хотя бы раз, и владельцы аккаунтов. В таблице лидеров вместе с ними стоят ${num(botTotal)} ботов, здесь они не учтены.</p>
 
 <h2>Новые люди по дням (14 дней)</h2>
 <div class="chart">${bars}</div>
@@ -803,4 +837,8 @@ attachWs(wss);
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
   console.log(`WallRush listening on :${PORT} (db: ${dbEnabled ? 'on' : 'off — guest mode'})`);
+  initPush();
+  // Hourly, so every timezone gets its own evening. The tick decides who is
+  // due; most hours it finds nobody and does nothing.
+  setInterval(() => pushTick(realOnline() + fakeOnline()), 60 * 60 * 1000);
 });

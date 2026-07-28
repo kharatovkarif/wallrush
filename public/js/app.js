@@ -1,9 +1,9 @@
 // WallRush client app: screens, board UI, online play (WebSocket), AI mode, auth.
-import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=64';
-import { aiMove } from './ai.js?v=64';
-import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=64';
-import { rankOf, nextRank } from './ranks.js?v=64';
-import { flameClass, isMilestone } from './streak.js?v=64';
+import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=65';
+import { aiMove } from './ai.js?v=65';
+import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=65';
+import { rankOf, nextRank } from './ranks.js?v=65';
+import { flameClass, isMilestone } from './streak.js?v=65';
 
 /* ================= state ================= */
 const $ = (id) => document.getElementById(id);
@@ -166,7 +166,7 @@ function getAiWorker() {
   if (aiWorker === false) return null;
   if (!aiWorker) {
     try {
-      aiWorker = new Worker('js/ai-worker.js?v=64', { type: 'module' });
+      aiWorker = new Worker('js/ai-worker.js?v=65', { type: 'module' });
       aiWorker.onmessage = (e) => {
         const cb = aiPending.get(e.data.id);
         aiPending.delete(e.data.id);
@@ -325,6 +325,7 @@ function handleWsMessage(msg) {
       renderStreak();
       updateProfileUI();
       flushPendingJoin();   // arrived through an invite link
+      flushPendingQuick();  // arrived from a notification
       break;
     case 'lobby':
       $('online-count').textContent = msg.online;
@@ -560,11 +561,28 @@ function takeInviteFromUrl() {
   history.replaceState(null, '', location.pathname + location.search);
 }
 
+// arriving from a notification: straight into matchmaking
+let pendingQuick = false;
+function takeQuickFromUrl() {
+  const q = new URLSearchParams(location.search);
+  if (q.get('go') !== 'quick') return;
+  pendingQuick = true;
+  history.replaceState(null, '', location.pathname);
+}
+
 function flushPendingJoin() {
   if (!pendingJoin) return;
   wsSend({ t: 'join_code', code: pendingJoin });
   logEvent('invite_join');
   pendingJoin = '';
+}
+
+function flushPendingQuick() {
+  if (!pendingQuick) return;
+  pendingQuick = false;
+  wsSend({ t: 'quick' });
+  show('screen-waiting');
+  $('waiting-code').hidden = true;
 }
 $('btn-cancel-wait').addEventListener('click', () => { wsSend({ t: 'leave_room' }); show('screen-home'); });
 $('btn-how').addEventListener('click', () => { $('overlay-how').hidden = false; });
@@ -1111,6 +1129,7 @@ function onGameOver(iWon, reason) {
     $('btn-support').textContent = t('support');
     $('support-hint').hidden = false;
     $('overlay-gameover').hidden = false;
+    maybeAskPush();
   }, 600);
   vibrate(iWon ? [40, 60, 40, 60, 80] : 60);
 }
@@ -1710,6 +1729,61 @@ function maybeShowIosInstall() {
 }
 maybeShowIosInstall();
 
+/* ================= notifications ================= */
+// Permission can be asked exactly once: a refusal is permanent and we cannot
+// undo it. So the ask waits until someone has finished three matches — by then
+// they have a streak worth protecting, and the prompt reads as useful rather
+// than as a website grabbing at them on arrival.
+const PUSH_AFTER_GAMES = 3;
+
+function pushSupported() {
+  return 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+}
+
+function urlBase64ToUint8Array(base64) {
+  const pad = '='.repeat((4 - (base64.length % 4)) % 4);
+  const raw = atob((base64 + pad).replace(/-/g, '+').replace(/_/g, '/'));
+  return Uint8Array.from([...raw].map(c => c.charCodeAt(0)));
+}
+
+async function subscribePush() {
+  if (!pushSupported() || !config?.vapid) return;
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    const sub = await reg.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(config.vapid),
+    });
+    await fetch('/api/push/subscribe', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        device: deviceId, sub: sub.toJSON(),
+        tz: new Date().getTimezoneOffset(), lang,
+      }),
+    });
+    localStorage.setItem('wr_push', '1');
+  } catch (e) {
+    console.warn('push subscribe failed', e);
+  }
+}
+
+// Called after every finished match. Asks at most once, ever.
+async function maybeAskPush() {
+  if (!pushSupported() || !config?.vapid) return;
+  if (localStorage.getItem('wr_push')) return;          // already subscribed
+  if (localStorage.getItem('wr_push_asked')) return;    // asked before, do not nag
+  if (Notification.permission === 'denied') return;     // nothing we can do
+  const played = Number(localStorage.getItem('wr_games') || 0) + 1;
+  localStorage.setItem('wr_games', String(played));
+  if (played < PUSH_AFTER_GAMES) return;
+  localStorage.setItem('wr_push_asked', '1');
+  if (Notification.permission === 'granted') { subscribePush(); return; }
+  try {
+    if (await Notification.requestPermission() === 'granted') subscribePush();
+  } catch { /* some browsers reject outside a gesture */ }
+}
+
 /* ================= legal / info pages ================= */
 
 // The documents are stored as plain text so they stay easy to translate, with
@@ -1768,6 +1842,7 @@ window.addEventListener('resize', () => {
 
 async function boot() {
   takeInviteFromUrl();   // read the code before anything can rewrite the URL
+  takeQuickFromUrl();
   buildLangList();
   await loadLang(lang);            // detected pack, if it is not ru/en
   applyI18n();

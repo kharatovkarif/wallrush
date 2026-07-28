@@ -1,7 +1,7 @@
 // WallRush service worker: caches the app shell so the game opens instantly
 // and the AI mode keeps working offline. Pages go network-first (fresh
 // deploys land right away), versioned assets go cache-first.
-const V = '64';
+const V = '65';
 const CACHE = 'wr-' + V;
 const SHELL = [
   '/',
@@ -57,5 +57,33 @@ self.addEventListener('fetch', (e) => {
       }
       return r;
     }))
+  );
+});
+
+/* ---------- push ---------- */
+self.addEventListener('push', (e) => {
+  let d = {};
+  try { d = e.data ? e.data.json() : {}; } catch { /* malformed payload */ }
+  e.waitUntil(self.registration.showNotification(d.title || 'WallRush', {
+    body: d.body || '',
+    icon: '/icons/icon-192.png',
+    badge: '/icons/icon-192.png',
+    tag: 'wr-daily',              // a second one replaces the first, never stacks
+    data: { url: d.url || '/' },
+  }));
+});
+
+// Tapping it should land the player in a game, not on a home screen they then
+// have to navigate. An already-open tab is focused rather than duplicated.
+self.addEventListener('notificationclick', (e) => {
+  e.notification.close();
+  const url = (e.notification.data && e.notification.data.url) || '/';
+  e.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
+      for (const c of list) {
+        if (c.url.includes(location.origin)) return c.focus().then(() => c.navigate(url)).catch(() => c.focus());
+      }
+      return self.clients.openWindow(url);
+    })
   );
 });
