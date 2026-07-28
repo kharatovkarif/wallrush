@@ -430,7 +430,12 @@ html[data-theme="dark"] .soc-tt { box-shadow: inset 0 0 0 1px #2f3550, var(--sha
 .pawn {
   position: absolute; border-radius: 50%; z-index: 5; pointer-events: none;
   box-shadow: inset -4px -8px 12px rgba(0,0,0,.4), inset 2px 4px 6px rgba(255,255,255,.25), 0 8px 12px rgba(10, 20, 50, .45);
-  transition: left .28s cubic-bezier(.5,1.6,.4,1), top .28s cubic-bezier(.5,1.6,.4,1);
+  /* Decelerating, never springy. The previous curve had a control point above
+     1, so the ball flew ~11% past the square and spent 100ms drifting back —
+     on a 28px cell that reads as a wrong move being corrected. A game piece
+     has to land on its square and stay there. Shorter, too: the tap should
+     feel answered, not animated at. */
+  transition: left .16s cubic-bezier(.25,.85,.35,1), top .16s cubic-bezier(.25,.85,.35,1);
 }
 /* crisp specular highlight, like a billiard ball */
 .pawn::after {
