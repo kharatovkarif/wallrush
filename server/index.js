@@ -7,8 +7,9 @@ import { WebSocketServer } from 'ws';
 import { attachWs, realOnline } from './rooms.js';
 import { fakeOnline } from './bots.js';
 import { RANKS } from '../public/js/ranks.js';
+import { checkNick } from '../public/js/nick.js';
 import { initPush, pushPublicKey, saveSub, dropSub, pushTick } from './push.js';
-import { dbEnabled, dbStatus, dbDetail, cleanEnv, likeEscape, supa, verifyUser, getProfile, createProfile, leaderboard } from './db.js';
+import { dbEnabled, dbStatus, dbDetail, cleanEnv, likeEscape, supa, verifyUser, getProfile, createProfile, leaderboard, clearNickNotice } from './db.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -50,14 +51,22 @@ app.get('/api/profile', async (req, res) => {
   res.json({ profile: await getProfile(user.id) });
 });
 
+// A nickname the rules no longer allow is replaced by hand, and the player is
+// told why the next time they open the game. This marks the note as read.
+app.post('/api/nick-notice/ack', async (req, res) => {
+  const user = await verifyUser(bearer(req));
+  if (!user) return res.status(401).json({ error: 'unauthorized' });
+  await clearNickNotice(user.id);
+  res.json({ ok: true });
+});
+
 // Create profile with chosen nick (right after signup).
 app.post('/api/profile', async (req, res) => {
   const user = await verifyUser(bearer(req));
   if (!user) return res.status(401).json({ error: 'unauthorized' });
   const nick = String(req.body?.nick || '').trim();
-  if (!/^[A-Za-z0-9_а-яА-ЯёЁ]{3,16}$/.test(nick)) {
-    return res.status(400).json({ error: 'nick_bad' });
-  }
+  const bad = checkNick(nick);
+  if (bad) return res.status(400).json({ error: bad === 'format' ? 'nick_bad' : 'nick_' + bad });
   const existing = await getProfile(user.id);
   if (existing) return res.json({ profile: existing });
   const result = await createProfile(user.id, nick);
@@ -74,7 +83,8 @@ app.post('/api/register', async (req, res) => {
   const nick = String(req.body?.nick || '').trim();
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).json({ error: 'email_bad' });
   if (password.length < 6) return res.status(400).json({ error: 'password_short' });
-  if (!/^[A-Za-z0-9_а-яА-ЯёЁ]{3,16}$/.test(nick)) return res.status(400).json({ error: 'nick_bad' });
+  const badNick = checkNick(nick);
+  if (badNick) return res.status(400).json({ error: badNick === 'format' ? 'nick_bad' : 'nick_' + badNick });
 
   // nick must be free (exact, case-insensitive — escape LIKE wildcards)
   const { data: taken } = await supa.from('profiles').select('id').ilike('nick', likeEscape(nick)).maybeSingle();

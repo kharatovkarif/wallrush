@@ -3,6 +3,7 @@
 import { initialState, applyMove } from '../public/js/engine.js';
 import { pointsDelta } from '../public/js/ranks.js';
 import { streakAlive, localDay } from '../public/js/streak.js';
+import { checkNick, randomNick } from '../public/js/nick.js';
 import {
   verifyUser, getProfile, recordResult, recordBotResult, recordHumanMatch,
   getPoints, addPoints, addBotPoints, touchStreak,
@@ -78,6 +79,7 @@ function startGame(room) {
   room.bank = [bankMs, bankMs];
   room.status = 'playing';
   room.played = (room.played || 0) + 1;
+  room.moves = 0;
   room.rematch = [false, false];
   room.turnStarted = Date.now();
   armMoveTimer(room);
@@ -109,6 +111,28 @@ function armMoveTimer(room) {
 // wins all evening and walk out as Legends.
 function isRanked(room) { return !room.code; }
 
+// The handshake's Origin must name this same site. Bots run in-process and
+// have no request at all, so they are trusted by definition. Ports are ignored
+// because the proxy in front of the app terminates TLS on a different one.
+let untrustedSeen = 0;
+function sameOrigin(req) {
+  if (!req) return true;
+  const origin = req.headers?.origin;
+  const host = req.headers?.host;
+  let ok = false;
+  try {
+    ok = Boolean(origin && host) && new URL(origin).hostname === host.split(':')[0];
+  } catch {
+    ok = false;
+  }
+  // Logged so a proxy that rewrites these headers shows up as a flood right
+  // after a deploy, rather than as players quietly not scoring.
+  if (!ok && ++untrustedSeen % 20 === 1) {
+    console.warn(`ws: unscored connection #${untrustedSeen} (origin=${origin || 'none'} host=${host || 'none'})`);
+  }
+  return ok;
+}
+
 // Rematches against the same person pay less and then nothing, so a pair that
 // finds each other in the public lobby cannot pump each other up either.
 function rematchFactor(room) {
@@ -126,13 +150,20 @@ function persistPoints(pl, delta) {
 
 // Updates the in-memory totals straight away so the game_over message is
 // already correct, and writes to the database in the background.
+const MIN_RANKED_MOVES = 6;
+
 function awardPoints(room, w, l) {
   const deltas = [0, 0];
   const factor = isRanked(room) ? rematchFactor(room) : 0;
   if (!factor) return deltas;
+  // Automation farms points by starting a game and winning it in seconds.
+  // No genuine match is decided in fewer than six moves, so below that the
+  // result stands but nothing is scored.
+  if ((room.moves || 0) < MIN_RANKED_MOVES) return deltas;
   const wp = w.points || 0, lp = l.points || 0;
   const dw = Math.round(pointsDelta(wp, lp, true) * factor);
   const dl = Math.round(pointsDelta(lp, wp, false) * factor);
+  if (w.fromPage === false) return deltas;  // won from outside the game itself
   w.points = wp + dw;
   l.points = Math.max(0, lp + dl);          // a beginner never digs a hole
   deltas[room.players.indexOf(w)] = dw;
@@ -245,8 +276,11 @@ function createRoom(client, isPrivate, opts = {}) {
 }
 
 async function handleHello(client, msg) {
-  // resolve identity: registered user (JWT) or guest nick
-  let nick = String(msg.nick || '').slice(0, 16) || 'User' + crypto.randomInt(1000, 9999);
+  // resolve identity: registered user (JWT) or guest nick. A guest never signs
+  // up, so this is the only place their name is checked — and the socket is
+  // reachable without the page, so it cannot be left to the client.
+  let nick = String(msg.nick || '').slice(0, 16);
+  if (checkNick(nick)) nick = randomNick(() => crypto.randomInt(0, 1e6) / 1e6);
   let userId = null;
   if (msg.jwt) {
     const user = await verifyUser(msg.jwt);
@@ -342,6 +376,7 @@ function handleMove(client, msg) {
     send(client, stateMsg(room));
     return;
   }
+  room.moves = (room.moves || 0) + 1;
   if (move.type === 'wall') {
     room.state.walls[room.state.walls.length - 1].by = idx; // for wall colors on clients
   }
@@ -407,8 +442,14 @@ export function attachWs(wss) {
     },
   });
 
-  wss.on('connection', (ws) => {
+  wss.on('connection', (ws, req) => {
     const client = { ws, token: null, nick: '', userId: null, roomId: null, inLobby: false, graceTimer: null, alive: true };
+    // A browser always sends Origin on a WebSocket handshake; a script talking
+    // to the socket directly usually does not, and the worst point farmers had
+    // never loaded the page at all. Rather than refuse the connection — which
+    // would risk locking out a real player over a header — the game is played
+    // normally and simply scores nothing.
+    client.fromPage = sameOrigin(req);
     clients.set(ws, client);
 
     ws.on('pong', () => { client.alive = true; });

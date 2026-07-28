@@ -60,8 +60,15 @@ export async function verifyUser(jwt) {
 
 export async function getProfile(userId) {
   if (!dbEnabled) return null;
-  const { data } = await supa.from('profiles').select('id, nick, wins, losses, points').eq('id', userId).maybeSingle();
+  const { data } = await supa.from('profiles')
+    .select('id, nick, wins, losses, points, nick_notice').eq('id', userId).maybeSingle();
   return data || null;
+}
+
+// Clears the "your nickname was changed" note once the player has seen it.
+export async function clearNickNotice(userId) {
+  if (!dbEnabled) return;
+  await supa.from('profiles').update({ nick_notice: null }).eq('id', userId);
 }
 
 /* ---- ladder points ----
@@ -195,7 +202,9 @@ export async function recordResult(winnerUserId, loserUserId) {
 export async function leaderboard(limit = 50) {
   if (!dbEnabled) return [];
   const [{ data: people }, { data: bots }] = await Promise.all([
-    supa.from('profiles').select('nick, wins, losses, points').order('points', { ascending: false }).limit(200),
+    // an account caught farming keeps its history but leaves the table
+    supa.from('profiles').select('nick, wins, losses, points')
+      .not('flagged', 'is', true).order('points', { ascending: false }).limit(200),
     supa.from('bot_players').select('nick, wins, losses, points').order('points', { ascending: false }).limit(200),
   ]);
   const all = [...(people || []), ...(bots || [])].map(r => ({ ...r, points: r.points || 0 }));

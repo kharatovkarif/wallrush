@@ -1,9 +1,10 @@
 // WallRush client app: screens, board UI, online play (WebSocket), AI mode, auth.
-import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=65';
-import { aiMove } from './ai.js?v=65';
-import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=65';
-import { rankOf, nextRank } from './ranks.js?v=65';
-import { flameClass, isMilestone } from './streak.js?v=65';
+import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=66';
+import { aiMove } from './ai.js?v=66';
+import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=66';
+import { rankOf, nextRank } from './ranks.js?v=66';
+import { flameClass, isMilestone } from './streak.js?v=66';
+import { checkNick, randomNick } from './nick.js?v=66';
 
 /* ================= state ================= */
 const $ = (id) => document.getElementById(id);
@@ -121,8 +122,10 @@ window.addEventListener('appinstalled', () => logVisit(false, true));
 // guest nick sticks to the device forever, so the same person keeps the same
 // name across visits (was per-tab before — every visit looked like a new user)
 let guestNick = localStorage.getItem('wr_nick') || sessionStorage.getItem('wr_nick');
-if (!guestNick) {
-  guestNick = 'User' + (1000 + Math.floor(Math.random() * 9000));
+// A name saved before the rules existed is replaced here rather than left to
+// fail at the server, so a guest with a banned name simply gets a clean one.
+if (!guestNick || checkNick(guestNick)) {
+  guestNick = randomNick();
 }
 localStorage.setItem('wr_nick', guestNick);
 
@@ -166,7 +169,7 @@ function getAiWorker() {
   if (aiWorker === false) return null;
   if (!aiWorker) {
     try {
-      aiWorker = new Worker('js/ai-worker.js?v=65', { type: 'module' });
+      aiWorker = new Worker('js/ai-worker.js?v=66', { type: 'module' });
       aiWorker.onmessage = (e) => {
         const cb = aiPending.get(e.data.id);
         aiPending.delete(e.data.id);
@@ -1565,7 +1568,8 @@ $('btn-auth-submit').addEventListener('click', async () => {
   const nick = $('auth-nick').value.trim();
   try {
     if (authMode === 'register') {
-      if (!/^[A-Za-z0-9_а-яА-ЯёЁ]{3,16}$/.test(nick)) { authMsg(t('err_nick_bad')); return; }
+      const nickErr = checkNick(nick);
+      if (nickErr) { authMsg(t(nickErr === 'format' ? 'err_nick_bad' : 'err_nick_' + nickErr)); return; }
       // server-side signup: account is created already confirmed
       const res = await fetch('/api/register', {
         method: 'POST',
@@ -1578,6 +1582,7 @@ $('btn-auth-submit').addEventListener('click', async () => {
           email_bad: t('err_email_bad'), email_taken: t('err_email_taken'),
           password_short: t('err_password_short'),
           nick_bad: t('err_nick_bad'), nick_taken: t('err_nick_taken'),
+          nick_rude: t('err_nick_rude'), nick_reserved: t('err_nick_reserved'),
         };
         authMsg(map[data.error] || (data.detail ? `${t('err_generic')}: ${data.detail}` : t('err_generic')));
         return;
@@ -1601,7 +1606,8 @@ $('btn-auth-submit').addEventListener('click', async () => {
       if (error) { authMsg(t('auth_error')); return; }
       await afterLogin();
     } else if (authMode === 'nick') {
-      if (!/^[A-Za-z0-9_а-яА-ЯёЁ]{3,16}$/.test(nick)) { authMsg(t('err_nick_bad')); return; }
+      const nickErr = checkNick(nick);
+      if (nickErr) { authMsg(t(nickErr === 'format' ? 'err_nick_bad' : 'err_nick_' + nickErr)); return; }
       const created = await createProfileReq(nick);
       if (!created) return;
       closeAuthForm();
@@ -1624,6 +1630,8 @@ async function createProfileReq(nick) {
   const data = await res.json();
   if (data.error === 'nick_taken') { authMsg(t('err_nick_taken')); return false; }
   if (data.error === 'nick_bad') { authMsg(t('err_nick_bad')); return false; }
+  if (data.error === 'nick_rude') { authMsg(t('err_nick_rude')); return false; }
+  if (data.error === 'nick_reserved') { authMsg(t('err_nick_reserved')); return false; }
   if (data.error) { authMsg(t('err_generic')); return false; }
   profile = data.profile;
   updateProfileUI();
@@ -1651,9 +1659,28 @@ async function afterLogin() {
     closeAuthForm();
   }
   updateProfileUI();
+  showNickNotice();
   // re-identify on the game server with the account nick
   wsSend({ t: 'hello', nick: myNick(), token: wsToken, device: deviceId, tz: new Date().getTimezoneOffset(), jwt: session.access_token });
 }
+
+// A nickname that broke the rules was replaced by hand. The player is told
+// once, in their own language, and the note is cleared as soon as they read it.
+function showNickNotice() {
+  const old = profile?.nick_notice;
+  if (!old) return;
+  $('nick-notice-text').textContent = t('nick_changed_body')
+    .replace('%old', old).replace('%new', profile.nick);
+  $('overlay-nick-notice').hidden = false;
+  profile.nick_notice = null;
+  fetch('/api/nick-notice/ack', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${session.access_token}` },
+  }).catch(() => {});
+}
+$('btn-nick-notice-close').addEventListener('click', () => {
+  $('overlay-nick-notice').hidden = true;
+});
 
 $('btn-logout').addEventListener('click', async () => {
   if (supabase) await supabase.auth.signOut();
