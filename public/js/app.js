@@ -1,9 +1,9 @@
 // WallRush client app: screens, board UI, online play (WebSocket), AI mode, auth.
-import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=63';
-import { aiMove } from './ai.js?v=63';
-import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=63';
-import { rankOf, nextRank } from './ranks.js?v=63';
-import { flameClass, isMilestone } from './streak.js?v=63';
+import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=64';
+import { aiMove } from './ai.js?v=64';
+import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=64';
+import { rankOf, nextRank } from './ranks.js?v=64';
+import { flameClass, isMilestone } from './streak.js?v=64';
 
 /* ================= state ================= */
 const $ = (id) => document.getElementById(id);
@@ -166,7 +166,7 @@ function getAiWorker() {
   if (aiWorker === false) return null;
   if (!aiWorker) {
     try {
-      aiWorker = new Worker('js/ai-worker.js?v=63', { type: 'module' });
+      aiWorker = new Worker('js/ai-worker.js?v=64', { type: 'module' });
       aiWorker.onmessage = (e) => {
         const cb = aiPending.get(e.data.id);
         aiPending.delete(e.data.id);
@@ -477,6 +477,19 @@ $('btn-friend-join').addEventListener('click', () => {
 });
 
 /* ================= invite a friend by link ================= */
+// Without these two counters there is no way to tell whether invitations are
+// being sent at all, let alone whether anyone arrives through them.
+function logEvent(kind) {
+  try {
+    fetch('/api/event', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ device: deviceId, kind }),
+      keepalive: true,
+    }).catch(() => {});
+  } catch { /* analytics must never break the game */ }
+}
+
 // wallrush.online/#K7X2P9 — the friend taps it and lands straight in the room,
 // with nothing to read out or type in.
 const CODE_RE = /^[A-Z0-9]{4,8}$/;
@@ -511,8 +524,19 @@ async function copyText(text) {
   }
 }
 
+// Straight from the result screen into a private room, keeping whatever
+// settings were last used — the friend just wants to play, not configure.
+$('btn-invite-friend').addEventListener('click', () => {
+  $('overlay-gameover').hidden = true;
+  wsSend({
+    t: 'create_room', private: true,
+    mode: createCfg.mode, walls: Number(createCfg.walls), time: createCfg.time,
+  });
+});
+
 $('invite-share').addEventListener('click', async () => {
   const url = roomLink(inviteCode);
+  logEvent('invite_share');
   // the native sheet puts the link straight into WhatsApp or Telegram
   if (navigator.share) {
     try {
@@ -539,6 +563,7 @@ function takeInviteFromUrl() {
 function flushPendingJoin() {
   if (!pendingJoin) return;
   wsSend({ t: 'join_code', code: pendingJoin });
+  logEvent('invite_join');
   pendingJoin = '';
 }
 $('btn-cancel-wait').addEventListener('click', () => { wsSend({ t: 'leave_room' }); show('screen-home'); });

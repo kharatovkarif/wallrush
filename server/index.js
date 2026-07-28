@@ -6,6 +6,7 @@ import { fileURLToPath } from 'url';
 import { WebSocketServer } from 'ws';
 import { attachWs, realOnline } from './rooms.js';
 import { fakeOnline } from './bots.js';
+import { RANKS } from '../public/js/ranks.js';
 import { dbEnabled, dbStatus, dbDetail, cleanEnv, likeEscape, supa, verifyUser, getProfile, createProfile, leaderboard } from './db.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -155,6 +156,24 @@ app.post('/api/visit', async (req, res) => {
   }
 });
 
+// Product events worth counting, written into the same journal as visits so
+// they inherit its 60-day cleanup. Deliberately a closed list: this endpoint
+// is public, and an open one would let anyone fill the table.
+const EVENT_KINDS = new Set(['invite_share', 'invite_join']);
+app.post('/api/event', async (req, res) => {
+  res.json({ ok: true });                       // never block the client
+  if (!dbEnabled) return;
+  try {
+    const device = String(req.body?.device || '');
+    const kind = String(req.body?.kind || '');
+    if (!EVENT_KINDS.has(kind)) return;
+    if (!/^[A-Za-z0-9-]{8,64}$/.test(device)) return;
+    await supa.from('visit_log').insert({ device_id: device, kind });
+  } catch (e) {
+    console.error('event log failed:', e.message);
+  }
+});
+
 // Login by nick: resolve a nickname to the account email.
 app.post('/api/resolve-login', async (req, res) => {
   if (!dbEnabled) return res.status(503).json({ error: 'db_off' });
@@ -171,6 +190,12 @@ app.post('/api/resolve-login', async (req, res) => {
    /admin?key=<ADMIN_KEY> — full visitor journal: every device, when it came,
    whether it played, how many games; plus live online and daily growth. */
 const ADMIN_KEY = cleanEnv(process.env.ADMIN_KEY) || 'karoboev777';
+
+// the ladder speaks six languages in the game; this page only needs one
+const RANK_RU = {
+  rank_rookie: 'Новичок', rank_student: 'Ученик', rank_strategist: 'Стратег',
+  rank_master: 'Мастер стен', rank_pro: 'Про', rank_legend: 'Легенда', rank_goat: 'GOAT',
+};
 
 // never cache admin pages — the browser was showing hours-old stats
 app.use('/admin', (req, res, next) => {
@@ -355,6 +380,33 @@ app.get('/admin', async (req, res) => {
     cnt(supa.from('visit_log').select('*', { count: 'exact', head: true }).eq('kind', 'game')),
     cnt(supa.from('visit_log').select('*', { count: 'exact', head: true }).eq('kind', 'game').gte('at', todayStartIso)),
   ]);
+
+  // ---- the three things shipped this week, none of which were measurable ----
+  // A streak counts as alive if it was touched today or yesterday; anything
+  // older is a broken run still sitting in the row.
+  const dayAgoIso = new Date(Date.now() - dayMs).toISOString().slice(0, 10);
+  const [
+    streakAliveN, streak3, streak7, streakTopRow,
+    invShareToday, invJoinToday, invShareWeek, invJoinWeek,
+  ] = await Promise.all([
+    cnt(supa.from('visitors').select('*', { count: 'exact', head: true }).gte('streak_day', dayAgoIso).gt('streak', 0)),
+    cnt(supa.from('visitors').select('*', { count: 'exact', head: true }).gte('streak_day', dayAgoIso).gte('streak', 3)),
+    cnt(supa.from('visitors').select('*', { count: 'exact', head: true }).gte('streak_day', dayAgoIso).gte('streak', 7)),
+    supa.from('visitors').select('streak_best').order('streak_best', { ascending: false }).limit(1).maybeSingle(),
+    cnt(supa.from('visit_log').select('*', { count: 'exact', head: true }).eq('kind', 'invite_share').gte('at', todayStartIso)),
+    cnt(supa.from('visit_log').select('*', { count: 'exact', head: true }).eq('kind', 'invite_join').gte('at', todayStartIso)),
+    cnt(supa.from('visit_log').select('*', { count: 'exact', head: true }).eq('kind', 'invite_share').gte('at', new Date(Date.now() - 7 * dayMs).toISOString())),
+    cnt(supa.from('visit_log').select('*', { count: 'exact', head: true }).eq('kind', 'invite_join').gte('at', new Date(Date.now() - 7 * dayMs).toISOString())),
+  ]);
+  const bestStreak = streakTopRow?.data?.streak_best || 0;
+  // rank spread across everyone who has earned a point at all
+  const rankCounts = await Promise.all(RANKS.map((r, i) => {
+    const next = RANKS[i + 1];
+    let q = supa.from('visitors').select('*', { count: 'exact', head: true }).gte('points', r.min);
+    if (next) q = q.lt('points', next.min);
+    return cnt(q);
+  }));
+  const ranked = rankCounts.reduce((a, b) => a + b, 0) - (rankCounts[0] || 0);
 
   // new people per MSK day, counted IN the database — the 500-row journal fetch
   // above must never be used for these numbers (it silently truncates them)
@@ -545,6 +597,28 @@ ${pager}`;
   <div class="c"><b>${num(installs)}</b><span>📲 установили</span></div>
   <div class="c"><b>${num(regs)}</b><span>✔ регистраций</span></div>
   <div class="c"><b>${num(played)}</b><span>🎮 играли хоть раз</span></div>
+</div>
+
+<p class="sect">🔥 Серии дней <span class="note" style="font-weight:400">— живая = играл сегодня или вчера</span></p>
+<div class="cards">
+  <div class="c hi"><b>${num(streakAliveN)}</b><span>живых серий</span></div>
+  <div class="c"><b>${num(streak3)}</b><span>3 дня и больше</span></div>
+  <div class="c"><b>${num(streak7)}</b><span>неделя и больше</span></div>
+  <div class="c"><b>${num(bestStreak)}</b><span>рекорд серии</span></div>
+</div>
+
+<p class="sect">🔗 Приглашения по ссылке</p>
+<div class="cards">
+  <div class="c hi"><b>${num(invShareToday)}</b><span>позвали сегодня</span></div>
+  <div class="c good"><b>${num(invJoinToday)}</b><span>пришли сегодня</span></div>
+  <div class="c"><b>${num(invShareWeek)}</b><span>позвали за неделю</span></div>
+  <div class="c"><b>${num(invJoinWeek)}</b><span>пришли за неделю</span></div>
+</div>
+<p class="note">Доходимость: ${invShareWeek ? Math.round(100 * invJoinWeek / invShareWeek) + '% приглашений превратились в игрока' : 'пока нет отправленных приглашений'}</p>
+
+<p class="sect">🏆 Звания <span class="note" style="font-weight:400">— ${num(ranked)} человек выбрались из Новичка</span></p>
+<div class="cards">
+  ${RANKS.map((r, i) => `<div class="c"><b>${num(rankCounts[i])}</b><span>${r.icon} ${RANK_RU[r.key] || r.key}</span></div>`).join('')}
 </div>
 
 <h2>Новые люди по дням (14 дней)</h2>

@@ -24,6 +24,7 @@ export default {
   friend_code_hint: 'Envoie ce code à ton ami :',
   invite_hint: 'Envoie le lien à ton ami — il arrive directement dans ton salon.',
   invite_share: '🔗 Inviter un ami',
+  invite_short: '🔗 Inviter un ami',
   invite_copied: 'Lien copié ✓',
   invite_code_label: 'ou dicte le code',
   invite_text: 'On fait une partie de WallRush ?',

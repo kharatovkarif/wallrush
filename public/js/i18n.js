@@ -26,6 +26,7 @@ export const I18N = {
     friend_code_hint: 'Отправь этот код другу:',
     invite_hint: 'Отправь другу ссылку — он попадёт прямо в твою комнату.',
     invite_share: '🔗 Пригласить друга',
+    invite_short: '🔗 Позвать друга',
     invite_copied: 'Ссылка скопирована ✓',
     invite_code_label: 'или продиктуй код',
     invite_text: 'Сыграем в WallRush?',
@@ -229,6 +230,7 @@ export const I18N = {
     friend_code_hint: 'Send this code to your friend:',
     invite_hint: 'Send your friend the link — it drops them straight into your room.',
     invite_share: '🔗 Invite a friend',
+    invite_short: '🔗 Invite a friend',
     invite_copied: 'Link copied ✓',
     invite_code_label: 'or read out the code',
     invite_text: 'Fancy a game of WallRush?',
@@ -422,7 +424,7 @@ export const LANGS = [
 export const LANG_CODES = LANGS.map((l) => l.code);
 export const RTL = new Set(['fa']);
 
-const V = '63';
+const V = '64';
 
 // Loads a translation file on demand. Safe to call repeatedly and safe to fail:
 // if the request never lands, makeT keeps falling back to English.

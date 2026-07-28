@@ -24,6 +24,7 @@ export default {
   friend_code_hint: 'این کد را برای دوستت بفرست:',
   invite_hint: 'لینک را برای دوستت بفرست — مستقیم وارد اتاق تو می‌شود.',
   invite_share: '🔗 دعوت از دوست',
+  invite_short: '🔗 دعوت از دوست',
   invite_copied: 'لینک کپی شد ✓',
   invite_code_label: 'یا کد را بخوان',
   invite_text: 'یک دست WallRush بازی کنیم؟',

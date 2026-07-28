@@ -24,6 +24,7 @@ export default {
   friend_code_hint: 'Bu kodu arkadaşına gönder:',
   invite_hint: 'Arkadaşına bağlantıyı gönder — doğrudan odana düşer.',
   invite_share: '🔗 Arkadaş davet et',
+  invite_short: '🔗 Arkadaş davet et',
   invite_copied: 'Bağlantı kopyalandı ✓',
   invite_code_label: 'ya da kodu söyle',
   invite_text: 'WallRush oynayalım mı?',
