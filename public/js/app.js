@@ -1,8 +1,9 @@
 // WallRush client app: screens, board UI, online play (WebSocket), AI mode, auth.
-import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=59';
-import { aiMove } from './ai.js?v=59';
-import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=59';
-import { rankOf, nextRank } from './ranks.js?v=59';
+import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=60';
+import { aiMove } from './ai.js?v=60';
+import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=60';
+import { rankOf, nextRank } from './ranks.js?v=60';
+import { flameClass, isMilestone } from './streak.js?v=60';
 
 /* ================= state ================= */
 const $ = (id) => document.getElementById(id);
@@ -138,9 +139,12 @@ let wsToken = sessionStorage.getItem('wr_ws_token') || null;
 let game = null; // { mode:'ai'|'online', state, myIndex, oppNick, clocks, over }
 
 /* ================= ladder ================= */
-// Points live on the server; these are the last values it told us.
+// Points and streak live on the server; these are the last values it told us.
 let myPoints = 0;
 let myVeteran = false;
+let myStreak = 0;
+let myStreakBest = 0;
+let streakEvent = null;   // set when a match just advanced the streak
 
 const rankName = (points) => t(rankOf(points).key);
 const rankIcon = (points) => rankOf(points).icon;
@@ -161,7 +165,7 @@ function getAiWorker() {
   if (aiWorker === false) return null;
   if (!aiWorker) {
     try {
-      aiWorker = new Worker('js/ai-worker.js?v=59', { type: 'module' });
+      aiWorker = new Worker('js/ai-worker.js?v=60', { type: 'module' });
       aiWorker.onmessage = (e) => {
         const cb = aiPending.get(e.data.id);
         aiPending.delete(e.data.id);
@@ -291,7 +295,7 @@ function connectWs() {
   ws.onopen = () => {
     reconnectDelay = 500;
     wsReady = true;
-    wsSend({ t: 'hello', nick: myNick(), token: wsToken, device: deviceId, jwt: session?.access_token });
+    wsSend({ t: 'hello', nick: myNick(), token: wsToken, device: deviceId, tz: new Date().getTimezoneOffset(), jwt: session?.access_token });
     if (currentScreen === 'screen-rooms') wsSend({ t: 'lobby_sub' });
   };
   ws.onmessage = (ev) => {
@@ -315,6 +319,9 @@ function handleWsMessage(msg) {
       $('online-count').textContent = msg.online;
       myPoints = msg.points || 0;
       myVeteran = Boolean(msg.veteran);
+      myStreak = msg.streak || 0;
+      myStreakBest = msg.streakBest || 0;
+      renderStreak();
       updateProfileUI();
       flushPendingJoin();   // arrived through an invite link
       break;
@@ -352,6 +359,15 @@ function handleWsMessage(msg) {
         }
         onGameOver(msg.winner === msg.you, msg.reason);
       }
+      break;
+    case 'streak':
+      myStreak = msg.streak || 0;
+      myStreakBest = msg.best || myStreakBest;
+      if (msg.advanced) streakEvent = { days: myStreak, froze: Boolean(msg.froze) };
+      renderStreak();
+      updateProfileUI();
+      // the result overlay may already be up — fill the line in place
+      if (!$('overlay-gameover').hidden) showStreakLine();
       break;
     case 'emoji':
       showEmoji(msg.e);
@@ -1054,6 +1070,7 @@ function onGameOver(iWon, reason) {
     $('rs-tag-opp').textContent = iWon ? 'LOSS' : 'WIN';
     $('rs-tag-opp').className = iWon ? 'loss' : 'win';
     showAward();
+    showStreakLine();
     spawnConfetti(iWon);
     $('btn-rematch').style.display = '';
     $('rematch-status').hidden = true;
@@ -1340,6 +1357,47 @@ function updateProfileUI() {
   $('sound-toggle').checked = soundOn;
 }
 
+/* ================= streak ================= */
+// Russian needs three plural forms and Turkish none, so the unit and the
+// sentence shape both come from the language pack.
+function daysWord(n) {
+  if (lang === 'ru') {
+    const a = n % 10, b = n % 100;
+    if (a === 1 && b !== 11) return t('day_one');
+    if (a >= 2 && a <= 4 && (b < 12 || b > 14)) return t('day_few');
+    return t('day_many');
+  }
+  return n === 1 ? t('day_one') : t('day_many');
+}
+
+// %n is the number and %u the unit, both filled per language: word order
+// differs (Turkish leads with "üst üste") and Russian inflects the unit.
+const daysPhrase = (n, key = 'streak_days') =>
+  t(key).replace('%n', n).replace('%u', daysWord(n));
+
+// The flame in the home header: the one place a returning player sees it
+// before they have done anything.
+function renderStreak() {
+  const pill = $('streak-pill');
+  pill.hidden = myStreak < 1;
+  if (myStreak < 1) return;
+  $('streak-count').textContent = myStreak;
+  $('streak-flame').className = 'flame ' + flameClass(myStreak);
+}
+
+// One line on the result screen, and a louder one on a milestone day.
+function showStreakLine() {
+  const el = $('streak-line');
+  if (!streakEvent) { el.hidden = true; return; }
+  const { days, froze } = streakEvent;
+  const big = isMilestone(days);
+  el.className = 'streak-line ' + flameClass(days) + (big ? ' milestone' : '');
+  el.textContent = (froze ? t('streak_saved') + ' ' : '') +
+    '🔥 ' + daysPhrase(days, big ? 'streak_milestone' : 'streak_days');
+  el.hidden = false;
+  if (big) vibrate([40, 60, 40, 60, 90]);
+}
+
 // Rank, points, and how far the next rank is. The bar is the whole point:
 // "97 to go" pulls far harder than a bare number.
 function renderRankCard() {
@@ -1350,6 +1408,13 @@ function renderRankCard() {
   $('rank-name').textContent = t(cur.key);
   $('rank-points').textContent = `${pts.toLocaleString()} ${t('points_label')}`;
   $('veteran-badge').hidden = !myVeteran;
+  // streak card sits under the rank: one is skill, the other is showing up
+  $('streak-flame-big').className = 'flame ' + flameClass(Math.max(1, myStreak));
+  $('streak-days').textContent = myStreak > 0 ? daysPhrase(myStreak) : t('streak_none');
+  $('streak-sub').textContent = myStreak > 0
+    ? (myStreakBest > myStreak ? t('streak_best').replace('%n', myStreakBest) : t('streak_keep'))
+    : '';
+  $('streak-card').classList.toggle('cold', myStreak < 1);
   if (next) {
     const span = next.min - cur.min;
     const done = Math.max(0, Math.min(1, (pts - cur.min) / span));
@@ -1510,7 +1575,7 @@ async function afterLogin() {
   }
   updateProfileUI();
   // re-identify on the game server with the account nick
-  wsSend({ t: 'hello', nick: myNick(), token: wsToken, device: deviceId, jwt: session.access_token });
+  wsSend({ t: 'hello', nick: myNick(), token: wsToken, device: deviceId, tz: new Date().getTimezoneOffset(), jwt: session.access_token });
 }
 
 $('btn-logout').addEventListener('click', async () => {
@@ -1518,7 +1583,7 @@ $('btn-logout').addEventListener('click', async () => {
   session = null;
   profile = null;
   updateProfileUI();
-  wsSend({ t: 'hello', nick: myNick(), token: wsToken, device: deviceId });
+  wsSend({ t: 'hello', nick: myNick(), token: wsToken, device: deviceId, tz: new Date().getTimezoneOffset() });
 });
 
 /* ================= settings ================= */

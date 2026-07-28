@@ -632,6 +632,39 @@ a.btn-big { text-decoration: none; display: block; }
 .fmt b { display: block; font-size: 14px; }
 .fmt small { display: block; color: var(--muted); font-size: 12px; line-height: 1.4; margin-top: 2px; }
 
+/* ============ daily streak ============ */
+/* The flame never becomes a different object — it is recoloured and grown, so
+   each tier reads as the same fire levelling up rather than a new trophy. */
+.flame { display: inline-block; line-height: 1; filter: saturate(.75); font-size: 15px; }
+.flame.fl-1   { filter: saturate(.6) brightness(1.05); font-size: 14px; }
+.flame.fl-7   { filter: saturate(1.15); font-size: 15px; }
+.flame.fl-30  { filter: hue-rotate(185deg) saturate(1.5); font-size: 16px; }
+.flame.fl-50  { filter: hue-rotate(255deg) saturate(1.5); font-size: 16px; }
+.flame.fl-100 { filter: grayscale(1) brightness(1.7) drop-shadow(0 0 5px #9fd8ff); font-size: 17px; }
+.flame.fl-200 { filter: hue-rotate(-18deg) saturate(2) drop-shadow(0 0 5px #ffc400); font-size: 17px; }
+.flame.fl-365 { filter: saturate(2.2) drop-shadow(0 0 4px #ff4fa3) drop-shadow(0 0 9px #4fd2ff); font-size: 18px; }
+
+.head-pills { display: flex; align-items: center; justify-content: center; gap: 8px; flex-wrap: wrap; }
+.streak-pill {
+  display: inline-flex; align-items: center; gap: 5px; margin-top: 12px;
+  background: var(--card); border-radius: 999px; padding: 7px 14px;
+  font-size: 14px; box-shadow: var(--shadow);
+}
+
+.streak-card {
+  display: flex; align-items: center; gap: 12px;
+  background: var(--bg2); border-radius: 16px; padding: 11px 14px; margin-top: 9px;
+  text-align: start;
+}
+.streak-card.cold { opacity: .72; }
+.streak-card .flame { font-size: 26px; }
+.streak-meta { min-width: 0; }
+.streak-meta b { display: block; font-size: 15px; }
+.streak-meta small { display: block; color: var(--muted); font-size: 12px; }
+
+.streak-line { text-align: center; font-weight: 700; font-size: 14.5px; margin-top: 6px; color: var(--text); }
+.streak-line.milestone { font-size: 16.5px; color: var(--violet); }
+
 /* ============ ladder: rank card, badges, points ============ */
 .rank-card {
   display: flex; align-items: center; gap: 13px;
@@ -781,7 +814,10 @@ html[data-theme="dark"] .fmt { background: #232841; }
 html[data-theme="dark"] .opt-card .wallet { background: #12141f; }
 html[data-theme="dark"] .opt-or::before, html[data-theme="dark"] .opt-or::after { background: #2c3349; }
 html[data-theme="dark"] .legal-text h3 { border-bottom-color: #2c3349; }
-html[data-theme="dark"] .rank-card { background: #232841; }
+html[data-theme="dark"] .rank-card,
+html[data-theme="dark"] .streak-card { background: #232841; }
+html[data-theme="dark"] .streak-pill { background: #1c2033; }
+html[data-theme="dark"] .streak-line.milestone { color: var(--violet2); }
 html[data-theme="dark"] .rank-bar { background: #12141f; }
 html[data-theme="dark"] .veteran-badge { color: #ffd76a; }
 html[data-theme="dark"] .rank-up.up { color: var(--violet2); }

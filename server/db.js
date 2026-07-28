@@ -68,22 +68,58 @@ export async function getProfile(userId) {
    A registered player carries them on the profile; a guest carries them on the
    device row, which is the only identity 94% of players ever have. */
 
+const BLANK = { points: 0, veteran: false, streak: 0, streakBest: 0, streakDay: null, freezeMonth: null };
+
 export async function getPoints({ userId, deviceId }) {
-  if (!dbEnabled) return { points: 0, veteran: false };
+  if (!dbEnabled) return { ...BLANK };
+  const shape = (d, veteran) => ({
+    points: d?.points || 0,
+    veteran,
+    streak: d?.streak || 0,
+    streakBest: d?.streak_best || 0,
+    streakDay: d?.streak_day || null,
+    freezeMonth: d?.freeze_month || null,
+  });
   try {
     if (userId) {
-      const { data } = await supa.from('profiles').select('points').eq('id', userId).maybeSingle();
-      return { points: data?.points || 0, veteran: false };
+      const { data } = await supa.from('profiles')
+        .select('points, streak, streak_best, streak_day, freeze_month').eq('id', userId).maybeSingle();
+      return shape(data, false);
     }
     if (deviceId) {
       const { data } = await supa.from('visitors')
-        .select('points, veteran').eq('device_id', deviceId).maybeSingle();
-      return { points: data?.points || 0, veteran: Boolean(data?.veteran) };
+        .select('points, veteran, streak, streak_best, streak_day, freeze_month')
+        .eq('device_id', deviceId).maybeSingle();
+      return shape(data, Boolean(data?.veteran));
     }
   } catch (e) {
     console.error('getPoints failed:', e.message);
   }
-  return { points: 0, veteran: false };
+  return { ...BLANK };
+}
+
+// Marks the player's local day as played. Returns the streak after the update,
+// or null when there is nothing to write to.
+export async function touchStreak({ userId, deviceId }, today) {
+  if (!dbEnabled || !today) return null;
+  try {
+    const { data } = userId
+      ? await supa.rpc('touch_streak_user', { uid: userId, today })
+      : deviceId
+        ? await supa.rpc('touch_streak_device', { dev: deviceId, today })
+        : { data: null };
+    const row = Array.isArray(data) ? data[0] : data;
+    if (!row) return null;
+    return {
+      streak: row.streak || 0,
+      best: row.best || 0,
+      advanced: Boolean(row.advanced),
+      froze: Boolean(row.froze),
+    };
+  } catch (e) {
+    console.error('touchStreak failed:', e.message);
+    return null;
+  }
 }
 
 // Returns the new total, or null when there is nothing to write it to.

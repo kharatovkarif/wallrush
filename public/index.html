@@ -9,7 +9,7 @@
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect x='8' y='14' width='84' height='30' rx='8' fill='%237c5cff'/><rect x='8' y='56' width='40' height='30' rx='8' fill='%237c5cff'/><rect x='56' y='56' width='36' height='30' rx='8' fill='%23b3a1ff'/></svg>">
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <link rel="stylesheet" href="css/style.css?v=59">
+  <link rel="stylesheet" href="css/style.css?v=60">
 </head>
 <body>
   <div id="app">
@@ -31,7 +31,13 @@
           <h1>WallRush</h1>
         </div>
         <p class="tagline" data-i18n="tagline"></p>
-        <div class="online-pill"><span class="dot"></span><b id="online-count">0</b>&nbsp;<span data-i18n="online_count"></span></div>
+        <div class="head-pills">
+          <div class="online-pill"><span class="dot"></span><b id="online-count">0</b>&nbsp;<span data-i18n="online_count"></span></div>
+          <!-- the streak is the reason to come back tomorrow, so it greets you -->
+          <div class="streak-pill" id="streak-pill" hidden>
+            <span class="flame fl-1" id="streak-flame">🔥</span><b id="streak-count">0</b>
+          </div>
+        </div>
       </header>
 
       <div class="cards">
@@ -364,6 +370,7 @@
           <span class="pts-total" id="pts-total"></span>
         </div>
         <p class="rank-up" id="rank-up" hidden></p>
+        <p class="streak-line" id="streak-line" hidden></p>
         <p class="hint" id="pts-note" hidden></p>
         <div class="modal-buttons">
           <button class="btn-big" id="btn-rematch" data-i18n="rematch"></button>
@@ -455,6 +462,13 @@
             <small class="rank-next" id="rank-next"></small>
           </div>
         </div>
+        <div class="streak-card" id="streak-card">
+          <span class="flame fl-1" id="streak-flame-big">🔥</span>
+          <div class="streak-meta">
+            <b id="streak-days"></b>
+            <small id="streak-sub"></small>
+          </div>
+        </div>
         <p class="veteran-badge" id="veteran-badge" data-i18n="veteran" hidden></p>
         <div class="stats-row" id="profile-stats">
           <div class="stat"><b id="stat-games">0</b><small data-i18n="stats_games"></small></div>
@@ -528,7 +542,7 @@
     <div id="toast" hidden></div>
   </div>
 
-  <script src="vendor/supabase.js?v=59" defer></script>
-  <script type="module" src="js/app.js?v=59"></script>
+  <script src="vendor/supabase.js?v=60" defer></script>
+  <script type="module" src="js/app.js?v=60"></script>
 </body>
 </html>

@@ -107,6 +107,15 @@ export const I18N = {
     rank_top: 'Выше уже некуда — ты на вершине 🐐',
     unranked_hint: 'Товарищеский матч по коду — очки не начисляются',
     veteran: '🏅 Старожил',
+    day_one: 'день',
+    day_few: 'дня',
+    day_many: 'дней',
+    streak_days: '%n %u подряд',
+    streak_none: 'Сыграй сегодня — и серия начнётся',
+    streak_best: 'Рекорд: %n',
+    streak_keep: 'Заходи завтра, чтобы не потерять',
+    streak_saved: '🧊 Заморозка спасла серию —',
+    streak_milestone: '%n %u подряд!',
     profile_title: 'Профиль',
     guest_hint: 'Ты играешь как гость. Очки хранятся на этом устройстве — зарегистрируйся, чтобы не потерять их и попасть в таблицу лидеров.',
     stats_games: 'Игр',
@@ -299,6 +308,15 @@ export const I18N = {
     rank_top: 'Nothing above this — you are at the top 🐐',
     unranked_hint: 'Friendly match by code — no points awarded',
     veteran: '🏅 Old-timer',
+    day_one: 'day',
+    day_few: 'days',
+    day_many: 'days',
+    streak_days: '%n %u in a row',
+    streak_none: 'Play today and your streak begins',
+    streak_best: 'Best: %n',
+    streak_keep: 'Come back tomorrow to keep it',
+    streak_saved: '🧊 A freeze saved your streak —',
+    streak_milestone: '%n %u in a row!',
     profile_title: 'Profile',
     guest_hint: 'You play as a guest. Your points live on this device — sign up so you never lose them and join the leaderboard.',
     stats_games: 'Games',
@@ -400,7 +418,7 @@ export const LANGS = [
 export const LANG_CODES = LANGS.map((l) => l.code);
 export const RTL = new Set(['fa']);
 
-const V = '59';
+const V = '60';
 
 // Loads a translation file on demand. Safe to call repeatedly and safe to fail:
 // if the request never lands, makeT keeps falling back to English.

@@ -2,9 +2,10 @@
 // Server is authoritative: it validates every move with the shared engine.
 import { initialState, applyMove } from '../public/js/engine.js';
 import { pointsDelta } from '../public/js/ranks.js';
+import { streakAlive, localDay } from '../public/js/streak.js';
 import {
   verifyUser, getProfile, recordResult, recordBotResult, recordHumanMatch,
-  getPoints, addPoints, addBotPoints,
+  getPoints, addPoints, addBotPoints, touchStreak,
 } from './db.js';
 import { initBots, fakeOnline, notifyUserWaiting } from './bots.js';
 import crypto from 'crypto';
@@ -154,6 +155,18 @@ async function finish(room, winnerIdx, reason) {
       points: { delta: deltas[i], total: pl.points || 0, ranked: isRanked(room) },
     });
   });
+  // The streak needs a database round trip, so it follows the result rather
+  // than holding it up — the result overlay only appears after 600ms anyway.
+  for (const pl of room.players) {
+    if (pl.isBot) continue;
+    touchStreak({ userId: pl.userId, deviceId: pl.deviceId }, localDay(pl.tzOffset || 0))
+      .then((st) => {
+        if (!st) return;
+        pl.streak = st.streak;
+        pl.streakBest = st.best;
+        send(pl, { t: 'streak', streak: st.streak, best: st.best, advanced: st.advanced, froze: st.froze });
+      });
+  }
   if (w.userId || l.userId) {
     await recordResult(w.userId || null, l.userId || null);
   }
@@ -249,9 +262,17 @@ async function handleHello(client, msg) {
   // carries a guest's ladder points between sessions.
   const dev = String(msg.device || '');
   client.deviceId = /^[A-Za-z0-9-]{8,64}$/.test(dev) ? dev : null;
+  // The browser's own offset decides when the player's day rolls over — a
+  // streak that turns at Moscow midnight is meaningless in Tehran.
+  const off = Number(msg.tz);
+  client.tzOffset = Number.isFinite(off) && Math.abs(off) <= 840 ? off : 0;
   const pts = await getPoints({ userId, deviceId: client.deviceId });
   client.points = pts.points;
   client.veteran = pts.veteran;
+  client.streakBest = pts.streakBest;
+  // a stored streak is only worth showing while it is still alive today
+  const today = localDay(client.tzOffset);
+  client.streak = streakAlive(pts.streakDay, today, pts.freezeMonth) ? pts.streak : 0;
 
   // reconnect to a live game?
   if (msg.token && byToken.has(msg.token)) {
@@ -264,6 +285,9 @@ async function handleHello(client, msg) {
       client.deviceId = old.deviceId ?? client.deviceId;
       client.points = old.points ?? client.points;
       client.veteran = old.veteran ?? client.veteran;
+      client.streak = old.streak ?? client.streak;
+      client.streakBest = old.streakBest ?? client.streakBest;
+      client.tzOffset = old.tzOffset ?? client.tzOffset;
       byToken.set(client.token, client);
       clients.delete(old.ws);
       const room = rooms.get(client.roomId);
@@ -296,6 +320,7 @@ async function handleHello(client, msg) {
   send(client, {
     t: 'hello_ok', token: client.token, nick: client.nick, online: onlineCount(),
     points: client.points || 0, veteran: Boolean(client.veteran),
+    streak: client.streak || 0, streakBest: client.streakBest || 0,
   });
 }
 
