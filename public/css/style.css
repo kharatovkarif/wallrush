@@ -324,16 +324,6 @@ html[data-theme="dark"] .soc-tt { box-shadow: inset 0 0 0 1px #2f3550, var(--sha
 @keyframes spin { to { transform: rotate(360deg); } }
 .code-box { background: var(--card); border-radius: 18px; padding: 18px; box-shadow: var(--shadow); width: 100%; max-width: 340px; }
 .code-box .btn-big { margin-top: 12px; }
-/* The link sits under the share button for anyone who would rather paste it
-   by hand; tapping it copies. */
-.invite-link {
-  display: block; width: 100%; margin-top: 9px; padding: 9px 10px;
-  border: none; border-radius: 11px; cursor: pointer;
-  background: var(--bg2); color: var(--violet-dark);
-  font: inherit; font-size: 13px; font-weight: 600;
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; direction: ltr;
-}
-.invite-link:active { transform: scale(.98); }
 .invite-or { color: var(--muted); font-size: 12px; margin-top: 14px; }
 .code { font-size: 30px; font-weight: 800; letter-spacing: 7px; color: var(--violet); margin-top: 2px; direction: ltr; }
 

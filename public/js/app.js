@@ -1,8 +1,8 @@
 // WallRush client app: screens, board UI, online play (WebSocket), AI mode, auth.
-import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=57';
-import { aiMove } from './ai.js?v=57';
-import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=57';
-import { rankOf, nextRank } from './ranks.js?v=57';
+import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=58';
+import { aiMove } from './ai.js?v=58';
+import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=58';
+import { rankOf, nextRank } from './ranks.js?v=58';
 
 /* ================= state ================= */
 const $ = (id) => document.getElementById(id);
@@ -161,7 +161,7 @@ function getAiWorker() {
   if (aiWorker === false) return null;
   if (!aiWorker) {
     try {
-      aiWorker = new Worker('js/ai-worker.js?v=57', { type: 'module' });
+      aiWorker = new Worker('js/ai-worker.js?v=58', { type: 'module' });
       aiWorker.onmessage = (e) => {
         const cb = aiPending.get(e.data.id);
         aiPending.delete(e.data.id);
@@ -466,7 +466,6 @@ let inviteCode = '';
 function showInvite(code) {
   inviteCode = code;
   $('room-code-value').textContent = code;
-  $('invite-link').textContent = roomLink(code).replace(/^https?:\/\//, '');
 }
 
 async function copyText(text) {
@@ -503,11 +502,8 @@ $('invite-share').addEventListener('click', async () => {
       return;   // the player dismissed the sheet — not an error
     }
   }
+  // desktop browsers often have no share sheet — copy instead, same one tap
   toast(await copyText(url) ? t('invite_copied') : url);
-});
-
-$('invite-link').addEventListener('click', async () => {
-  if (await copyText(roomLink(inviteCode))) toast(t('invite_copied'));
 });
 
 // A code in the address bar means the player arrived through an invitation.
