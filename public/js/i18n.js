@@ -24,6 +24,12 @@ export const I18N = {
     friend_title: 'Игра с другом',
     friend_create: 'Создать комнату с кодом',
     friend_code_hint: 'Отправь этот код другу:',
+    invite_hint: 'Отправь другу ссылку — он попадёт прямо в твою комнату.',
+    invite_share: '🔗 Пригласить друга',
+    invite_copied: 'Ссылка скопирована ✓',
+    invite_code_label: 'или продиктуй код',
+    invite_text: 'Сыграем в WallRush?',
+    support_blocked: 'Браузер заблокировал новую вкладку — разреши всплывающие окна',
     friend_enter: 'Ввести код друга',
     friend_join: 'Присоединиться',
     code_placeholder: 'Код комнаты',
@@ -210,6 +216,12 @@ export const I18N = {
     friend_title: 'Play with friend',
     friend_create: 'Create room with code',
     friend_code_hint: 'Send this code to your friend:',
+    invite_hint: 'Send your friend the link — it drops them straight into your room.',
+    invite_share: '🔗 Invite a friend',
+    invite_copied: 'Link copied ✓',
+    invite_code_label: 'or read out the code',
+    invite_text: 'Fancy a game of WallRush?',
+    support_blocked: 'Your browser blocked the new tab — allow pop-ups to continue',
     friend_enter: 'Enter friend\'s code',
     friend_join: 'Join',
     code_placeholder: 'Room code',
@@ -388,7 +400,7 @@ export const LANGS = [
 export const LANG_CODES = LANGS.map((l) => l.code);
 export const RTL = new Set(['fa']);
 
-const V = '56';
+const V = '57';
 
 // Loads a translation file on demand. Safe to call repeatedly and safe to fail:
 // if the request never lands, makeT keeps falling back to English.

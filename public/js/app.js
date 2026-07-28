@@ -1,8 +1,8 @@
 // WallRush client app: screens, board UI, online play (WebSocket), AI mode, auth.
-import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=56';
-import { aiMove } from './ai.js?v=56';
-import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=56';
-import { rankOf, nextRank } from './ranks.js?v=56';
+import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=57';
+import { aiMove } from './ai.js?v=57';
+import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=57';
+import { rankOf, nextRank } from './ranks.js?v=57';
 
 /* ================= state ================= */
 const $ = (id) => document.getElementById(id);
@@ -161,7 +161,7 @@ function getAiWorker() {
   if (aiWorker === false) return null;
   if (!aiWorker) {
     try {
-      aiWorker = new Worker('js/ai-worker.js?v=56', { type: 'module' });
+      aiWorker = new Worker('js/ai-worker.js?v=57', { type: 'module' });
       aiWorker.onmessage = (e) => {
         const cb = aiPending.get(e.data.id);
         aiPending.delete(e.data.id);
@@ -316,6 +316,7 @@ function handleWsMessage(msg) {
       myPoints = msg.points || 0;
       myVeteran = Boolean(msg.veteran);
       updateProfileUI();
+      flushPendingJoin();   // arrived through an invite link
       break;
     case 'lobby':
       $('online-count').textContent = msg.online;
@@ -323,7 +324,7 @@ function handleWsMessage(msg) {
       break;
     case 'room_created':
       $('waiting-code').hidden = !msg.code;
-      if (msg.code) $('room-code-value').textContent = msg.code;
+      if (msg.code) showInvite(msg.code);
       show('screen-waiting');
       break;
     case 'game_start':
@@ -454,6 +455,76 @@ $('btn-friend-join').addEventListener('click', () => {
   const code = $('friend-code-input').value.trim().toUpperCase();
   if (code.length >= 4) wsSend({ t: 'join_code', code });
 });
+
+/* ================= invite a friend by link ================= */
+// wallrush.online/#K7X2P9 — the friend taps it and lands straight in the room,
+// with nothing to read out or type in.
+const CODE_RE = /^[A-Z0-9]{4,8}$/;
+const roomLink = (code) => location.origin + '/#' + code;
+
+let inviteCode = '';
+function showInvite(code) {
+  inviteCode = code;
+  $('room-code-value').textContent = code;
+  $('invite-link').textContent = roomLink(code).replace(/^https?:\/\//, '');
+}
+
+async function copyText(text) {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    // clipboard API needs a secure context and permission; the old selection
+    // trick still works where it does not
+    try {
+      const el = document.createElement('textarea');
+      el.value = text;
+      el.style.position = 'fixed';
+      el.style.opacity = '0';
+      document.body.appendChild(el);
+      el.select();
+      const ok = document.execCommand('copy');
+      el.remove();
+      return ok;
+    } catch {
+      return false;
+    }
+  }
+}
+
+$('invite-share').addEventListener('click', async () => {
+  const url = roomLink(inviteCode);
+  // the native sheet puts the link straight into WhatsApp or Telegram
+  if (navigator.share) {
+    try {
+      await navigator.share({ title: 'WallRush', text: t('invite_text'), url });
+      return;
+    } catch {
+      return;   // the player dismissed the sheet — not an error
+    }
+  }
+  toast(await copyText(url) ? t('invite_copied') : url);
+});
+
+$('invite-link').addEventListener('click', async () => {
+  if (await copyText(roomLink(inviteCode))) toast(t('invite_copied'));
+});
+
+// A code in the address bar means the player arrived through an invitation.
+// It is consumed once: the hash is cleared so a refresh does not rejoin.
+let pendingJoin = '';
+function takeInviteFromUrl() {
+  const code = decodeURIComponent(location.hash.replace(/^#/, '')).trim().toUpperCase();
+  if (!CODE_RE.test(code)) return;
+  pendingJoin = code;
+  history.replaceState(null, '', location.pathname + location.search);
+}
+
+function flushPendingJoin() {
+  if (!pendingJoin) return;
+  wsSend({ t: 'join_code', code: pendingJoin });
+  pendingJoin = '';
+}
 $('btn-cancel-wait').addEventListener('click', () => { wsSend({ t: 'leave_room' }); show('screen-home'); });
 $('btn-how').addEventListener('click', () => { $('overlay-how').hidden = false; });
 $('btn-how-close').addEventListener('click', () => { $('overlay-how').hidden = true; });
@@ -990,12 +1061,10 @@ function onGameOver(iWon, reason) {
     spawnConfetti(iWon);
     $('btn-rematch').style.display = '';
     $('rematch-status').hidden = true;
-    // support button is offered fresh after every match; the ad script is
-    // armed here (match already over) so the tap opens it right away
+    // the support button is offered fresh after every match
     $('btn-support').disabled = false;
     $('btn-support').textContent = t('support');
     $('support-hint').hidden = false;
-    armSupportAd();
     $('overlay-gameover').hidden = false;
   }, 600);
   vibrate(iWon ? [40, 60, 40, 60, 80] : 60);
@@ -1054,44 +1123,49 @@ $('btn-rematch').addEventListener('click', () => {
   $('rematch-status').textContent = t('rematch_wait');
 });
 
-/* Voluntary support ad (RichAds popunder).
+/* Voluntary support ad.
 
-   The script arms itself and opens the ad on a user click, so it is injected
-   only once a support surface is actually on screen — never on page load and
-   never while a match is running. Loading it as the dialog opens gives it time
-   to be ready by the time the player taps the button. */
-let popsArmed = false;
-function armSupportAd() {
-  if (popsArmed) return;
-  popsArmed = true;
-  const s = document.createElement('script');
-  s.src = 'https://richinfo.co/richpartners/pops/js/richads-pu-ob.js';
-  s.async = true;
-  s.setAttribute('data-pubid', '1014201');
-  s.setAttribute('data-siteid', '402712');
-  s.setAttribute('data-cfasync', 'false');
-  document.head.appendChild(s);
+   This used to lean on a RichAds popunder script that was supposed to hijack
+   the click and open an ad by itself. It delivered nothing — the button only
+   relabelled itself, so people tapped, read "thanks" and saw no ad at all.
+   Popunders are also the first thing mobile browsers and blockers kill.
+
+   Opening the link ourselves inside the click handler is a genuine user
+   gesture, so it cannot be swallowed, and we can tell whether it worked.
+
+   To change networks, replace this one URL with a direct link from the
+   advertising panel — nothing else here depends on which network it is. */
+const SUPPORT_AD_URL = 'https://fluffy-machine.com/b.3WVy0MPn3MpavebhmvVGJLZQDk0D3xMhjAUU1PO/DGAj5pL/TOcpyYNkTkU/4/MhTTM_';
+
+// Returns true when a tab actually opened, so we never thank someone for an
+// ad a popup blocker just ate. The 'noopener' feature is deliberately NOT
+// passed: with it the spec makes window.open return null even on success, so
+// every ad that did open looked blocked. The opener is cleared afterwards.
+function openSupportAd() {
+  try {
+    const w = window.open(SUPPORT_AD_URL, '_blank');
+    if (!w) return false;
+    try { w.opener = null; } catch { /* cross-origin: nothing to clear */ }
+    return true;
+  } catch {
+    return false;
+  }
 }
 
-$('btn-support').addEventListener('click', () => {
-  const btn = $('btn-support');           // the click itself opens the popunder
+function thankFor(btn, hintId) {
+  if (!openSupportAd()) { toast(t('support_blocked')); return; }
   btn.disabled = true;
   btn.textContent = t('support_thanks');
-  $('support-hint').hidden = true;
-});
+  if (hintId) $(hintId).hidden = true;
+}
+
+$('btn-support').addEventListener('click', () => thankFor($('btn-support'), 'support-hint'));
 
 /* Support / advertise dialogs on the home screen. Both are opt-in: nothing
    loads or fires until the player opens them. */
-$('btn-open-support').addEventListener('click', () => {
-  armSupportAd();
-  $('overlay-support').hidden = false;
-});
+$('btn-open-support').addEventListener('click', () => { $('overlay-support').hidden = false; });
 $('support-close').addEventListener('click', () => { $('overlay-support').hidden = true; });
-$('support-watch').addEventListener('click', () => {
-  const b = $('support-watch');
-  b.disabled = true;
-  b.textContent = t('support_thanks');
-});
+$('support-watch').addEventListener('click', () => thankFor($('support-watch')));
 $('wallet-copy').addEventListener('click', async () => {
   const addr = $('wallet-addr').textContent.trim();
   try {
@@ -1574,6 +1648,7 @@ window.addEventListener('resize', () => {
 });
 
 async function boot() {
+  takeInviteFromUrl();   // read the code before anything can rewrite the URL
   buildLangList();
   await loadLang(lang);            // detected pack, if it is not ru/en
   applyI18n();
