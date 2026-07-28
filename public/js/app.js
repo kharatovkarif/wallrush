@@ -1,9 +1,9 @@
 // WallRush client app: screens, board UI, online play (WebSocket), AI mode, auth.
-import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=62';
-import { aiMove } from './ai.js?v=62';
-import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=62';
-import { rankOf, nextRank } from './ranks.js?v=62';
-import { flameClass, isMilestone } from './streak.js?v=62';
+import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=63';
+import { aiMove } from './ai.js?v=63';
+import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=63';
+import { rankOf, nextRank } from './ranks.js?v=63';
+import { flameClass, isMilestone } from './streak.js?v=63';
 
 /* ================= state ================= */
 const $ = (id) => document.getElementById(id);
@@ -145,6 +145,7 @@ let myVeteran = false;
 let myStreak = 0;
 let myStreakBest = 0;
 let streakEvent = null;   // set when a match just advanced the streak
+let celebratedDay = 0;    // guards against showing the same milestone twice
 
 const rankName = (points) => t(rankOf(points).key);
 const rankIcon = (points) => rankOf(points).icon;
@@ -165,7 +166,7 @@ function getAiWorker() {
   if (aiWorker === false) return null;
   if (!aiWorker) {
     try {
-      aiWorker = new Worker('js/ai-worker.js?v=62', { type: 'module' });
+      aiWorker = new Worker('js/ai-worker.js?v=63', { type: 'module' });
       aiWorker.onmessage = (e) => {
         const cb = aiPending.get(e.data.id);
         aiPending.delete(e.data.id);
@@ -368,6 +369,9 @@ function handleWsMessage(msg) {
       updateProfileUI();
       // the result overlay may already be up — fill the line in place
       if (!$('overlay-gameover').hidden) showStreakLine();
+      // and celebrate regardless of where the player is by now: this message
+      // arrives on its own schedule, and the moment must not depend on that
+      if (msg.advanced && isMilestone(myStreak)) celebrateStreak(myStreak);
       break;
     case 'emoji':
       showEmoji(msg.e);
@@ -1023,6 +1027,7 @@ function startOnlineGame(msg) {
   if (msg.me) { myPoints = msg.me.points || 0; myVeteran = Boolean(msg.me.veteran); }
   // a second match on the same day must not replay the same celebration
   streakEvent = null;
+  celebratedDay = 0;
   game = {
     mode: 'online',
     state: msg.state,
@@ -1400,6 +1405,8 @@ function showStreakLine() {
 }
 
 function celebrateStreak(days) {
+  if (celebratedDay === days) return;   // already shown for this milestone
+  celebratedDay = days;
   $('cel-flame').className = 'flame ' + flameClass(days) + ' cel-flame';
   $('cel-num').textContent = days;
   $('cel-title').textContent = daysPhrase(days, 'streak_milestone');
