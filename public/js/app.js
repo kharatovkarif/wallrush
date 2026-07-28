@@ -1,8 +1,8 @@
 // WallRush client app: screens, board UI, online play (WebSocket), AI mode, auth.
-import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=58';
-import { aiMove } from './ai.js?v=58';
-import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=58';
-import { rankOf, nextRank } from './ranks.js?v=58';
+import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=59';
+import { aiMove } from './ai.js?v=59';
+import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=59';
+import { rankOf, nextRank } from './ranks.js?v=59';
 
 /* ================= state ================= */
 const $ = (id) => document.getElementById(id);
@@ -161,7 +161,7 @@ function getAiWorker() {
   if (aiWorker === false) return null;
   if (!aiWorker) {
     try {
-      aiWorker = new Worker('js/ai-worker.js?v=58', { type: 'module' });
+      aiWorker = new Worker('js/ai-worker.js?v=59', { type: 'module' });
       aiWorker.onmessage = (e) => {
         const cb = aiPending.get(e.data.id);
         aiPending.delete(e.data.id);
@@ -291,7 +291,7 @@ function connectWs() {
   ws.onopen = () => {
     reconnectDelay = 500;
     wsReady = true;
-    wsSend({ t: 'hello', nick: myNick(), token: wsToken, jwt: session?.access_token });
+    wsSend({ t: 'hello', nick: myNick(), token: wsToken, device: deviceId, jwt: session?.access_token });
     if (currentScreen === 'screen-rooms') wsSend({ t: 'lobby_sub' });
   };
   ws.onmessage = (ev) => {
@@ -1510,7 +1510,7 @@ async function afterLogin() {
   }
   updateProfileUI();
   // re-identify on the game server with the account nick
-  wsSend({ t: 'hello', nick: myNick(), token: wsToken, jwt: session.access_token });
+  wsSend({ t: 'hello', nick: myNick(), token: wsToken, device: deviceId, jwt: session.access_token });
 }
 
 $('btn-logout').addEventListener('click', async () => {
@@ -1518,7 +1518,7 @@ $('btn-logout').addEventListener('click', async () => {
   session = null;
   profile = null;
   updateProfileUI();
-  wsSend({ t: 'hello', nick: myNick(), token: wsToken });
+  wsSend({ t: 'hello', nick: myNick(), token: wsToken, device: deviceId });
 });
 
 /* ================= settings ================= */
