@@ -12,7 +12,7 @@
   <!-- Opens the connection to the ad host early. Costs one handshake and no
        download, and takes that handshake off the wait once Support is tapped. -->
   <link rel="preconnect" href="https://js.onclckmn.com" crossorigin>
-  <link rel="stylesheet" href="css/style.css?v=70">
+  <link rel="stylesheet" href="css/style.css?v=71">
 </head>
 <body>
   <div id="app">
@@ -398,9 +398,13 @@
       <div class="ad-box">
         <div class="ad-head">
           <span class="ad-label" data-i18n="ad_label"></span>
-          <button class="ad-close" id="ad-close" aria-label="close">✕</button>
+          <!-- Hidden by default: the ad brings its own close button, and two on
+               one window is one too many. This one appears only as a way out if
+               the ad is somehow still here long after any ad should be. -->
+          <button class="ad-close" id="ad-close" aria-label="close" hidden>✕</button>
         </div>
-        <!-- the network injects its player inside this element -->
+        <!-- where the network is told to put its player; it does not always
+             oblige, so nothing here depends on the player landing inside -->
         <div id="ad-video-slot"></div>
         <p class="ad-note" id="ad-note" data-i18n="ad_loading"></p>
       </div>
@@ -590,7 +594,7 @@
     <div id="toast" hidden></div>
   </div>
 
-  <script src="vendor/supabase.js?v=70" defer></script>
-  <script type="module" src="js/app.js?v=70"></script>
+  <script src="vendor/supabase.js?v=71" defer></script>
+  <script type="module" src="js/app.js?v=71"></script>
 </body>
 </html>

@@ -1,10 +1,10 @@
 // WallRush client app: screens, board UI, online play (WebSocket), AI mode, auth.
-import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=70';
-import { aiMove } from './ai.js?v=70';
-import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=70';
-import { rankOf, nextRank } from './ranks.js?v=70';
-import { flameClass, isMilestone } from './streak.js?v=70';
-import { checkNick, randomNick } from './nick.js?v=70';
+import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=71';
+import { aiMove } from './ai.js?v=71';
+import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=71';
+import { rankOf, nextRank } from './ranks.js?v=71';
+import { flameClass, isMilestone } from './streak.js?v=71';
+import { checkNick, randomNick } from './nick.js?v=71';
 
 /* ================= state ================= */
 const $ = (id) => document.getElementById(id);
@@ -173,7 +173,7 @@ function getAiWorker() {
   if (aiWorker === false) return null;
   if (!aiWorker) {
     try {
-      aiWorker = new Worker('js/ai-worker.js?v=70', { type: 'module' });
+      aiWorker = new Worker('js/ai-worker.js?v=71', { type: 'module' });
       aiWorker.onmessage = (e) => {
         const cb = aiPending.get(e.data.id);
         aiPending.delete(e.data.id);
@@ -1255,41 +1255,54 @@ function preloadAd() {
   document.head.appendChild(s);
 }
 
+let adEscape = 0;
+
 function closeAdOverlay() {
   clearTimeout(adTimer);
+  clearTimeout(adEscape);
   clearInterval(adWatch);
   $('overlay-ad').hidden = true;
+  $('ad-close').hidden = true;
 }
 
-// True once the network has actually put something inside the slot. Without
-// this check an empty box would sit there for anyone the ad never reaches —
-// a blocker, no fill, or a country the network does not serve.
+// True once an ad is actually on screen. It deliberately does not assume the
+// network put its player inside our slot — it does not — so a video of any
+// size anywhere on the page counts. Without this an empty box would sit there
+// for everyone the ad never reaches: a blocker, no fill, or a country the
+// network does not serve.
 function adRendered() {
   const slot = $('ad-video-slot');
-  return slot.children.length > 0 && slot.getBoundingClientRect().height > 40;
+  if (slot.children.length > 0 && slot.getBoundingClientRect().height > 40) return true;
+  return [...document.querySelectorAll('video')].some((v) => {
+    const r = v.getBoundingClientRect();
+    return r.width > 60 && r.height > 60;
+  });
 }
+
+// The ad brings its own close button, so this window must not add a second
+// one. Ours stays out of sight and only appears if the ad is somehow still
+// here long after any ad should be — a way out that nobody normally sees.
+const AD_ESCAPE_MS = 25000;
 
 function openSupportVideo() {
   const note = $('ad-note');
   const own = $('ad-close');
   note.textContent = t('ad_loading');
   note.hidden = false;
-  own.hidden = false;          // the only way out until the ad brings its own
+  own.hidden = true;
   $('overlay-ad').hidden = false;
   preloadAd();
 
-  // Poll rather than trust a single timeout: the moment a player appears the
-  // note gets out of its way, and if none ever does we say so and close.
+  clearTimeout(adEscape);
+  adEscape = setTimeout(() => { own.hidden = false; }, AD_ESCAPE_MS);
+
+  // Poll rather than trust a single timeout: the moment an ad appears the note
+  // gets out of its way, and if none ever does we say so and close.
   const started = Date.now();
   clearTimeout(adTimer);
   (function check() {
     if (adRendered()) {
       note.hidden = true;
-      // The ad draws its own "Close" once its countdown is up, and two crosses
-      // on one small window is one too many. Ours steps aside — but comes back
-      // if theirs never turns up, so nobody is ever shut in here.
-      own.hidden = true;
-      adTimer = setTimeout(() => { own.hidden = false; }, 12000);
       watchAdClosed();
       return;
     }
@@ -1302,9 +1315,9 @@ function openSupportVideo() {
   })();
 }
 
-// Closing the ad with the ad's own button empties the slot but leaves this
-// window standing, so the player had to close the same thing twice. Watching
-// the slot means their one tap finishes the job.
+// Closing the ad with the ad's own button leaves this window standing, so the
+// same thing had to be closed twice. Watching for the ad to go means their one
+// tap finishes the job.
 let adWatch = 0;
 function watchAdClosed() {
   clearInterval(adWatch);
