@@ -9,7 +9,7 @@
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect x='8' y='14' width='84' height='30' rx='8' fill='%237c5cff'/><rect x='8' y='56' width='40' height='30' rx='8' fill='%237c5cff'/><rect x='56' y='56' width='36' height='30' rx='8' fill='%23b3a1ff'/></svg>">
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <link rel="stylesheet" href="css/style.css?v=67">
+  <link rel="stylesheet" href="css/style.css?v=68">
 </head>
 <body>
   <div id="app">
@@ -382,9 +382,24 @@
           <button class="btn-big btn-outline" id="btn-to-menu" data-i18n="back_menu"></button>
         </div>
         <p id="rematch-status" class="hint" hidden></p>
-        <!-- Optional support: opens a HilltopAds direct link, only on tap. -->
+        <!-- Optional support: plays a short video ad in place, only on tap. -->
         <button class="btn-support" id="btn-support" data-i18n="support"></button>
         <p class="support-hint" id="support-hint" data-i18n="support_hint"></p>
+      </div>
+    </div>
+
+    <!-- ============ SUPPORT AD (video, opens only on tap) ============ -->
+    <!-- The advertising script is not on the page until this opens, so the
+         96% who never tap Support never load a byte of it. -->
+    <div class="overlay ad-overlay" id="overlay-ad" hidden>
+      <div class="ad-box">
+        <div class="ad-head">
+          <span class="ad-label" data-i18n="ad_label"></span>
+          <button class="ad-close" id="ad-close" aria-label="close">✕</button>
+        </div>
+        <!-- the network injects its player inside this element -->
+        <div id="ad-video-slot"></div>
+        <p class="ad-note" id="ad-note" data-i18n="ad_loading"></p>
       </div>
     </div>
 
@@ -572,7 +587,7 @@
     <div id="toast" hidden></div>
   </div>
 
-  <script src="vendor/supabase.js?v=67" defer></script>
-  <script type="module" src="js/app.js?v=67"></script>
+  <script src="vendor/supabase.js?v=68" defer></script>
+  <script type="module" src="js/app.js?v=68"></script>
 </body>
 </html>

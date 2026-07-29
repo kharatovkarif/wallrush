@@ -64,6 +64,9 @@ export const I18N = {
     support: '💛 Поддержать WallRush',
     support_hint: 'По желанию — откроет рекламу в новой вкладке',
     support_thanks: 'Спасибо за поддержку! 💛',
+    ad_label: 'Реклама',
+    ad_loading: 'Загружаем ролик…',
+    ad_none: 'Рекламы сейчас нет — но спасибо, что нажал 💛',
     support_short: '💛 Поддержать',
     ads_short: '📣 Реклама',
     copy: 'Копировать',
@@ -273,6 +276,9 @@ export const I18N = {
     support: '💛 Support WallRush',
     support_hint: 'Optional — opens an ad in a new tab',
     support_thanks: 'Thanks for your support! 💛',
+    ad_label: 'Advertisement',
+    ad_loading: 'Loading the video…',
+    ad_none: 'No ad available right now — thanks for tapping anyway 💛',
     support_short: '💛 Support',
     ads_short: '📣 Advertise',
     copy: 'Copy',
@@ -434,7 +440,7 @@ export const LANGS = [
 export const LANG_CODES = LANGS.map((l) => l.code);
 export const RTL = new Set(['fa']);
 
-const V = '67';
+const V = '68';
 
 // Loads a translation file on demand. Safe to call repeatedly and safe to fail:
 // if the request never lands, makeT keeps falling back to English.

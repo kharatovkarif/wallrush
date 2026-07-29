@@ -653,6 +653,26 @@ a.btn-big { text-decoration: none; display: block; }
    it win, and replacing the whole filter drops the tier glow with it. */
 .flame.unlit { filter: grayscale(1) opacity(.45); }
 
+/* Support video. The slot has a minimum height so the network's player has
+   something to measure itself against before it draws — a zero-height box
+   reads as "not on screen" and some players never start in one. */
+/* Above the result screen (100), because that is the screen it opens from and
+   its close button has to be reachable; below the milestone celebration (120). */
+.ad-overlay { z-index: 110; }
+.ad-box {
+  width: min(94vw, 460px); background: var(--card); border-radius: 18px;
+  padding: 10px 10px 12px; box-shadow: var(--shadow);
+}
+.ad-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.ad-label { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; opacity: .55; }
+.ad-close {
+  border: none; background: transparent; font-size: 20px; line-height: 1;
+  padding: 2px 6px; cursor: pointer; color: inherit; opacity: .6;
+}
+#ad-video-slot { min-height: 180px; display: flex; align-items: center; justify-content: center; }
+#ad-video-slot video, #ad-video-slot iframe { max-width: 100%; }
+.ad-note { text-align: center; font-size: 13px; opacity: .6; margin: 10px 0 2px; }
+
 .head-pills { display: flex; align-items: center; justify-content: center; gap: 8px; flex-wrap: wrap; }
 .streak-pill {
   display: inline-flex; align-items: center; gap: 5px; margin-top: 12px;

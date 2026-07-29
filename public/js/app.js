@@ -1,10 +1,10 @@
 // WallRush client app: screens, board UI, online play (WebSocket), AI mode, auth.
-import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=67';
-import { aiMove } from './ai.js?v=67';
-import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=67';
-import { rankOf, nextRank } from './ranks.js?v=67';
-import { flameClass, isMilestone } from './streak.js?v=67';
-import { checkNick, randomNick } from './nick.js?v=67';
+import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=68';
+import { aiMove } from './ai.js?v=68';
+import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=68';
+import { rankOf, nextRank } from './ranks.js?v=68';
+import { flameClass, isMilestone } from './streak.js?v=68';
+import { checkNick, randomNick } from './nick.js?v=68';
 
 /* ================= state ================= */
 const $ = (id) => document.getElementById(id);
@@ -173,7 +173,7 @@ function getAiWorker() {
   if (aiWorker === false) return null;
   if (!aiWorker) {
     try {
-      aiWorker = new Worker('js/ai-worker.js?v=67', { type: 'module' });
+      aiWorker = new Worker('js/ai-worker.js?v=68', { type: 'module' });
       aiWorker.onmessage = (e) => {
         const cb = aiPending.get(e.data.id);
         aiPending.delete(e.data.id);
@@ -1232,7 +1232,78 @@ function thankFor(btn, hintId) {
   if (hintId) $(hintId).hidden = true;
 }
 
-$('btn-support').addEventListener('click', () => thankFor($('btn-support'), 'support-hint'));
+/* Support after a match: a short video that plays here rather than a tab that
+   throws the player onto somebody else's site.
+
+   The network's script is injected on the first tap, not in <head>. Its own
+   advice is to load it early, but that would run it for every one of the
+   players who never tap Support, and it would search for the slot long before
+   the slot exists. Injecting it with the overlay already open means the
+   element is there, visible and sized when the player initialises. */
+const AD_SCRIPT = 'https://js.onclckmn.com/static/onclicka.js';
+const AD_PID = '449804';
+const AD_WAIT_MS = 7000;   // nothing on screen by then means no ad is coming
+
+let adScriptAdded = false;
+let adTimer = 0;
+
+function closeAdOverlay() {
+  clearTimeout(adTimer);
+  $('overlay-ad').hidden = true;
+}
+
+// True once the network has actually put something inside the slot. Without
+// this check an empty box would sit there for anyone the ad never reaches —
+// a blocker, no fill, or a country the network does not serve.
+function adRendered() {
+  const slot = $('ad-video-slot');
+  return slot.children.length > 0 && slot.getBoundingClientRect().height > 40;
+}
+
+function openSupportVideo() {
+  const note = $('ad-note');
+  note.textContent = t('ad_loading');
+  note.hidden = false;
+  $('overlay-ad').hidden = false;
+
+  if (!adScriptAdded) {
+    adScriptAdded = true;
+    const s = document.createElement('script');
+    s.async = true;
+    s.src = AD_SCRIPT;
+    s.dataset.admpid = AD_PID;
+    s.onerror = () => { note.textContent = t('ad_none'); };
+    document.head.appendChild(s);
+  }
+
+  // Poll rather than trust a single timeout: the moment a player appears the
+  // note gets out of its way, and if none ever does we say so and close.
+  const started = Date.now();
+  clearTimeout(adTimer);
+  (function check() {
+    if (adRendered()) { note.hidden = true; return; }
+    if (Date.now() - started > AD_WAIT_MS) {
+      note.textContent = t('ad_none');
+      adTimer = setTimeout(closeAdOverlay, 2500);
+      return;
+    }
+    adTimer = setTimeout(check, 300);
+  })();
+}
+
+$('btn-support').addEventListener('click', () => {
+  const btn = $('btn-support');
+  openSupportVideo();
+  btn.disabled = true;
+  btn.textContent = t('support_thanks');
+  $('support-hint').hidden = true;
+});
+
+$('ad-close').addEventListener('click', closeAdOverlay);
+// tapping the backdrop closes it too, same as every other overlay in the game
+$('overlay-ad').addEventListener('click', (e) => {
+  if (e.target === $('overlay-ad')) closeAdOverlay();
+});
 
 /* Support / advertise dialogs on the home screen. Both are opt-in: nothing
    loads or fires until the player opens them. */
