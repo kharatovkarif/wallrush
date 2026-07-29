@@ -118,6 +118,7 @@ export default {
   streak_none: 'امروز بازی کن تا زنجیره‌ات شروع شود',
   streak_best: 'رکورد: %n',
   streak_keep: 'فردا هم بیا تا از دست نرود',
+  streak_today: 'امروز بازی کن تا از دست نرود',
   streak_saved: '🧊 یک فریز زنجیره را نجات داد —',
   streak_milestone: '%n %u پشت‌سرهم!',
   streak_wow: 'همین‌طور ادامه بده — زنجیره را از دست نده!',

@@ -648,6 +648,10 @@ a.btn-big { text-decoration: none; display: block; }
 .flame.fl-100 { filter: grayscale(1) brightness(1.7) drop-shadow(0 0 5px #9fd8ff); font-size: 17px; }
 .flame.fl-200 { filter: hue-rotate(-18deg) saturate(2) drop-shadow(0 0 5px #ffc400); font-size: 17px; }
 .flame.fl-365 { filter: saturate(2.2) drop-shadow(0 0 4px #ff4fa3) drop-shadow(0 0 9px #4fd2ff); font-size: 18px; }
+/* Alive, but today has not been played yet — the fire is out until it is.
+   Sits after every tier above: same specificity, so source order is what makes
+   it win, and replacing the whole filter drops the tier glow with it. */
+.flame.unlit { filter: grayscale(1) opacity(.45); }
 
 .head-pills { display: flex; align-items: center; justify-content: center; gap: 8px; flex-wrap: wrap; }
 .streak-pill {

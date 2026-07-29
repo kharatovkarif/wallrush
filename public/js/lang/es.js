@@ -118,6 +118,7 @@ export default {
   streak_none: 'Juega hoy y empieza tu racha',
   streak_best: 'Récord: %n',
   streak_keep: 'Vuelve mañana para no perderla',
+  streak_today: 'Juega hoy para no perderla',
   streak_saved: '🧊 Un congelado salvó tu racha —',
   streak_milestone: '¡%n %u seguidos!',
   streak_wow: '¡Sigue así, no pierdas la racha!',

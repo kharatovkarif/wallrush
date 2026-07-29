@@ -118,6 +118,7 @@ export default {
   streak_none: 'Bugün oyna, serin başlasın',
   streak_best: 'Rekor: %n',
   streak_keep: 'Kaybetmemek için yarın da gel',
+  streak_today: 'Kaybetmemek için bugün oyna',
   streak_saved: '🧊 Bir dondurma serini kurtardı —',
   streak_milestone: 'üst üste %n %u!',
   streak_wow: 'Böyle devam — seriyi kaybetme!',

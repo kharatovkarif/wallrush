@@ -118,6 +118,7 @@ export default {
   streak_none: 'Joue aujourd’hui et ta série démarre',
   streak_best: 'Record : %n',
   streak_keep: 'Reviens demain pour la garder',
+  streak_today: 'Joue aujourd’hui pour la garder',
   streak_saved: '🧊 Un gel a sauvé ta série —',
   streak_milestone: '%n %u d’affilée !',
   streak_wow: 'Continue comme ça — ne perds pas ta série !',

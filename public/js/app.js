@@ -1,10 +1,10 @@
 // WallRush client app: screens, board UI, online play (WebSocket), AI mode, auth.
-import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=66';
-import { aiMove } from './ai.js?v=66';
-import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=66';
-import { rankOf, nextRank } from './ranks.js?v=66';
-import { flameClass, isMilestone } from './streak.js?v=66';
-import { checkNick, randomNick } from './nick.js?v=66';
+import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=67';
+import { aiMove } from './ai.js?v=67';
+import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=67';
+import { rankOf, nextRank } from './ranks.js?v=67';
+import { flameClass, isMilestone } from './streak.js?v=67';
+import { checkNick, randomNick } from './nick.js?v=67';
 
 /* ================= state ================= */
 const $ = (id) => document.getElementById(id);
@@ -147,6 +147,10 @@ let myPoints = 0;
 let myVeteran = false;
 let myStreak = 0;
 let myStreakBest = 0;
+// Whether today already counts towards the streak. A streak that is alive but
+// not yet extended today is exactly the moment it can be lost, so the flame
+// goes out and the game asks for a game today instead of tomorrow.
+let myStreakToday = false;
 let streakEvent = null;   // set when a match just advanced the streak
 let celebratedDay = 0;    // guards against showing the same milestone twice
 
@@ -169,7 +173,7 @@ function getAiWorker() {
   if (aiWorker === false) return null;
   if (!aiWorker) {
     try {
-      aiWorker = new Worker('js/ai-worker.js?v=66', { type: 'module' });
+      aiWorker = new Worker('js/ai-worker.js?v=67', { type: 'module' });
       aiWorker.onmessage = (e) => {
         const cb = aiPending.get(e.data.id);
         aiPending.delete(e.data.id);
@@ -325,6 +329,7 @@ function handleWsMessage(msg) {
       myVeteran = Boolean(msg.veteran);
       myStreak = msg.streak || 0;
       myStreakBest = msg.streakBest || 0;
+      myStreakToday = Boolean(msg.streakToday);
       renderStreak();
       updateProfileUI();
       flushPendingJoin();   // arrived through an invite link
@@ -368,6 +373,7 @@ function handleWsMessage(msg) {
     case 'streak':
       myStreak = msg.streak || 0;
       myStreakBest = msg.best || myStreakBest;
+      myStreakToday = true;   // this message only arrives after a match today
       if (msg.advanced) streakEvent = { days: myStreak, froze: Boolean(msg.froze) };
       renderStreak();
       updateProfileUI();
@@ -1436,7 +1442,7 @@ function renderStreak() {
   pill.hidden = myStreak < 1;
   if (myStreak < 1) return;
   $('streak-count').textContent = myStreak;
-  $('streak-flame').className = 'flame ' + flameClass(myStreak);
+  $('streak-flame').className = 'flame ' + flameClass(myStreak) + (myStreakToday ? '' : ' unlit');
 }
 
 // One line on the result screen — and on a milestone day, a celebration over
@@ -1489,10 +1495,15 @@ function renderRankCard() {
   $('rank-points').textContent = `${pts.toLocaleString()} ${t('points_label')}`;
   $('veteran-badge').hidden = !myVeteran;
   // streak card sits under the rank: one is skill, the other is showing up
-  $('streak-flame-big').className = 'flame ' + flameClass(Math.max(1, myStreak));
+  const lit = myStreak > 0 && myStreakToday;
+  $('streak-flame-big').className = 'flame ' + flameClass(Math.max(1, myStreak)) + (lit ? '' : ' unlit');
   $('streak-days').textContent = myStreak > 0 ? daysPhrase(myStreak) : t('streak_none');
+  // Today is the day the streak is actually at risk, so that warning outranks
+  // the personal best — the record can wait until the day is safe.
   $('streak-sub').textContent = myStreak > 0
-    ? (myStreakBest > myStreak ? t('streak_best').replace('%n', myStreakBest) : t('streak_keep'))
+    ? (!myStreakToday ? t('streak_today')
+      : myStreakBest > myStreak ? t('streak_best').replace('%n', myStreakBest)
+      : t('streak_keep'))
     : '';
   $('streak-card').classList.toggle('cold', myStreak < 1);
   if (next) {

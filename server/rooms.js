@@ -195,6 +195,7 @@ async function finish(room, winnerIdx, reason) {
         if (!st) return;
         pl.streak = st.streak;
         pl.streakBest = st.best;
+        pl.streakToday = true;   // the match just played is today's
         send(pl, { t: 'streak', streak: st.streak, best: st.best, advanced: st.advanced, froze: st.froze });
       });
   }
@@ -307,6 +308,10 @@ async function handleHello(client, msg) {
   // a stored streak is only worth showing while it is still alive today
   const today = localDay(client.tzOffset);
   client.streak = streakAlive(pts.streakDay, today, pts.freezeMonth) ? pts.streak : 0;
+  // Alive is not the same as safe. A streak last played yesterday survives
+  // today only if a game is played today, and that is the day the player has
+  // to be told about — so the client is told which of the two it is.
+  client.streakToday = pts.streakDay === today;
 
   // reconnect to a live game?
   if (msg.token && byToken.has(msg.token)) {
@@ -355,6 +360,7 @@ async function handleHello(client, msg) {
     t: 'hello_ok', token: client.token, nick: client.nick, online: onlineCount(),
     points: client.points || 0, veteran: Boolean(client.veteran),
     streak: client.streak || 0, streakBest: client.streakBest || 0,
+    streakToday: Boolean(client.streakToday),
   });
 }
 

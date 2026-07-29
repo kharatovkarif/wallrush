@@ -119,6 +119,7 @@ export const I18N = {
     streak_none: 'Сыграй сегодня — и серия начнётся',
     streak_best: 'Рекорд: %n',
     streak_keep: 'Заходи завтра, чтобы не потерять',
+    streak_today: 'Сыграй сегодня, чтобы не потерять',
     streak_saved: '🧊 Заморозка спасла серию —',
     streak_milestone: '%n %u подряд!',
     streak_wow: 'Так держать — не потеряй серию!',
@@ -327,6 +328,7 @@ export const I18N = {
     streak_none: 'Play today and your streak begins',
     streak_best: 'Best: %n',
     streak_keep: 'Come back tomorrow to keep it',
+    streak_today: 'Play today to keep it',
     streak_saved: '🧊 A freeze saved your streak —',
     streak_milestone: '%n %u in a row!',
     streak_wow: 'Keep it going — do not lose the streak!',
@@ -432,7 +434,7 @@ export const LANGS = [
 export const LANG_CODES = LANGS.map((l) => l.code);
 export const RTL = new Set(['fa']);
 
-const V = '66';
+const V = '67';
 
 // Loads a translation file on demand. Safe to call repeatedly and safe to fail:
 // if the request never lands, makeT keeps falling back to English.
