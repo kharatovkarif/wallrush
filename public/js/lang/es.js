@@ -60,7 +60,7 @@ export default {
   rematch_declined: 'El rival no aceptó',
   back_menu: 'Menú',
   support: '💛 Apoyar a WallRush',
-  support_hint: 'Opcional — abre un anuncio en una pestaña nueva',
+  support_hint: 'Opcional — un vídeo corto, aquí mismo',
   support_thanks: '¡Gracias por tu apoyo! 💛',
   ad_label: 'Publicidad',
   ad_loading: 'Cargando el vídeo…',

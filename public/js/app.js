@@ -1,10 +1,10 @@
 // WallRush client app: screens, board UI, online play (WebSocket), AI mode, auth.
-import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=68';
-import { aiMove } from './ai.js?v=68';
-import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=68';
-import { rankOf, nextRank } from './ranks.js?v=68';
-import { flameClass, isMilestone } from './streak.js?v=68';
-import { checkNick, randomNick } from './nick.js?v=68';
+import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=69';
+import { aiMove } from './ai.js?v=69';
+import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=69';
+import { rankOf, nextRank } from './ranks.js?v=69';
+import { flameClass, isMilestone } from './streak.js?v=69';
+import { checkNick, randomNick } from './nick.js?v=69';
 
 /* ================= state ================= */
 const $ = (id) => document.getElementById(id);
@@ -173,7 +173,7 @@ function getAiWorker() {
   if (aiWorker === false) return null;
   if (!aiWorker) {
     try {
-      aiWorker = new Worker('js/ai-worker.js?v=68', { type: 'module' });
+      aiWorker = new Worker('js/ai-worker.js?v=69', { type: 'module' });
       aiWorker.onmessage = (e) => {
         const cb = aiPending.get(e.data.id);
         aiPending.delete(e.data.id);
@@ -534,15 +534,6 @@ async function copyText(text) {
   }
 }
 
-// Straight from the result screen into a private room, keeping whatever
-// settings were last used — the friend just wants to play, not configure.
-$('btn-invite-friend').addEventListener('click', () => {
-  $('overlay-gameover').hidden = true;
-  wsSend({
-    t: 'create_room', private: true,
-    mode: createCfg.mode, walls: Number(createCfg.walls), time: createCfg.time,
-  });
-});
 
 $('invite-share').addEventListener('click', async () => {
   const url = roomLink(inviteCode);
@@ -1138,6 +1129,9 @@ function onGameOver(iWon, reason) {
     $('btn-support').textContent = t('support');
     $('support-hint').hidden = false;
     $('overlay-gameover').hidden = false;
+    // Fetch the ad script now, while the player is reading the result. Waiting
+    // for the tap meant every tap paid for the download before anything moved.
+    preloadAd();
     maybeAskPush();
   }, 600);
   vibrate(iWon ? [40, 60, 40, 60, 80] : 60);
@@ -1247,6 +1241,20 @@ const AD_WAIT_MS = 7000;   // nothing on screen by then means no ad is coming
 let adScriptAdded = false;
 let adTimer = 0;
 
+// Loaded once the result screen is up rather than on the tap itself: the
+// download used to happen while the player stared at an empty box. Called
+// again on later matches, it does nothing — the script is already here.
+function preloadAd() {
+  if (adScriptAdded) return;
+  adScriptAdded = true;
+  const s = document.createElement('script');
+  s.async = true;
+  s.src = AD_SCRIPT;
+  s.dataset.admpid = AD_PID;
+  s.onerror = () => { adScriptAdded = false; };   // let a later match try again
+  document.head.appendChild(s);
+}
+
 function closeAdOverlay() {
   clearTimeout(adTimer);
   $('overlay-ad').hidden = true;
@@ -1262,26 +1270,27 @@ function adRendered() {
 
 function openSupportVideo() {
   const note = $('ad-note');
+  const own = $('ad-close');
   note.textContent = t('ad_loading');
   note.hidden = false;
+  own.hidden = false;          // the only way out until the ad brings its own
   $('overlay-ad').hidden = false;
-
-  if (!adScriptAdded) {
-    adScriptAdded = true;
-    const s = document.createElement('script');
-    s.async = true;
-    s.src = AD_SCRIPT;
-    s.dataset.admpid = AD_PID;
-    s.onerror = () => { note.textContent = t('ad_none'); };
-    document.head.appendChild(s);
-  }
+  preloadAd();
 
   // Poll rather than trust a single timeout: the moment a player appears the
   // note gets out of its way, and if none ever does we say so and close.
   const started = Date.now();
   clearTimeout(adTimer);
   (function check() {
-    if (adRendered()) { note.hidden = true; return; }
+    if (adRendered()) {
+      note.hidden = true;
+      // The ad draws its own "Close" once its countdown is up, and two crosses
+      // on one small window is one too many. Ours steps aside — but comes back
+      // if theirs never turns up, so nobody is ever shut in here.
+      own.hidden = true;
+      adTimer = setTimeout(() => { own.hidden = false; }, 12000);
+      return;
+    }
     if (Date.now() - started > AD_WAIT_MS) {
       note.textContent = t('ad_none');
       adTimer = setTimeout(closeAdOverlay, 2500);

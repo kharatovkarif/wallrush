@@ -60,7 +60,7 @@ export default {
   rematch_declined: 'حریف قبول نکرد',
   back_menu: 'منو',
   support: '💛 حمایت از WallRush',
-  support_hint: 'اختیاری — تبلیغ را در تب جدید باز می‌کند',
+  support_hint: 'اختیاری — یک ویدیوی کوتاه، همین‌جا',
   support_thanks: 'ممنون از حمایتت! 💛',
   ad_label: 'تبلیغات',
   ad_loading: 'در حال بارگذاری ویدیو…',

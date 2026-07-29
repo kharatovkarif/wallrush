@@ -60,7 +60,7 @@ export default {
   rematch_declined: 'Rakip kabul etmedi',
   back_menu: 'Menü',
   support: '💛 WallRush’a destek ol',
-  support_hint: 'İsteğe bağlı — yeni sekmede reklam açar',
+  support_hint: 'İsteğe bağlı — kısa bir video, tam burada',
   support_thanks: 'Desteğin için teşekkürler! 💛',
   ad_label: 'Reklam',
   ad_loading: 'Video yükleniyor…',

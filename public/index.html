@@ -9,7 +9,10 @@
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect x='8' y='14' width='84' height='30' rx='8' fill='%237c5cff'/><rect x='8' y='56' width='40' height='30' rx='8' fill='%237c5cff'/><rect x='56' y='56' width='36' height='30' rx='8' fill='%23b3a1ff'/></svg>">
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <link rel="stylesheet" href="css/style.css?v=68">
+  <!-- Opens the connection to the ad host early. Costs one handshake and no
+       download, and takes that handshake off the wait once Support is tapped. -->
+  <link rel="preconnect" href="https://js.onclckmn.com" crossorigin>
+  <link rel="stylesheet" href="css/style.css?v=69">
 </head>
 <body>
   <div id="app">
@@ -373,11 +376,11 @@
         <p class="streak-line" id="streak-line" hidden></p>
         <p class="hint" id="pts-note" hidden></p>
         <div class="modal-buttons">
+          <!-- Four choices pushed Support off the bottom of the screen, so the
+               one thing that pays for the servers was the one nobody saw. The
+               invite has its own home under Play with friend, where the link
+               and the code already live together. -->
           <button class="btn-big" id="btn-rematch" data-i18n="rematch"></button>
-          <!-- The invite lived four taps deep under Play with friend, where
-               nobody found it. This is the moment someone is most willing to
-               pull a friend in: they have just finished a game. -->
-          <button class="btn-big btn-ghost" id="btn-invite-friend" data-i18n="invite_short"></button>
           <button class="btn-big btn-ghost" id="btn-replay" data-i18n="replay"></button>
           <button class="btn-big btn-outline" id="btn-to-menu" data-i18n="back_menu"></button>
         </div>
@@ -587,7 +590,7 @@
     <div id="toast" hidden></div>
   </div>
 
-  <script src="vendor/supabase.js?v=68" defer></script>
-  <script type="module" src="js/app.js?v=68"></script>
+  <script src="vendor/supabase.js?v=69" defer></script>
+  <script type="module" src="js/app.js?v=69"></script>
 </body>
 </html>

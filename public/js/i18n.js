@@ -62,7 +62,7 @@ export const I18N = {
     rematch_declined: 'Соперник не согласился',
     back_menu: 'В меню',
     support: '💛 Поддержать WallRush',
-    support_hint: 'По желанию — откроет рекламу в новой вкладке',
+    support_hint: 'По желанию — короткий ролик прямо здесь',
     support_thanks: 'Спасибо за поддержку! 💛',
     ad_label: 'Реклама',
     ad_loading: 'Загружаем ролик…',
@@ -274,7 +274,7 @@ export const I18N = {
     rematch_declined: 'Opponent declined',
     back_menu: 'Menu',
     support: '💛 Support WallRush',
-    support_hint: 'Optional — opens an ad in a new tab',
+    support_hint: 'Optional — a short video, right here',
     support_thanks: 'Thanks for your support! 💛',
     ad_label: 'Advertisement',
     ad_loading: 'Loading the video…',
@@ -440,7 +440,7 @@ export const LANGS = [
 export const LANG_CODES = LANGS.map((l) => l.code);
 export const RTL = new Set(['fa']);
 
-const V = '68';
+const V = '69';
 
 // Loads a translation file on demand. Safe to call repeatedly and safe to fail:
 // if the request never lands, makeT keeps falling back to English.
