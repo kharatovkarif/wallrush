@@ -659,9 +659,12 @@ a.btn-big { text-decoration: none; display: block; }
 /* Above the result screen (100), because that is the screen it opens from and
    its close button has to be reachable; below the milestone celebration (120). */
 .ad-overlay { z-index: 110; }
+/* Near enough the whole screen on a phone. The player sizes itself to the box
+   it is given, so a wider box is a bigger ad — and bigger formats are what the
+   networks pay more for. */
 .ad-box {
-  width: min(94vw, 460px); background: var(--card); border-radius: 18px;
-  padding: 10px 10px 12px; box-shadow: var(--shadow);
+  width: min(100vw, 560px); background: var(--card); border-radius: 18px;
+  padding: 10px 8px 12px; box-shadow: var(--shadow);
 }
 .ad-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
 .ad-label { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; opacity: .55; }
@@ -669,8 +672,8 @@ a.btn-big { text-decoration: none; display: block; }
   border: none; background: transparent; font-size: 20px; line-height: 1;
   padding: 2px 6px; cursor: pointer; color: inherit; opacity: .6;
 }
-#ad-video-slot { min-height: 180px; display: flex; align-items: center; justify-content: center; }
-#ad-video-slot video, #ad-video-slot iframe { max-width: 100%; }
+#ad-video-slot { min-height: 230px; width: 100%; display: flex; align-items: center; justify-content: center; }
+#ad-video-slot video, #ad-video-slot iframe { width: 100%; max-width: 100%; }
 .ad-note { text-align: center; font-size: 13px; opacity: .6; margin: 10px 0 2px; }
 
 .head-pills { display: flex; align-items: center; justify-content: center; gap: 8px; flex-wrap: wrap; }

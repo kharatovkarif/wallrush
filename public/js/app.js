@@ -1,10 +1,10 @@
 // WallRush client app: screens, board UI, online play (WebSocket), AI mode, auth.
-import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=69';
-import { aiMove } from './ai.js?v=69';
-import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=69';
-import { rankOf, nextRank } from './ranks.js?v=69';
-import { flameClass, isMilestone } from './streak.js?v=69';
-import { checkNick, randomNick } from './nick.js?v=69';
+import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=70';
+import { aiMove } from './ai.js?v=70';
+import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=70';
+import { rankOf, nextRank } from './ranks.js?v=70';
+import { flameClass, isMilestone } from './streak.js?v=70';
+import { checkNick, randomNick } from './nick.js?v=70';
 
 /* ================= state ================= */
 const $ = (id) => document.getElementById(id);
@@ -173,7 +173,7 @@ function getAiWorker() {
   if (aiWorker === false) return null;
   if (!aiWorker) {
     try {
-      aiWorker = new Worker('js/ai-worker.js?v=69', { type: 'module' });
+      aiWorker = new Worker('js/ai-worker.js?v=70', { type: 'module' });
       aiWorker.onmessage = (e) => {
         const cb = aiPending.get(e.data.id);
         aiPending.delete(e.data.id);
@@ -1257,6 +1257,7 @@ function preloadAd() {
 
 function closeAdOverlay() {
   clearTimeout(adTimer);
+  clearInterval(adWatch);
   $('overlay-ad').hidden = true;
 }
 
@@ -1289,6 +1290,7 @@ function openSupportVideo() {
       // if theirs never turns up, so nobody is ever shut in here.
       own.hidden = true;
       adTimer = setTimeout(() => { own.hidden = false; }, 12000);
+      watchAdClosed();
       return;
     }
     if (Date.now() - started > AD_WAIT_MS) {
@@ -1298,6 +1300,18 @@ function openSupportVideo() {
     }
     adTimer = setTimeout(check, 300);
   })();
+}
+
+// Closing the ad with the ad's own button empties the slot but leaves this
+// window standing, so the player had to close the same thing twice. Watching
+// the slot means their one tap finishes the job.
+let adWatch = 0;
+function watchAdClosed() {
+  clearInterval(adWatch);
+  adWatch = setInterval(() => {
+    if ($('overlay-ad').hidden) { clearInterval(adWatch); return; }
+    if (!adRendered()) { clearInterval(adWatch); closeAdOverlay(); }
+  }, 400);
 }
 
 $('btn-support').addEventListener('click', () => {
