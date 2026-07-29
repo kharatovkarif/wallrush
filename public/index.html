@@ -12,7 +12,7 @@
   <!-- Opens the connection to the ad host early. Costs one handshake and no
        download, and takes that handshake off the wait once Support is tapped. -->
   <link rel="preconnect" href="https://js.onclckmn.com" crossorigin>
-  <link rel="stylesheet" href="css/style.css?v=71">
+  <link rel="stylesheet" href="css/style.css?v=72">
 </head>
 <body>
   <div id="app">
@@ -376,18 +376,17 @@
         <p class="streak-line" id="streak-line" hidden></p>
         <p class="hint" id="pts-note" hidden></p>
         <div class="modal-buttons">
-          <!-- Four choices pushed Support off the bottom of the screen, so the
-               one thing that pays for the servers was the one nobody saw. The
-               invite has its own home under Play with friend, where the link
-               and the code already live together. -->
+          <!-- This screen is the most valuable place in the game: it is seen
+               about sixty thousand times a day. The invite here brings around
+               388 new players daily — over a tenth of all growth — while the
+               support ad it replaced earned cents. So the invite gets the spot
+               and support lives on the home screen. -->
           <button class="btn-big" id="btn-rematch" data-i18n="rematch"></button>
+          <button class="btn-big btn-ghost" id="btn-invite-friend" data-i18n="invite_short"></button>
           <button class="btn-big btn-ghost" id="btn-replay" data-i18n="replay"></button>
           <button class="btn-big btn-outline" id="btn-to-menu" data-i18n="back_menu"></button>
         </div>
         <p id="rematch-status" class="hint" hidden></p>
-        <!-- Optional support: plays a short video ad in place, only on tap. -->
-        <button class="btn-support" id="btn-support" data-i18n="support"></button>
-        <p class="support-hint" id="support-hint" data-i18n="support_hint"></p>
       </div>
     </div>
 
@@ -594,7 +593,7 @@
     <div id="toast" hidden></div>
   </div>
 
-  <script src="vendor/supabase.js?v=71" defer></script>
-  <script type="module" src="js/app.js?v=71"></script>
+  <script src="vendor/supabase.js?v=72" defer></script>
+  <script type="module" src="js/app.js?v=72"></script>
 </body>
 </html>

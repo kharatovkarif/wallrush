@@ -1,10 +1,10 @@
 // WallRush client app: screens, board UI, online play (WebSocket), AI mode, auth.
-import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=71';
-import { aiMove } from './ai.js?v=71';
-import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=71';
-import { rankOf, nextRank } from './ranks.js?v=71';
-import { flameClass, isMilestone } from './streak.js?v=71';
-import { checkNick, randomNick } from './nick.js?v=71';
+import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=72';
+import { aiMove } from './ai.js?v=72';
+import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=72';
+import { rankOf, nextRank } from './ranks.js?v=72';
+import { flameClass, isMilestone } from './streak.js?v=72';
+import { checkNick, randomNick } from './nick.js?v=72';
 
 /* ================= state ================= */
 const $ = (id) => document.getElementById(id);
@@ -173,7 +173,7 @@ function getAiWorker() {
   if (aiWorker === false) return null;
   if (!aiWorker) {
     try {
-      aiWorker = new Worker('js/ai-worker.js?v=71', { type: 'module' });
+      aiWorker = new Worker('js/ai-worker.js?v=72', { type: 'module' });
       aiWorker.onmessage = (e) => {
         const cb = aiPending.get(e.data.id);
         aiPending.delete(e.data.id);
@@ -534,6 +534,18 @@ async function copyText(text) {
   }
 }
 
+
+// Straight from the result screen into a private room, keeping whatever
+// settings were last used — the friend just wants to play, not configure.
+// This one button brings around 388 new players a day, over a tenth of all
+// growth, which is why it holds the result screen.
+$('btn-invite-friend').addEventListener('click', () => {
+  $('overlay-gameover').hidden = true;
+  wsSend({
+    t: 'create_room', private: true,
+    mode: createCfg.mode, walls: Number(createCfg.walls), time: createCfg.time,
+  });
+});
 
 $('invite-share').addEventListener('click', async () => {
   const url = roomLink(inviteCode);
@@ -1124,14 +1136,7 @@ function onGameOver(iWon, reason) {
     spawnConfetti(iWon);
     $('btn-rematch').style.display = '';
     $('rematch-status').hidden = true;
-    // the support button is offered fresh after every match
-    $('btn-support').disabled = false;
-    $('btn-support').textContent = t('support');
-    $('support-hint').hidden = false;
     $('overlay-gameover').hidden = false;
-    // Fetch the ad script now, while the player is reading the result. Waiting
-    // for the tap meant every tap paid for the download before anything moved.
-    preloadAd();
     maybeAskPush();
   }, 600);
   vibrate(iWon ? [40, 60, 40, 60, 80] : 60);
@@ -1190,50 +1195,16 @@ $('btn-rematch').addEventListener('click', () => {
   $('rematch-status').textContent = t('rematch_wait');
 });
 
-/* Voluntary support ad.
-
-   This used to lean on a RichAds popunder script that was supposed to hijack
-   the click and open an ad by itself. It delivered nothing — the button only
-   relabelled itself, so people tapped, read "thanks" and saw no ad at all.
-   Popunders are also the first thing mobile browsers and blockers kill.
-
-   Opening the link ourselves inside the click handler is a genuine user
-   gesture, so it cannot be swallowed, and we can tell whether it worked.
-
-   To change networks, replace this one URL with a direct link from the
-   advertising panel — nothing else here depends on which network it is. */
-const SUPPORT_AD_URL = 'https://fluffy-machine.com/b.3WVy0MPn3MpavebhmvVGJLZQDk0D3xMhjAUU1PO/DGAj5pL/TOcpyYNkTkU/4/MhTTM_';
-
-// Returns true when a tab actually opened, so we never thank someone for an
-// ad a popup blocker just ate. The 'noopener' feature is deliberately NOT
-// passed: with it the spec makes window.open return null even on success, so
-// every ad that did open looked blocked. The opener is cleared afterwards.
-function openSupportAd() {
-  try {
-    const w = window.open(SUPPORT_AD_URL, '_blank');
-    if (!w) return false;
-    try { w.opener = null; } catch { /* cross-origin: nothing to clear */ }
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-function thankFor(btn, hintId) {
-  if (!openSupportAd()) { toast(t('support_blocked')); return; }
-  btn.disabled = true;
-  btn.textContent = t('support_thanks');
-  if (hintId) $(hintId).hidden = true;
-}
-
-/* Support after a match: a short video that plays here rather than a tab that
+/* Voluntary support: a short video that plays here rather than a tab that
    throws the player onto somebody else's site.
 
-   The network's script is injected on the first tap, not in <head>. Its own
-   advice is to load it early, but that would run it for every one of the
-   players who never tap Support, and it would search for the slot long before
-   the slot exists. Injecting it with the overlay already open means the
-   element is there, visible and sized when the player initialises. */
+   It lives in the support dialog on the home screen, not on the result screen.
+   The result screen is the most valuable place in the game, and measured over
+   a day the invite there brought 388 new players while this ad earned cents.
+
+   Before this it was a direct link opened with window.open — and before that a
+   RichAds popunder that delivered nothing at all, relabelling the button while
+   no ad ever appeared. */
 const AD_SCRIPT = 'https://js.onclckmn.com/static/onclicka.js';
 const AD_PID = '449804';
 const AD_WAIT_MS = 7000;   // nothing on screen by then means no ad is coming
@@ -1327,14 +1298,6 @@ function watchAdClosed() {
   }, 400);
 }
 
-$('btn-support').addEventListener('click', () => {
-  const btn = $('btn-support');
-  openSupportVideo();
-  btn.disabled = true;
-  btn.textContent = t('support_thanks');
-  $('support-hint').hidden = true;
-});
-
 $('ad-close').addEventListener('click', closeAdOverlay);
 // tapping the backdrop closes it too, same as every other overlay in the game
 $('overlay-ad').addEventListener('click', (e) => {
@@ -1343,9 +1306,18 @@ $('overlay-ad').addEventListener('click', (e) => {
 
 /* Support / advertise dialogs on the home screen. Both are opt-in: nothing
    loads or fires until the player opens them. */
-$('btn-open-support').addEventListener('click', () => { $('overlay-support').hidden = false; });
+$('btn-open-support').addEventListener('click', () => {
+  $('overlay-support').hidden = false;
+  // Fetch the ad script while the dialog is being read, so tapping Watch does
+  // not start with a download. Nothing is fetched for anyone who never opens
+  // this dialog, which is almost everybody.
+  preloadAd();
+});
 $('support-close').addEventListener('click', () => { $('overlay-support').hidden = true; });
-$('support-watch').addEventListener('click', () => thankFor($('support-watch')));
+$('support-watch').addEventListener('click', () => {
+  $('overlay-support').hidden = true;   // the video replaces the dialog
+  openSupportVideo();
+});
 $('wallet-copy').addEventListener('click', async () => {
   const addr = $('wallet-addr').textContent.trim();
   try {

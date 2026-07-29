@@ -74,8 +74,8 @@ export const I18N = {
     support_title: 'Поддержать WallRush',
     support_intro: 'Игра бесплатная и такой останется. Помочь можно двумя способами — оба добровольные.',
     support_watch_title: 'Посмотреть рекламу',
-    support_watch: 'Открыть рекламу',
-    support_watch_sub: 'Бесплатно. Откроется в новой вкладке — можешь закрыть сразу, это уже поможет.',
+    support_watch: 'Посмотреть ролик',
+    support_watch_sub: 'Бесплатно. Короткий ролик прямо здесь — через 5 секунд можно закрыть.',
     or_word: 'или',
     support_donate_title: 'Перевести напрямую',
     support_donate_sub: 'Любая сумма в USDT. Перед отправкой проверь, что выбрана сеть TRC20.',
@@ -286,8 +286,8 @@ export const I18N = {
     support_title: 'Support WallRush',
     support_intro: 'The game is free and staying that way. There are two ways to help, both optional.',
     support_watch_title: 'Watch an ad',
-    support_watch: 'Open an ad',
-    support_watch_sub: 'Free. Opens in a new tab — closing it right away still helps.',
+    support_watch: 'Watch a video',
+    support_watch_sub: 'Free. A short video right here — closeable after 5 seconds.',
     or_word: 'or',
     support_donate_title: 'Send directly',
     support_donate_sub: 'Any amount in USDT. Check the TRC20 network is selected before sending.',
@@ -440,7 +440,7 @@ export const LANGS = [
 export const LANG_CODES = LANGS.map((l) => l.code);
 export const RTL = new Set(['fa']);
 
-const V = '71';
+const V = '72';
 
 // Loads a translation file on demand. Safe to call repeatedly and safe to fail:
 // if the request never lands, makeT keeps falling back to English.
