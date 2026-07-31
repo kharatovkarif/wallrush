@@ -1,6 +1,7 @@
 // Supabase clients. Everything degrades gracefully when env vars are absent:
 // the game then runs in guest-only mode (no accounts, empty leaderboard).
 import { createClient } from '@supabase/supabase-js';
+import { streakState, canRestore } from '../public/js/streak.js';
 import { WebSocket as WsImpl } from 'ws'; // realtime transport for Node < 22 (no native WebSocket)
 
 // Values pasted from a phone often carry invisible junk (line breaks inside
@@ -103,6 +104,34 @@ export async function getPoints({ userId, deviceId }) {
     console.error('getPoints failed:', e.message);
   }
   return { ...BLANK };
+}
+
+/* Buys a lost streak back. Nothing is stored about lost streaks — the row
+   already holds the number and the day it stopped, so moving that day to
+   yesterday is all it takes for the next game to continue the run.
+
+   The rules are checked here rather than trusted from the client: the streak
+   must genuinely be lost, and lost recently. Repeating the call is harmless,
+   because after the first one the streak is no longer lost. */
+export async function restoreStreak({ userId, deviceId }, today) {
+  if (!dbEnabled || !today) return null;
+  const table = userId ? 'profiles' : 'visitors';
+  const col = userId ? 'id' : 'device_id';
+  const key = userId || deviceId;
+  if (!key) return null;
+  try {
+    const { data } = await supa.from(table)
+      .select('streak, streak_day, freeze_month').eq(col, key).maybeSingle();
+    if (!data) return null;
+    if (streakState(data.streak_day, today, data.freeze_month) !== 'lost') return null;
+    if (!canRestore(data.streak_day, today, data.streak || 0)) return null;
+    const yesterday = new Date(Date.parse(today) - 86400000).toISOString().slice(0, 10);
+    await supa.from(table).update({ streak_day: yesterday }).eq(col, key);
+    return { streak: data.streak || 0 };
+  } catch (e) {
+    console.error('restoreStreak failed:', e.message);
+    return null;
+  }
 }
 
 // Marks the player's local day as played. Returns the streak after the update,

@@ -12,7 +12,7 @@
   <!-- Opens the connection to the ad host early. Costs one handshake and no
        download, and takes that handshake off the wait once Support is tapped. -->
   <link rel="preconnect" href="https://js.onclckmn.com" crossorigin>
-  <link rel="stylesheet" href="css/style.css?v=73">
+  <link rel="stylesheet" href="css/style.css?v=74">
 </head>
 <body>
   <div id="app">
@@ -520,6 +520,9 @@
             <small id="streak-sub"></small>
           </div>
         </div>
+        <!-- Shown only when a streak was lost recently: one ad buys it back.
+             The player chooses to watch, so nothing is taken from anyone. -->
+        <button class="btn-big btn-restore" id="btn-restore-streak" hidden></button>
         <p class="veteran-badge" id="veteran-badge" data-i18n="veteran" hidden></p>
         <div class="stats-row" id="profile-stats">
           <div class="stat"><b id="stat-games">0</b><small data-i18n="stats_games"></small></div>
@@ -593,7 +596,7 @@
     <div id="toast" hidden></div>
   </div>
 
-  <script src="vendor/supabase.js?v=73" defer></script>
-  <script type="module" src="js/app.js?v=73"></script>
+  <script src="vendor/supabase.js?v=74" defer></script>
+  <script type="module" src="js/app.js?v=74"></script>
 </body>
 </html>

@@ -2,7 +2,7 @@
 // Server is authoritative: it validates every move with the shared engine.
 import { initialState, applyMove } from '../public/js/engine.js';
 import { pointsDelta } from '../public/js/ranks.js';
-import { streakAlive, localDay } from '../public/js/streak.js';
+import { streakState, canRestore, localDay } from '../public/js/streak.js';
 import { checkNick, randomNick } from '../public/js/nick.js';
 import {
   verifyUser, getProfile, recordResult, recordBotResult, recordHumanMatch,
@@ -196,6 +196,8 @@ async function finish(room, winnerIdx, reason) {
         pl.streak = st.streak;
         pl.streakBest = st.best;
         pl.streakToday = true;   // the match just played is today's
+        pl.streakState = 'today';
+        pl.streakLost = 0;
         send(pl, { t: 'streak', streak: st.streak, best: st.best, advanced: st.advanced, froze: st.froze });
       });
   }
@@ -305,13 +307,17 @@ async function handleHello(client, msg) {
   client.points = pts.points;
   client.veteran = pts.veteran;
   client.streakBest = pts.streakBest;
-  // a stored streak is only worth showing while it is still alive today
+  // Alive is not the same as safe, and lost is not the same as gone. The
+  // client draws all of it, so it gets the state rather than a boolean.
   const today = localDay(client.tzOffset);
-  client.streak = streakAlive(pts.streakDay, today, pts.freezeMonth) ? pts.streak : 0;
-  // Alive is not the same as safe. A streak last played yesterday survives
-  // today only if a game is played today, and that is the day the player has
-  // to be told about — so the client is told which of the two it is.
-  client.streakToday = pts.streakDay === today;
+  const state = streakState(pts.streakDay, today, pts.freezeMonth);
+  client.streakState = state;
+  client.streak = state === 'lost' ? 0 : pts.streak;
+  client.streakToday = state === 'today';
+  // A streak lost within the last week can be bought back with an ad, so the
+  // client is told what is on offer and how many days it is worth.
+  client.streakLost = state === 'lost' && canRestore(pts.streakDay, today, pts.streak)
+    ? pts.streak : 0;
 
   // reconnect to a live game?
   if (msg.token && byToken.has(msg.token)) {
@@ -361,6 +367,8 @@ async function handleHello(client, msg) {
     points: client.points || 0, veteran: Boolean(client.veteran),
     streak: client.streak || 0, streakBest: client.streakBest || 0,
     streakToday: Boolean(client.streakToday),
+    streakState: client.streakState || 'none',
+    streakLost: client.streakLost || 0,
   });
 }
 

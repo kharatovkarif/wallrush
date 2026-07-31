@@ -689,6 +689,12 @@ a.btn-big { text-decoration: none; display: block; }
   text-align: start;
 }
 .streak-card.cold { opacity: .72; }
+/* Offered only when a streak was lost, so it should read as a way back rather
+   than as another thing to buy — icy blue, not the gold of the support button. */
+.btn-restore {
+  margin-top: 10px; background: #e8f1ff; color: #1a4f9c; border: 1px solid #c2dbff;
+}
+html[data-theme="dark"] .btn-restore { background: #1d2b46; color: #9fc8ff; border-color: #2c3f63; }
 .streak-card .flame { font-size: 26px; }
 .streak-meta { min-width: 0; }
 .streak-meta b { display: block; font-size: 15px; }

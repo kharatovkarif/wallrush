@@ -27,13 +27,42 @@ export function flameClass(days) {
 
 export function isMilestone(days) { return MILESTONES.includes(days); }
 
+export function dayGap(lastDay, today) {
+  return Math.round((Date.parse(today) - Date.parse(lastDay)) / 86400000);
+}
+
+/* Which of five situations a streak is in. "Alive" was not enough to draw it
+   honestly: a player who skipped yesterday saw the same number as before and
+   could only conclude the counter was broken. A streak that forgives a missed
+   day without saying so is not a streak.
+
+     none   — nothing to show
+     today  — already played today, safe until tomorrow
+     risk   — played yesterday, will be lost tonight unless they play
+     freeze — a day was missed; the month's one free save will cover it
+     lost   — gone, but recent enough to be worth offering back           */
+export function streakState(lastDay, today, freezeMonth) {
+  if (!lastDay) return 'none';
+  const gap = dayGap(lastDay, today);
+  if (gap <= 0) return 'today';
+  if (gap === 1) return 'risk';
+  if (gap === 2 && freezeMonth !== today.slice(0, 7)) return 'freeze';
+  return 'lost';
+}
+
+// A week is the outer limit for offering a streak back. Beyond that the player
+// has moved on and handing it over is meaningless.
+export const RESTORE_MAX_GAP = 7;
+
+export function canRestore(lastDay, today, streak) {
+  return streak > 0 && !!lastDay && dayGap(lastDay, today) <= RESTORE_MAX_GAP;
+}
+
 // A streak stays alive through yesterday, and through the day before that
 // while this month's one free save is still unused.
 export function streakAlive(lastDay, today, freezeMonth) {
-  if (!lastDay) return false;
-  const gap = Math.round((Date.parse(today) - Date.parse(lastDay)) / 86400000);
-  if (gap <= 1) return true;
-  return gap === 2 && freezeMonth !== today.slice(0, 7);
+  const s = streakState(lastDay, today, freezeMonth);
+  return s === 'today' || s === 'risk' || s === 'freeze';
 }
 
 // The player's own calendar day, from the offset their browser reports.

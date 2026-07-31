@@ -8,8 +8,9 @@ import { attachWs, realOnline } from './rooms.js';
 import { fakeOnline } from './bots.js';
 import { RANKS } from '../public/js/ranks.js';
 import { checkNick } from '../public/js/nick.js';
+import { localDay } from '../public/js/streak.js';
 import { initPush, pushPublicKey, saveSub, dropSub, pushTick } from './push.js';
-import { dbEnabled, dbStatus, dbDetail, cleanEnv, likeEscape, supa, verifyUser, getProfile, createProfile, leaderboard, clearNickNotice } from './db.js';
+import { dbEnabled, dbStatus, dbDetail, cleanEnv, likeEscape, supa, verifyUser, getProfile, createProfile, leaderboard, clearNickNotice, restoreStreak } from './db.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -49,6 +50,26 @@ app.get('/api/profile', async (req, res) => {
   const user = await verifyUser(bearer(req));
   if (!user) return res.status(401).json({ error: 'unauthorized' });
   res.json({ profile: await getProfile(user.id) });
+});
+
+/* Buys back a streak that was lost, after the player watched an ad for it.
+   Guests get this too — they are 94% of players, and a streak on a device is
+   the only progress most of them have.
+
+   The client is not trusted with any of it: the day comes from the browser
+   only as a timezone offset, and whether the streak is really lost, and
+   recently enough, is decided against the stored row. */
+app.post('/api/streak/restore', async (req, res) => {
+  if (!dbEnabled) return res.status(503).json({ error: 'db_off' });
+  const off = Number(req.body?.tz);
+  const today = localDay(Number.isFinite(off) && Math.abs(off) <= 840 ? off : 0);
+  const user = await verifyUser(bearer(req));
+  const device = String(req.body?.device || '');
+  const deviceId = /^[A-Za-z0-9-]{8,64}$/.test(device) ? device : null;
+  if (!user && !deviceId) return res.status(400).json({ error: 'no_identity' });
+  const done = await restoreStreak({ userId: user?.id, deviceId }, today);
+  if (!done) return res.status(400).json({ error: 'nothing_to_restore' });
+  res.json({ ok: true, streak: done.streak });
 });
 
 // A nickname the rules no longer allow is replaced by hand, and the player is

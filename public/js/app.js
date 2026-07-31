@@ -1,10 +1,10 @@
 // WallRush client app: screens, board UI, online play (WebSocket), AI mode, auth.
-import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=73';
-import { aiMove } from './ai.js?v=73';
-import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=73';
-import { rankOf, nextRank } from './ranks.js?v=73';
-import { flameClass, isMilestone } from './streak.js?v=73';
-import { checkNick, randomNick } from './nick.js?v=73';
+import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=74';
+import { aiMove } from './ai.js?v=74';
+import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=74';
+import { rankOf, nextRank } from './ranks.js?v=74';
+import { flameClass, isMilestone } from './streak.js?v=74';
+import { checkNick, randomNick } from './nick.js?v=74';
 
 /* ================= state ================= */
 const $ = (id) => document.getElementById(id);
@@ -151,6 +151,10 @@ let myStreakBest = 0;
 // not yet extended today is exactly the moment it can be lost, so the flame
 // goes out and the game asks for a game today instead of tomorrow.
 let myStreakToday = false;
+// 'none' | 'today' | 'risk' | 'freeze' | 'lost' — the card reads differently in
+// each, because "4 days" after a missed day looks like a broken counter.
+let myStreakState = 'none';
+let myStreakLost = 0;     // days on offer to buy back, 0 when there is nothing
 let streakEvent = null;   // set when a match just advanced the streak
 let celebratedDay = 0;    // guards against showing the same milestone twice
 
@@ -173,7 +177,7 @@ function getAiWorker() {
   if (aiWorker === false) return null;
   if (!aiWorker) {
     try {
-      aiWorker = new Worker('js/ai-worker.js?v=73', { type: 'module' });
+      aiWorker = new Worker('js/ai-worker.js?v=74', { type: 'module' });
       aiWorker.onmessage = (e) => {
         const cb = aiPending.get(e.data.id);
         aiPending.delete(e.data.id);
@@ -330,6 +334,8 @@ function handleWsMessage(msg) {
       myStreak = msg.streak || 0;
       myStreakBest = msg.streakBest || 0;
       myStreakToday = Boolean(msg.streakToday);
+      myStreakState = msg.streakState || 'none';
+      myStreakLost = msg.streakLost || 0;
       renderStreak();
       updateProfileUI();
       flushPendingJoin();   // arrived through an invite link
@@ -374,6 +380,8 @@ function handleWsMessage(msg) {
       myStreak = msg.streak || 0;
       myStreakBest = msg.best || myStreakBest;
       myStreakToday = true;   // this message only arrives after a match today
+      myStreakState = 'today';
+      myStreakLost = 0;
       if (msg.advanced) streakEvent = { days: myStreak, froze: Boolean(msg.froze) };
       renderStreak();
       updateProfileUI();
@@ -1521,7 +1529,7 @@ function renderStreak() {
   pill.hidden = myStreak < 1;
   if (myStreak < 1) return;
   $('streak-count').textContent = myStreak;
-  $('streak-flame').className = 'flame ' + flameClass(myStreak) + (myStreakToday ? '' : ' unlit');
+  $('streak-flame').className = 'flame ' + flameClass(myStreak) + (myStreakState === 'today' ? '' : ' unlit');
 }
 
 // One line on the result screen — and on a milestone day, a celebration over
@@ -1534,6 +1542,81 @@ function showStreakLine() {
   el.textContent = (froze ? t('streak_saved') + ' ' : '') + '🔥 ' + daysPhrase(days);
   el.hidden = false;
   if (isMilestone(days)) celebrateStreak(days);
+}
+
+/* The streak card, in whichever of its states applies. Four days showing after
+   a missed day is what made this necessary: the number had not changed, the
+   game said nothing, and the only sane conclusion was that it was broken. Now
+   each state says out loud what happened and what it costs. */
+function renderStreakCard() {
+  const flame = $('streak-flame-big');
+  const sub = $('streak-sub');
+  const restore = $('btn-restore-streak');
+
+  if (myStreakState === 'lost' && myStreakLost > 0) {
+    flame.className = 'flame ' + flameClass(myStreakLost) + ' unlit';
+    $('streak-days').textContent = daysPhrase(myStreakLost, 'streak_lost');
+    sub.textContent = t('streak_lost_sub');
+    $('streak-card').classList.add('cold');
+    restore.textContent = t('streak_restore');
+    restore.hidden = false;
+    return;
+  }
+  restore.hidden = true;
+
+  const lit = myStreak > 0 && myStreakState === 'today';
+  flame.className = 'flame ' + flameClass(Math.max(1, myStreak)) + (lit ? '' : ' unlit');
+  $('streak-days').textContent = myStreak > 0 ? daysPhrase(myStreak) : t('streak_none');
+  // What the player has to do today outranks the personal best — the record
+  // can wait until the day is safe.
+  sub.textContent = myStreak > 0
+    ? (myStreakState === 'freeze' ? t('streak_freeze')
+      : myStreakState === 'risk' ? t('streak_today')
+      : myStreakBest > myStreak ? t('streak_best').replace('%n', myStreakBest)
+      : t('streak_keep'))
+    : '';
+  $('streak-card').classList.toggle('cold', myStreak < 1);
+}
+
+/* Buying a streak back. The ad plays first and the streak is restored only
+   after it actually rendered — otherwise everyone whose ad never arrives, and
+   that is a good part of this audience, would pay nothing and get it anyway,
+   which makes the whole offer meaningless. */
+$('btn-restore-streak').addEventListener('click', () => {
+  const btn = $('btn-restore-streak');
+  btn.disabled = true;
+  let granted = false;
+  openSupportVideo();
+  const started = Date.now();
+  (function waitForAd() {
+    if (granted) return;
+    if (adRendered()) { granted = true; claimStreak(); return; }
+    if (Date.now() - started > AD_WAIT_MS + 1500) { btn.disabled = false; return; }
+    setTimeout(waitForAd, 300);
+  })();
+});
+
+async function claimStreak() {
+  try {
+    const res = await fetch('/api/streak/restore', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(session ? { Authorization: `Bearer ${session.access_token}` } : {}),
+      },
+      body: JSON.stringify({ device: deviceId, tz: new Date().getTimezoneOffset() }),
+    });
+    const data = await res.json();
+    if (!data.ok) { $('btn-restore-streak').disabled = false; return; }
+    myStreak = data.streak || myStreakLost;
+    myStreakState = 'risk';      // back, but still needs a game today
+    myStreakLost = 0;
+    renderStreak();
+    renderStreakCard();
+    toast(t('streak_restored'));
+  } catch {
+    $('btn-restore-streak').disabled = false;
+  }
 }
 
 function celebrateStreak(days) {
@@ -1574,17 +1657,7 @@ function renderRankCard() {
   $('rank-points').textContent = `${pts.toLocaleString()} ${t('points_label')}`;
   $('veteran-badge').hidden = !myVeteran;
   // streak card sits under the rank: one is skill, the other is showing up
-  const lit = myStreak > 0 && myStreakToday;
-  $('streak-flame-big').className = 'flame ' + flameClass(Math.max(1, myStreak)) + (lit ? '' : ' unlit');
-  $('streak-days').textContent = myStreak > 0 ? daysPhrase(myStreak) : t('streak_none');
-  // Today is the day the streak is actually at risk, so that warning outranks
-  // the personal best — the record can wait until the day is safe.
-  $('streak-sub').textContent = myStreak > 0
-    ? (!myStreakToday ? t('streak_today')
-      : myStreakBest > myStreak ? t('streak_best').replace('%n', myStreakBest)
-      : t('streak_keep'))
-    : '';
-  $('streak-card').classList.toggle('cold', myStreak < 1);
+  renderStreakCard();
   if (next) {
     const span = next.min - cur.min;
     const done = Math.max(0, Math.min(1, (pts - cur.min) / span));
