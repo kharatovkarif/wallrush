@@ -12,7 +12,7 @@
   <!-- Opens the connection to the ad host early. Costs one handshake and no
        download, and takes that handshake off the wait once Support is tapped. -->
   <link rel="preconnect" href="https://js.onclckmn.com" crossorigin>
-  <link rel="stylesheet" href="css/style.css?v=75">
+  <link rel="stylesheet" href="css/style.css?v=76">
 </head>
 <body>
   <div id="app">
@@ -485,9 +485,8 @@
         <h2>🏆 <span data-i18n="leaderboard_title"></span></h2>
         <p class="hint" data-i18n="leaderboard_sub"></p>
       </header>
-      <div id="lb-list" class="lb-list"></div>
-
-      <!-- HilltopAds 300x250 banner on the leaderboard menu (never in-game). -->
+      <!-- HilltopAds 300x250 banner, in the menu only and never in-game. It
+           used to sit under all fifty rows, where hardly anyone scrolled. -->
       <div class="ad-slot ad-slot-lg" aria-hidden="true">
         <script>
         (function(immt){
@@ -502,6 +501,8 @@
         })({})
         </script>
       </div>
+
+      <div id="lb-list" class="lb-list"></div>
     </section>
 
     <!-- ============ PROFILE ============ -->
@@ -605,7 +606,7 @@
     <div id="toast" hidden></div>
   </div>
 
-  <script src="vendor/supabase.js?v=75" defer></script>
-  <script type="module" src="js/app.js?v=75"></script>
+  <script src="vendor/supabase.js?v=76" defer></script>
+  <script type="module" src="js/app.js?v=76"></script>
 </body>
 </html>

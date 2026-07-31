@@ -45,7 +45,10 @@ html.in-game > body > *:not(#app):not(script):not(style) { display: none !import
 /* Menu banner slot (HilltopAds 300x100): centered under the home content. */
 .ad-slot { display: flex; justify-content: center; align-items: center; margin: 16px auto 6px; min-height: 100px; overflow: hidden; }
 .ad-slot iframe, .ad-slot img { max-width: 100%; }
-.ad-slot-lg { min-height: 250px; margin-top: 20px; }
+/* No reserved height now that this sits above the list. At the bottom a 250px
+   hole cost nothing; at the top it would push the leaderboard off the screen
+   every time an ad does not arrive, which is most times. */
+.ad-slot-lg { min-height: 0; margin: 4px auto 10px; }
 
 /* Optional "Support WallRush" button on the game-over screen: deliberately
    quieter than Rematch/Menu so it reads as an offer, never a demand. */

@@ -1,10 +1,10 @@
 // WallRush client app: screens, board UI, online play (WebSocket), AI mode, auth.
-import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=75';
-import { aiMove } from './ai.js?v=75';
-import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=75';
-import { rankOf, nextRank } from './ranks.js?v=75';
-import { flameClass, isMilestone } from './streak.js?v=75';
-import { checkNick, randomNick } from './nick.js?v=75';
+import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=76';
+import { aiMove } from './ai.js?v=76';
+import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=76';
+import { rankOf, nextRank } from './ranks.js?v=76';
+import { flameClass, isMilestone } from './streak.js?v=76';
+import { checkNick, randomNick } from './nick.js?v=76';
 
 /* ================= state ================= */
 const $ = (id) => document.getElementById(id);
@@ -178,7 +178,7 @@ function getAiWorker() {
   if (aiWorker === false) return null;
   if (!aiWorker) {
     try {
-      aiWorker = new Worker('js/ai-worker.js?v=75', { type: 'module' });
+      aiWorker = new Worker('js/ai-worker.js?v=76', { type: 'module' });
       aiWorker.onmessage = (e) => {
         const cb = aiPending.get(e.data.id);
         aiPending.delete(e.data.id);
