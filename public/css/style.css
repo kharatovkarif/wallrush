@@ -694,6 +694,16 @@ a.btn-big { text-decoration: none; display: block; }
 .btn-restore {
   margin-top: 10px; background: #e8f1ff; color: #1a4f9c; border: 1px solid #c2dbff;
 }
+/* The same offer on the home screen, laid out in a row so it sits between the
+   header and the play buttons without pushing the game down the page. */
+.streak-offer {
+  display: flex; align-items: center; gap: 10px; margin: 4px auto 0;
+  width: min(100%, 520px); padding: 10px 12px;
+  background: var(--card); border-radius: 16px; box-shadow: var(--shadow);
+}
+.streak-offer b { flex: 1; font-size: 14px; font-weight: 600; }
+.streak-offer .flame { font-size: 22px; }
+.streak-offer .btn-restore { margin: 0; padding: 8px 14px; font-size: 14px; width: auto; white-space: nowrap; }
 html[data-theme="dark"] .btn-restore { background: #1d2b46; color: #9fc8ff; border-color: #2c3f63; }
 .streak-card .flame { font-size: 26px; }
 .streak-meta { min-width: 0; }

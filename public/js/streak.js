@@ -31,23 +31,46 @@ export function dayGap(lastDay, today) {
   return Math.round((Date.parse(today) - Date.parse(lastDay)) / 86400000);
 }
 
-/* Which of five situations a streak is in. "Alive" was not enough to draw it
-   honestly: a player who skipped yesterday saw the same number as before and
-   could only conclude the counter was broken. A streak that forgives a missed
-   day without saying so is not a streak.
+/* Which of four situations a streak is in.
 
-     none   — nothing to show
-     today  — already played today, safe until tomorrow
-     risk   — played yesterday, will be lost tonight unless they play
-     freeze — a day was missed; the month's one free save will cover it
-     lost   — gone, but recent enough to be worth offering back           */
-export function streakState(lastDay, today, freezeMonth) {
+   There used to be a fifth, where a missed day was quietly forgiven and the
+   number carried on unchanged. Nobody could tell that from a broken counter,
+   so it is gone: a missed day always breaks the streak, and getting it back is
+   something the player does on purpose, with one button.
+
+     none  — nothing to show
+     today — the day is closed, by a game or by the restore button
+     risk  — played yesterday, will break tonight unless they play
+     lost  — broken, and recent enough to be worth offering back            */
+export function streakState(lastDay, today) {
   if (!lastDay) return 'none';
   const gap = dayGap(lastDay, today);
   if (gap <= 0) return 'today';
   if (gap === 1) return 'risk';
-  if (gap === 2 && freezeMonth !== today.slice(0, 7)) return 'freeze';
   return 'lost';
+}
+
+// The first restore of each calendar month costs nothing. After that the
+// button asks for an ad first — but the player is never told which it will be,
+// because from their side it is the same button doing the same thing.
+export function freeRestore(freezeMonth, today) {
+  return freezeMonth !== today.slice(0, 7);
+}
+
+/* How many days are waiting to be taken back, or 0 when nothing is.
+
+   Two shapes mean the same thing. Before today's first game the broken run is
+   still sitting in `streak` with an old date on it. Once a game is played the
+   counter restarts at 1 and the old number moves to `streak_prev` — which is
+   the only reason a player who started a match before noticing the button does
+   not silently lose everything. */
+export function pendingStreak(row, today) {
+  if (!row) return 0;
+  const prev = row.streak_prev || 0;
+  if (prev > 0) return prev;
+  const s = row.streak || 0;
+  if (s > 0 && today && streakState(row.streak_day, today) === 'lost') return s;
+  return 0;
 }
 
 // A week is the outer limit for offering a streak back. Beyond that the player
@@ -58,11 +81,9 @@ export function canRestore(lastDay, today, streak) {
   return streak > 0 && !!lastDay && dayGap(lastDay, today) <= RESTORE_MAX_GAP;
 }
 
-// A streak stays alive through yesterday, and through the day before that
-// while this month's one free save is still unused.
-export function streakAlive(lastDay, today, freezeMonth) {
-  const s = streakState(lastDay, today, freezeMonth);
-  return s === 'today' || s === 'risk' || s === 'freeze';
+export function streakAlive(lastDay, today) {
+  const s = streakState(lastDay, today);
+  return s === 'today' || s === 'risk';
 }
 
 // The player's own calendar day, from the offset their browser reports.

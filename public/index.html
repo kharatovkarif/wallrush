@@ -12,7 +12,7 @@
   <!-- Opens the connection to the ad host early. Costs one handshake and no
        download, and takes that handshake off the wait once Support is tapped. -->
   <link rel="preconnect" href="https://js.onclckmn.com" crossorigin>
-  <link rel="stylesheet" href="css/style.css?v=74">
+  <link rel="stylesheet" href="css/style.css?v=75">
 </head>
 <body>
   <div id="app">
@@ -42,6 +42,15 @@
           </div>
         </div>
       </header>
+
+      <!-- A broken streak is offered back here as well as in the profile: this
+           is the screen a returning player actually looks at, and the offer has
+           to be seen before they start a match, not after. -->
+      <div class="streak-offer" id="streak-offer" hidden>
+        <span class="flame fl-1 unlit">🔥</span>
+        <b id="streak-offer-text"></b>
+        <button class="btn-restore" id="btn-restore-home"></button>
+      </div>
 
       <div class="cards">
         <button class="card card-primary" id="btn-quick">
@@ -596,7 +605,7 @@
     <div id="toast" hidden></div>
   </div>
 
-  <script src="vendor/supabase.js?v=74" defer></script>
-  <script type="module" src="js/app.js?v=74"></script>
+  <script src="vendor/supabase.js?v=75" defer></script>
+  <script type="module" src="js/app.js?v=75"></script>
 </body>
 </html>

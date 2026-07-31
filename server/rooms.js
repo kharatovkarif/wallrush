@@ -2,7 +2,7 @@
 // Server is authoritative: it validates every move with the shared engine.
 import { initialState, applyMove } from '../public/js/engine.js';
 import { pointsDelta } from '../public/js/ranks.js';
-import { streakState, canRestore, localDay } from '../public/js/streak.js';
+import { streakState, canRestore, pendingStreak, freeRestore, localDay } from '../public/js/streak.js';
 import { checkNick, randomNick } from '../public/js/nick.js';
 import {
   verifyUser, getProfile, recordResult, recordBotResult, recordHumanMatch,
@@ -310,14 +310,19 @@ async function handleHello(client, msg) {
   // Alive is not the same as safe, and lost is not the same as gone. The
   // client draws all of it, so it gets the state rather than a boolean.
   const today = localDay(client.tzOffset);
-  const state = streakState(pts.streakDay, today, pts.freezeMonth);
+  const state = streakState(pts.streakDay, today);
   client.streakState = state;
   client.streak = state === 'lost' ? 0 : pts.streak;
   client.streakToday = state === 'today';
-  // A streak lost within the last week can be bought back with an ad, so the
-  // client is told what is on offer and how many days it is worth.
-  client.streakLost = state === 'lost' && canRestore(pts.streakDay, today, pts.streak)
-    ? pts.streak : 0;
+  // A broken streak stays on offer for a week. The number can be sitting in
+  // either column depending on whether a game has been played since it broke.
+  const pending = pendingStreak(
+    { streak: pts.streak, streak_prev: pts.streakPrev, streak_day: pts.streakDay }, today);
+  client.streakLost = canRestore(pts.streakDay, today, pending) ? pending : 0;
+  // Whether this month's free restore is still there. The player is never
+  // shown this — it only decides whether an ad plays before the streak comes
+  // back, and from their side the button reads the same either way.
+  client.streakFree = freeRestore(pts.freezeMonth, today);
 
   // reconnect to a live game?
   if (msg.token && byToken.has(msg.token)) {
@@ -369,6 +374,7 @@ async function handleHello(client, msg) {
     streakToday: Boolean(client.streakToday),
     streakState: client.streakState || 'none',
     streakLost: client.streakLost || 0,
+    streakFree: Boolean(client.streakFree),
   });
 }
 

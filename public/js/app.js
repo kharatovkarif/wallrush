@@ -1,10 +1,10 @@
 // WallRush client app: screens, board UI, online play (WebSocket), AI mode, auth.
-import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=74';
-import { aiMove } from './ai.js?v=74';
-import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=74';
-import { rankOf, nextRank } from './ranks.js?v=74';
-import { flameClass, isMilestone } from './streak.js?v=74';
-import { checkNick, randomNick } from './nick.js?v=74';
+import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=75';
+import { aiMove } from './ai.js?v=75';
+import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=75';
+import { rankOf, nextRank } from './ranks.js?v=75';
+import { flameClass, isMilestone } from './streak.js?v=75';
+import { checkNick, randomNick } from './nick.js?v=75';
 
 /* ================= state ================= */
 const $ = (id) => document.getElementById(id);
@@ -154,7 +154,8 @@ let myStreakToday = false;
 // 'none' | 'today' | 'risk' | 'freeze' | 'lost' — the card reads differently in
 // each, because "4 days" after a missed day looks like a broken counter.
 let myStreakState = 'none';
-let myStreakLost = 0;     // days on offer to buy back, 0 when there is nothing
+let myStreakLost = 0;     // days on offer to take back, 0 when there is nothing
+let myStreakFree = false; // this month's free restore is still unspent
 let streakEvent = null;   // set when a match just advanced the streak
 let celebratedDay = 0;    // guards against showing the same milestone twice
 
@@ -177,7 +178,7 @@ function getAiWorker() {
   if (aiWorker === false) return null;
   if (!aiWorker) {
     try {
-      aiWorker = new Worker('js/ai-worker.js?v=74', { type: 'module' });
+      aiWorker = new Worker('js/ai-worker.js?v=75', { type: 'module' });
       aiWorker.onmessage = (e) => {
         const cb = aiPending.get(e.data.id);
         aiPending.delete(e.data.id);
@@ -336,6 +337,8 @@ function handleWsMessage(msg) {
       myStreakToday = Boolean(msg.streakToday);
       myStreakState = msg.streakState || 'none';
       myStreakLost = msg.streakLost || 0;
+      myStreakFree = Boolean(msg.streakFree);
+      renderStreakOffer();
       renderStreak();
       updateProfileUI();
       flushPendingJoin();   // arrived through an invite link
@@ -1553,16 +1556,18 @@ function renderStreakCard() {
   const sub = $('streak-sub');
   const restore = $('btn-restore-streak');
 
-  if (myStreakState === 'lost' && myStreakLost > 0) {
+  // The offer stands on its own: a player who already started a new run sees
+  // that run on the card and the old one waiting on the button beneath it.
+  restore.hidden = myStreakLost < 1;
+  if (myStreakLost > 0) restore.textContent = daysPhrase(myStreakLost, 'streak_restore');
+
+  if (myStreakLost > 0 && myStreak < 1) {
     flame.className = 'flame ' + flameClass(myStreakLost) + ' unlit';
     $('streak-days').textContent = daysPhrase(myStreakLost, 'streak_lost');
     sub.textContent = t('streak_lost_sub');
     $('streak-card').classList.add('cold');
-    restore.textContent = t('streak_restore');
-    restore.hidden = false;
     return;
   }
-  restore.hidden = true;
 
   const lit = myStreak > 0 && myStreakState === 'today';
   flame.className = 'flame ' + flameClass(Math.max(1, myStreak)) + (lit ? '' : ' unlit');
@@ -1570,8 +1575,7 @@ function renderStreakCard() {
   // What the player has to do today outranks the personal best — the record
   // can wait until the day is safe.
   sub.textContent = myStreak > 0
-    ? (myStreakState === 'freeze' ? t('streak_freeze')
-      : myStreakState === 'risk' ? t('streak_today')
+    ? (myStreakState === 'risk' ? t('streak_today')
       : myStreakBest > myStreak ? t('streak_best').replace('%n', myStreakBest)
       : t('streak_keep'))
     : '';
@@ -1582,19 +1586,28 @@ function renderStreakCard() {
    after it actually rendered — otherwise everyone whose ad never arrives, and
    that is a good part of this audience, would pay nothing and get it anyway,
    which makes the whole offer meaningless. */
-$('btn-restore-streak').addEventListener('click', () => {
-  const btn = $('btn-restore-streak');
-  btn.disabled = true;
-  let granted = false;
+// Both buttons do the same thing, so they share one handler.
+for (const id of ['btn-restore-streak', 'btn-restore-home']) {
+  $(id).addEventListener('click', () => startRestore());
+}
+
+/* One button, one outcome: the streak comes back. What happens underneath
+   differs — this month's first restore is free, the rest play an ad first —
+   but the player is never told which, because from their side nothing about
+   the button changed. If the ad never arrives, which is the normal case for a
+   good part of this audience, the streak is given anyway rather than held to
+   ransom over something they cannot control. */
+function startRestore() {
+  $('btn-restore-streak').disabled = true;
+  $('btn-restore-home').disabled = true;
+  if (myStreakFree) { claimStreak(); return; }
   openSupportVideo();
   const started = Date.now();
   (function waitForAd() {
-    if (granted) return;
-    if (adRendered()) { granted = true; claimStreak(); return; }
-    if (Date.now() - started > AD_WAIT_MS + 1500) { btn.disabled = false; return; }
+    if (adRendered() || Date.now() - started > AD_WAIT_MS + 1500) { claimStreak(); return; }
     setTimeout(waitForAd, 300);
   })();
-});
+}
 
 async function claimStreak() {
   try {
@@ -1607,16 +1620,35 @@ async function claimStreak() {
       body: JSON.stringify({ device: deviceId, tz: new Date().getTimezoneOffset() }),
     });
     const data = await res.json();
-    if (!data.ok) { $('btn-restore-streak').disabled = false; return; }
+    if (!data.ok) {
+      $('btn-restore-streak').disabled = false;
+      $('btn-restore-home').disabled = false;
+      return;
+    }
     myStreak = data.streak || myStreakLost;
-    myStreakState = 'risk';      // back, but still needs a game today
+    myStreakState = 'today';     // the day is closed; playing is optional now
+    myStreakToday = true;
     myStreakLost = 0;
+    myStreakFree = false;
+    closeAdOverlay();
     renderStreak();
     renderStreakCard();
+    renderStreakOffer();
     toast(t('streak_restored'));
   } catch {
     $('btn-restore-streak').disabled = false;
+    $('btn-restore-home').disabled = false;
   }
+}
+
+// The same offer on the home screen, where it is seen before a match starts.
+function renderStreakOffer() {
+  const box = $('streak-offer');
+  if (!box) return;
+  box.hidden = myStreakLost < 1;
+  if (myStreakLost < 1) return;
+  $('streak-offer-text').textContent = daysPhrase(myStreakLost, 'streak_lost');
+  $('btn-restore-home').textContent = daysPhrase(myStreakLost, 'streak_restore');
 }
 
 function celebrateStreak(days) {

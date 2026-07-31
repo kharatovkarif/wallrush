@@ -1,7 +1,7 @@
 // Supabase clients. Everything degrades gracefully when env vars are absent:
 // the game then runs in guest-only mode (no accounts, empty leaderboard).
 import { createClient } from '@supabase/supabase-js';
-import { streakState, canRestore } from '../public/js/streak.js';
+import { streakState, canRestore, freeRestore, pendingStreak } from '../public/js/streak.js';
 import { WebSocket as WsImpl } from 'ws'; // realtime transport for Node < 22 (no native WebSocket)
 
 // Values pasted from a phone often carry invisible junk (line breaks inside
@@ -76,7 +76,7 @@ export async function clearNickNotice(userId) {
    A registered player carries them on the profile; a guest carries them on the
    device row, which is the only identity 94% of players ever have. */
 
-const BLANK = { points: 0, veteran: false, streak: 0, streakBest: 0, streakDay: null, freezeMonth: null };
+const BLANK = { points: 0, veteran: false, streak: 0, streakBest: 0, streakDay: null, freezeMonth: null, streakPrev: 0 };
 
 export async function getPoints({ userId, deviceId }) {
   if (!dbEnabled) return { ...BLANK };
@@ -87,16 +87,17 @@ export async function getPoints({ userId, deviceId }) {
     streakBest: d?.streak_best || 0,
     streakDay: d?.streak_day || null,
     freezeMonth: d?.freeze_month || null,
+    streakPrev: d?.streak_prev || 0,
   });
   try {
     if (userId) {
       const { data } = await supa.from('profiles')
-        .select('points, streak, streak_best, streak_day, freeze_month').eq('id', userId).maybeSingle();
+        .select('points, streak, streak_best, streak_day, freeze_month, streak_prev').eq('id', userId).maybeSingle();
       return shape(data, false);
     }
     if (deviceId) {
       const { data } = await supa.from('visitors')
-        .select('points, veteran, streak, streak_best, streak_day, freeze_month')
+        .select('points, veteran, streak, streak_best, streak_day, freeze_month, streak_prev')
         .eq('device_id', deviceId).maybeSingle();
       return shape(data, Boolean(data?.veteran));
     }
@@ -106,13 +107,18 @@ export async function getPoints({ userId, deviceId }) {
   return { ...BLANK };
 }
 
-/* Buys a lost streak back. Nothing is stored about lost streaks — the row
-   already holds the number and the day it stopped, so moving that day to
-   yesterday is all it takes for the next game to continue the run.
+/* Puts a broken streak back. Nothing extra is stored: the row already holds
+   the number and the day it stopped, so marking today as closed is the whole
+   restore. The number is not increased — the button saves a streak, it does
+   not grow one, or "days in a row" would come to mean days of pressing a
+   button rather than days of playing.
 
-   The rules are checked here rather than trusted from the client: the streak
-   must genuinely be lost, and lost recently. Repeating the call is harmless,
-   because after the first one the streak is no longer lost. */
+   The first restore of a month is free and spends that month's allowance. The
+   rest are earned by watching an ad, which the client handles before calling.
+
+   Everything is decided against the stored row rather than trusted from the
+   client, and calling twice is harmless: after the first one the streak is no
+   longer broken. */
 export async function restoreStreak({ userId, deviceId }, today) {
   if (!dbEnabled || !today) return null;
   const table = userId ? 'profiles' : 'visitors';
@@ -121,13 +127,19 @@ export async function restoreStreak({ userId, deviceId }, today) {
   if (!key) return null;
   try {
     const { data } = await supa.from(table)
-      .select('streak, streak_day, freeze_month').eq(col, key).maybeSingle();
+      .select('streak, streak_prev, streak_day, freeze_month').eq(col, key).maybeSingle();
     if (!data) return null;
-    if (streakState(data.streak_day, today, data.freeze_month) !== 'lost') return null;
-    if (!canRestore(data.streak_day, today, data.streak || 0)) return null;
-    const yesterday = new Date(Date.parse(today) - 86400000).toISOString().slice(0, 10);
-    await supa.from(table).update({ streak_day: yesterday }).eq(col, key);
-    return { streak: data.streak || 0 };
+    const offer = pendingStreak(data, today);
+    if (!offer) return null;
+    if (!canRestore(data.streak_day, today, offer)) return null;
+    const wasFree = freeRestore(data.freeze_month, today);
+    await supa.from(table).update({
+      streak: offer,
+      streak_prev: 0,
+      streak_day: today,
+      ...(wasFree ? { freeze_month: today.slice(0, 7) } : {}),
+    }).eq(col, key);
+    return { streak: offer, wasFree };
   } catch (e) {
     console.error('restoreStreak failed:', e.message);
     return null;
