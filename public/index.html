@@ -12,7 +12,7 @@
   <!-- Opens the connection to the ad host early. Costs one handshake and no
        download, and takes that handshake off the wait once Support is tapped. -->
   <link rel="preconnect" href="https://js.onclckmn.com" crossorigin>
-  <link rel="stylesheet" href="css/style.css?v=76">
+  <link rel="stylesheet" href="css/style.css?v=77">
 </head>
 <body>
   <div id="app">
@@ -588,6 +588,24 @@
           <label class="toggle"><input type="checkbox" id="theme-toggle"><span></span></label>
         </div>
       </div>
+
+      <!-- HilltopAds 300x250 banner, its own ad code so this slot is measured
+           separately from the one on the leaderboard. Below the settings: the
+           profile is read from the top down, and nothing here is in the way. -->
+      <div class="ad-slot ad-slot-lg" aria-hidden="true">
+        <script>
+        (function(usypz){
+        var d = document,
+            s = d.createElement('script'),
+            l = d.scripts[d.scripts.length - 1];
+        s.settings = usypz || {};
+        s.src = "\/\/massivesalad.com\/bVXGV.sZdXGplL0oYoWmcJ\/Ie\/mg9\/uAZdUZl\/k\/PyTJcMyfN\/zBQv5KNmzDM\/t-NfzZIt3pNjDMk\/3vNYwP";
+        s.async = true;
+        s.referrerPolicy = 'no-referrer-when-downgrade';
+        l.parentNode.insertBefore(s, l);
+        })({})
+        </script>
+      </div>
     </section>
 
     <!-- ============ BOTTOM NAV ============ -->
@@ -606,7 +624,7 @@
     <div id="toast" hidden></div>
   </div>
 
-  <script src="vendor/supabase.js?v=76" defer></script>
-  <script type="module" src="js/app.js?v=76"></script>
+  <script src="vendor/supabase.js?v=77" defer></script>
+  <script type="module" src="js/app.js?v=77"></script>
 </body>
 </html>
