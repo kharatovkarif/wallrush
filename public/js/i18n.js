@@ -131,6 +131,7 @@ export const I18N = {
     streak_milestone: '%n %u подряд!',
     streak_wow: 'Так держать — не потеряй серию!',
     ok_word: 'Отлично',
+    later_word: 'Позже',
     profile_title: 'Профиль',
     guest_hint: 'Ты играешь как гость. Очки хранятся на этом устройстве — зарегистрируйся, чтобы не потерять их и попасть в таблицу лидеров.',
     stats_games: 'Игр',
@@ -347,6 +348,7 @@ export const I18N = {
     streak_milestone: '%n %u in a row!',
     streak_wow: 'Keep it going — do not lose the streak!',
     ok_word: 'Nice',
+    later_word: 'Later',
     profile_title: 'Profile',
     guest_hint: 'You play as a guest. Your points live on this device — sign up so you never lose them and join the leaderboard.',
     stats_games: 'Games',
@@ -448,7 +450,7 @@ export const LANGS = [
 export const LANG_CODES = LANGS.map((l) => l.code);
 export const RTL = new Set(['fa']);
 
-const V = '77';
+const V = '78';
 
 // Loads a translation file on demand. Safe to call repeatedly and safe to fail:
 // if the request never lands, makeT keeps falling back to English.

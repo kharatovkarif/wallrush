@@ -12,7 +12,7 @@
   <!-- Opens the connection to the ad host early. Costs one handshake and no
        download, and takes that handshake off the wait once Support is tapped. -->
   <link rel="preconnect" href="https://js.onclckmn.com" crossorigin>
-  <link rel="stylesheet" href="css/style.css?v=77">
+  <link rel="stylesheet" href="css/style.css?v=78">
 </head>
 <body>
   <div id="app">
@@ -36,21 +36,15 @@
         <p class="tagline" data-i18n="tagline"></p>
         <div class="head-pills">
           <div class="online-pill"><span class="dot"></span><b id="online-count">0</b>&nbsp;<span data-i18n="online_count"></span></div>
-          <!-- the streak is the reason to come back tomorrow, so it greets you -->
-          <div class="streak-pill" id="streak-pill" hidden>
+          <!-- the streak is the reason to come back tomorrow, so it greets you.
+               When it has been broken the flame stays here, grey, and tapping
+               it opens the offer to get it back — a banner across the home
+               screen was louder than the thing it was offering. -->
+          <button class="streak-pill" id="streak-pill" hidden>
             <span class="flame fl-1" id="streak-flame">🔥</span><b id="streak-count">0</b>
-          </div>
+          </button>
         </div>
       </header>
-
-      <!-- A broken streak is offered back here as well as in the profile: this
-           is the screen a returning player actually looks at, and the offer has
-           to be seen before they start a match, not after. -->
-      <div class="streak-offer" id="streak-offer" hidden>
-        <span class="flame fl-1 unlit">🔥</span>
-        <b id="streak-offer-text"></b>
-        <button class="btn-restore" id="btn-restore-home"></button>
-      </div>
 
       <div class="cards">
         <button class="card card-primary" id="btn-quick">
@@ -479,6 +473,19 @@
       </div>
     </div>
 
+    <!-- ============ STREAK BROKEN (opened by tapping the flame) ============ -->
+    <div class="overlay" id="overlay-streak-lost" hidden>
+      <div class="modal">
+        <span class="flame fl-1 unlit cel-flame" id="lost-flame">🔥</span>
+        <h2 id="lost-title"></h2>
+        <p class="hint" id="lost-sub"></p>
+        <div class="modal-buttons">
+          <button class="btn-big btn-restore" id="btn-restore-home"></button>
+          <button class="btn-big btn-outline" id="btn-lost-close" data-i18n="later_word"></button>
+        </div>
+      </div>
+    </div>
+
     <!-- ============ LEADERBOARD ============ -->
     <section class="screen" id="screen-leaderboard">
       <header class="sub-head center">
@@ -624,7 +631,7 @@
     <div id="toast" hidden></div>
   </div>
 
-  <script src="vendor/supabase.js?v=77" defer></script>
-  <script type="module" src="js/app.js?v=77"></script>
+  <script src="vendor/supabase.js?v=78" defer></script>
+  <script type="module" src="js/app.js?v=78"></script>
 </body>
 </html>

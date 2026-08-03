@@ -400,7 +400,11 @@ html[data-theme="dark"] .soc-tt { box-shadow: inset 0 0 0 1px #2f3550, var(--sha
     0 1px 0 12px #98a5c0,
     0 26px 46px rgba(45, 65, 120, .32),
     inset 0 2px 6px rgba(120, 135, 175, .25);
-  touch-action: none;
+  /* pan-y, not none: with none the browser refuses to scroll while the finger
+     is on the board, so the emoji row below it could not be reached during a
+     game. Tapping a cell still works — a touch that travels more than 14px is
+     already treated as a scroll rather than a move. */
+  touch-action: pan-y;
 }
 /* pencil grid over one continuous surface, like the competitor */
 .grid-line { position: absolute; z-index: 1; pointer-events: none; background: rgba(95, 115, 165, .30); }
@@ -697,16 +701,13 @@ a.btn-big { text-decoration: none; display: block; }
 .btn-restore {
   margin-top: 10px; background: #e8f1ff; color: #1a4f9c; border: 1px solid #c2dbff;
 }
-/* The same offer on the home screen, laid out in a row so it sits between the
-   header and the play buttons without pushing the game down the page. */
-.streak-offer {
-  display: flex; align-items: center; gap: 10px; margin: 4px auto 0;
-  width: min(100%, 520px); padding: 10px 12px;
-  background: var(--card); border-radius: 16px; box-shadow: var(--shadow);
-}
-.streak-offer b { flex: 1; font-size: 14px; font-weight: 600; }
-.streak-offer .flame { font-size: 22px; }
-.streak-offer .btn-restore { margin: 0; padding: 8px 14px; font-size: 14px; width: auto; white-space: nowrap; }
+/* The flame is a button now. When the streak is broken it stays on the home
+   screen, grey, and a soft ring says there is something behind it. */
+.streak-pill { border: none; font: inherit; color: inherit; cursor: default; }
+.streak-pill.broken { cursor: pointer; box-shadow: var(--shadow), 0 0 0 2px rgba(47, 109, 246, .35); }
+.streak-pill.broken:active { transform: scale(.95); }
+#overlay-streak-lost .flame { font-size: 56px; animation: none; }
+#overlay-streak-lost h2 { font-size: 20px; margin-top: 6px; }
 html[data-theme="dark"] .btn-restore { background: #1d2b46; color: #9fc8ff; border-color: #2c3f63; }
 .streak-card .flame { font-size: 26px; }
 .streak-meta { min-width: 0; }

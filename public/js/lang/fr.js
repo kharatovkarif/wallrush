@@ -130,6 +130,7 @@ export default {
   streak_milestone: '%n %u d’affilée !',
   streak_wow: 'Continue comme ça — ne perds pas ta série !',
   ok_word: 'Super',
+  later_word: 'Plus tard',
   profile_title: 'Profil',
   guest_hint: 'Tu joues en invité. Tes points sont gardés sur cet appareil — inscris-toi pour ne jamais les perdre et entrer au classement.',
   stats_games: 'Parties',

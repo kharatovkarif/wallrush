@@ -1,10 +1,10 @@
 // WallRush client app: screens, board UI, online play (WebSocket), AI mode, auth.
-import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=77';
-import { aiMove } from './ai.js?v=77';
-import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=77';
-import { rankOf, nextRank } from './ranks.js?v=77';
-import { flameClass, isMilestone } from './streak.js?v=77';
-import { checkNick, randomNick } from './nick.js?v=77';
+import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=78';
+import { aiMove } from './ai.js?v=78';
+import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=78';
+import { rankOf, nextRank } from './ranks.js?v=78';
+import { flameClass, isMilestone } from './streak.js?v=78';
+import { checkNick, randomNick } from './nick.js?v=78';
 
 /* ================= state ================= */
 const $ = (id) => document.getElementById(id);
@@ -156,6 +156,9 @@ let myStreakToday = false;
 let myStreakState = 'none';
 let myStreakLost = 0;     // days on offer to take back, 0 when there is nothing
 let myStreakFree = false; // this month's free restore is still unspent
+// Below this there is nothing worth buying back: "get 1 day back" reads as a
+// joke, and the day is quicker to replay than to think about.
+const MIN_RESTORE_DAYS = 3;
 let streakEvent = null;   // set when a match just advanced the streak
 let celebratedDay = 0;    // guards against showing the same milestone twice
 
@@ -178,7 +181,7 @@ function getAiWorker() {
   if (aiWorker === false) return null;
   if (!aiWorker) {
     try {
-      aiWorker = new Worker('js/ai-worker.js?v=77', { type: 'module' });
+      aiWorker = new Worker('js/ai-worker.js?v=78', { type: 'module' });
       aiWorker.onmessage = (e) => {
         const cb = aiPending.get(e.data.id);
         aiPending.delete(e.data.id);
@@ -1529,11 +1532,34 @@ const daysPhrase = (n, key = 'streak_days') =>
 // before they have done anything.
 function renderStreak() {
   const pill = $('streak-pill');
-  pill.hidden = myStreak < 1;
-  if (myStreak < 1) return;
-  $('streak-count').textContent = myStreak;
-  $('streak-flame').className = 'flame ' + flameClass(myStreak) + (myStreakState === 'today' ? '' : ' unlit');
+  const offer = restorable();
+  const days = myStreak > 0 ? myStreak : offer;
+  pill.hidden = days < 1;
+  pill.classList.toggle('broken', myStreak < 1 && offer > 0);
+  if (days < 1) return;
+  $('streak-count').textContent = days;
+  const lit = myStreak > 0 && myStreakState === 'today';
+  $('streak-flame').className = 'flame ' + flameClass(days) + (lit ? '' : ' unlit');
 }
+
+// What the flame offers back, or 0 when there is nothing worth offering.
+function restorable() {
+  return myStreakLost >= MIN_RESTORE_DAYS ? myStreakLost : 0;
+}
+
+$('streak-pill').addEventListener('click', () => {
+  if (!restorable()) return;
+  $('lost-flame').className = 'flame ' + flameClass(myStreakLost) + ' unlit cel-flame';
+  $('lost-title').textContent = daysPhrase(myStreakLost, 'streak_lost');
+  $('lost-sub').textContent = t('streak_lost_sub');
+  $('btn-restore-home').textContent = daysPhrase(myStreakLost, 'streak_restore');
+  $('btn-restore-home').disabled = false;
+  $('overlay-streak-lost').hidden = false;
+});
+$('btn-lost-close').addEventListener('click', () => { $('overlay-streak-lost').hidden = true; });
+$('overlay-streak-lost').addEventListener('click', (e) => {
+  if (e.target === $('overlay-streak-lost')) $('overlay-streak-lost').hidden = true;
+});
 
 // One line on the result screen — and on a milestone day, a celebration over
 // the top of it. A week of coming back should not pass as one more grey line.
@@ -1558,10 +1584,10 @@ function renderStreakCard() {
 
   // The offer stands on its own: a player who already started a new run sees
   // that run on the card and the old one waiting on the button beneath it.
-  restore.hidden = myStreakLost < 1;
-  if (myStreakLost > 0) restore.textContent = daysPhrase(myStreakLost, 'streak_restore');
+  restore.hidden = !restorable();
+  if (restorable()) restore.textContent = daysPhrase(myStreakLost, 'streak_restore');
 
-  if (myStreakLost > 0 && myStreak < 1) {
+  if (restorable() && myStreak < 1) {
     flame.className = 'flame ' + flameClass(myStreakLost) + ' unlit';
     $('streak-days').textContent = daysPhrase(myStreakLost, 'streak_lost');
     sub.textContent = t('streak_lost_sub');
@@ -1641,15 +1667,7 @@ async function claimStreak() {
   }
 }
 
-// The same offer on the home screen, where it is seen before a match starts.
-function renderStreakOffer() {
-  const box = $('streak-offer');
-  if (!box) return;
-  box.hidden = myStreakLost < 1;
-  if (myStreakLost < 1) return;
-  $('streak-offer-text').textContent = daysPhrase(myStreakLost, 'streak_lost');
-  $('btn-restore-home').textContent = daysPhrase(myStreakLost, 'streak_restore');
-}
+function renderStreakOffer() { $('overlay-streak-lost').hidden = true; }
 
 function celebrateStreak(days) {
   if (celebratedDay === days) return;   // already shown for this milestone
