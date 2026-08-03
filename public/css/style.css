@@ -2,6 +2,28 @@
 * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 [hidden] { display: none !important; }
 
+/* ---------- how a touch feels ----------
+   Two things were making every tap read as slightly late.
+
+   `manipulation` tells the browser this element will never be double-tapped
+   to zoom, so it stops holding the tap back to find out — that wait is a few
+   hundred milliseconds on the elements that lacked it.
+
+   And the press animation ran on the same .15s easing as the release, so the
+   button was still shrinking after the finger had already moved on. Pressing
+   is now instant and only the spring back is animated: the shape follows the
+   finger down and eases up behind it. */
+button, a, label, .card, .cell.legal, [role="button"] { touch-action: manipulation; }
+.card, .btn-big, .side-btn, .btn-support, .soc, .lang-fab, .streak-pill,
+.flame-btn, .cr-opts button, .wallet button, .rp-btn, .nav-btn, .btn-back {
+  transition: transform .16s cubic-bezier(.2, .8, .3, 1);
+}
+.card:active, .btn-big:active, .side-btn:active, .btn-support:active, .soc:active,
+.lang-fab:active, .streak-pill:active, .flame-btn:active, .cr-opts button:active,
+.wallet button:active, .rp-btn:active, .nav-btn:active, .btn-back:active {
+  transition-duration: 0s;
+}
+
 :root {
   --bg: #eef1f7;
   --bg2: #e2e7f2;
@@ -276,13 +298,27 @@ html[data-theme="dark"] .legal-links span { color: #333c5c; }
 /* social links (home footer): brand-colored app-style tiles */
 .social-block { margin: 24px 0 6px; }
 .social-label { text-align: center; color: var(--muted); font-size: 12px; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 12px; }
-.social-row { display: flex; justify-content: center; gap: 16px; }
-.soc { width: 50px; height: 50px; border-radius: 15px; display: grid; place-items: center; box-shadow: var(--shadow); transition: transform .15s ease; }
+.social-row { display: flex; justify-content: center; gap: 14px; }
+.soc {
+  width: 54px; height: 54px; border-radius: 17px; display: grid; place-items: center;
+  position: relative; overflow: hidden;
+  box-shadow: var(--shadow);
+}
+/* a soft sheen across the top corner, so the three tiles read as objects with
+   a surface rather than three flat colour swatches */
+.soc::before {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(150deg, rgba(255,255,255,.28), rgba(255,255,255,0) 55%);
+  pointer-events: none;
+}
 .soc:active { transform: scale(.9); }
-.soc svg { width: 27px; height: 27px; }
-.soc-ig { background: linear-gradient(45deg, #f9ce34 5%, #ee2a7b 45%, #6228d7 95%); }
-.soc-tt { background: #010101; }
-.soc-yt { background: #ff0000; }
+.soc svg { width: 29px; height: 29px; position: relative; }
+.soc-ig { background: radial-gradient(circle at 28% 100%, #ffd776 0%, #f9ce34 12%, #ee2a7b 52%, #a134c9 76%, #6228d7 100%); }
+.soc-tt { background: #0d0d12; }
+.soc-yt { background: linear-gradient(180deg, #ff2a2a, #d90000); }
+/* On a dark background a near-black tile disappears and TikTok became a
+   floating glyph. A hairline edge gives it back its shape. */
+html[data-theme="dark"] .soc { box-shadow: var(--shadow), inset 0 0 0 1px rgba(255,255,255,.12); }
 html[data-theme="dark"] .soc-tt { box-shadow: inset 0 0 0 1px #2f3550, var(--shadow); }
 .btn-danger { background: linear-gradient(120deg, #ff6b6b, #e0455e); box-shadow: 0 6px 18px rgba(255, 90, 90, .35); }
 .btn-link { background: none; border: none; color: var(--violet); font: inherit; font-size: 14px; cursor: pointer; padding: 6px; }
@@ -429,7 +465,12 @@ html[data-theme="dark"] .soc-tt { box-shadow: inset 0 0 0 1px #2f3550, var(--sha
   content: ''; position: absolute; inset: 33%; border-radius: 50%;
   box-shadow: inset -2px -3px 4px rgba(0,0,0,.3), inset 1px 2px 3px rgba(255,255,255,.5), 0 2px 4px rgba(0,0,0,.25);
   animation: hintPop .25s ease;
+  transition: transform .12s ease-out;
 }
+/* The move itself is instant, but until the finger lifts nothing under it
+   moved — so the tap read as ignored for a moment. The dot now answers the
+   touch immediately, with no wait for the move to resolve. */
+.cell.legal:active::after { transform: scale(1.45); transition-duration: 0s; }
 @keyframes hintPop { from { transform: scale(.4); opacity: 0; } }
 #board.my-blue .cell.legal::after { background: radial-gradient(circle at 32% 28%, #9cc1ff, #2f6df6 65%, #1d4fbd); }
 #board.my-red .cell.legal::after { background: radial-gradient(circle at 32% 28%, #ffa3ac, #e33d52 65%, #b02338); }

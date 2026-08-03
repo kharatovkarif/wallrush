@@ -12,7 +12,7 @@
   <!-- Opens the connection to the ad host early. Costs one handshake and no
        download, and takes that handshake off the wait once Support is tapped. -->
   <link rel="preconnect" href="https://js.onclckmn.com" crossorigin>
-  <link rel="stylesheet" href="css/style.css?v=84">
+  <link rel="stylesheet" href="css/style.css?v=85">
 </head>
 <body>
   <div id="app">
@@ -84,7 +84,9 @@
         <p class="social-label" data-i18n="follow_us"></p>
         <div class="social-row">
           <a class="soc soc-ig" href="https://www.instagram.com/wall_rush_" target="_blank" rel="noopener noreferrer" aria-label="Instagram">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2.6" y="2.6" width="18.8" height="18.8" rx="5.4" fill="none" stroke="#fff" stroke-width="2"/><circle cx="12" cy="12" r="4.4" fill="none" stroke="#fff" stroke-width="2"/><circle cx="17.4" cy="6.6" r="1.4" fill="#fff"/></svg>
+            <!-- outline glyph next to two solid ones: the strokes are heavier
+                 than the real mark so all three read at the same weight -->
+            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2.7" y="2.7" width="18.6" height="18.6" rx="5.6" fill="none" stroke="#fff" stroke-width="2.4"/><circle cx="12" cy="12" r="4.5" fill="none" stroke="#fff" stroke-width="2.4"/><circle cx="17.5" cy="6.5" r="1.5" fill="#fff"/></svg>
           </a>
           <a class="soc soc-tt" href="https://www.tiktok.com/@wall_rush_" target="_blank" rel="noopener noreferrer" aria-label="TikTok">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#fff" d="M21 8.6a6.9 6.9 0 0 1-4.4-1.6v6.9a5.9 5.9 0 1 1-5.9-5.9c.3 0 .6 0 .9.1v3a2.9 2.9 0 1 0 2 2.8V2.2h2.9A4.1 4.1 0 0 0 21 6.2z"/></svg>
@@ -709,7 +711,7 @@
     <div id="toast" hidden></div>
   </div>
 
-  <script src="vendor/supabase.js?v=84" defer></script>
-  <script type="module" src="js/app.js?v=84"></script>
+  <script src="vendor/supabase.js?v=85" defer></script>
+  <script type="module" src="js/app.js?v=85"></script>
 </body>
 </html>

@@ -1,10 +1,10 @@
 // WallRush client app: screens, board UI, online play (WebSocket), AI mode, auth.
-import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=84';
-import { aiMove } from './ai.js?v=84';
-import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=84';
-import { rankOf, nextRank } from './ranks.js?v=84';
-import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=84';
-import { checkNick, randomNick } from './nick.js?v=84';
+import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=85';
+import { aiMove } from './ai.js?v=85';
+import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=85';
+import { rankOf, nextRank } from './ranks.js?v=85';
+import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=85';
+import { checkNick, randomNick } from './nick.js?v=85';
 
 /* ================= state ================= */
 const $ = (id) => document.getElementById(id);
@@ -181,7 +181,7 @@ function getAiWorker() {
   if (aiWorker === false) return null;
   if (!aiWorker) {
     try {
-      aiWorker = new Worker('js/ai-worker.js?v=84', { type: 'module' });
+      aiWorker = new Worker('js/ai-worker.js?v=85', { type: 'module' });
       aiWorker.onmessage = (e) => {
         const cb = aiPending.get(e.data.id);
         aiPending.delete(e.data.id);
@@ -297,6 +297,11 @@ document.querySelectorAll('.nav-btn').forEach(b =>
   b.addEventListener('click', () => show(b.dataset.screen)));
 document.querySelectorAll('[data-back]').forEach(b =>
   b.addEventListener('click', () => show('screen-home')));
+
+// Safari on iOS applies :active only on pages that listen for touches at all.
+// Without this one empty listener every button on an iPhone stayed flat under
+// the finger and the whole app felt a beat behind.
+document.addEventListener('touchstart', () => {}, { passive: true });
 
 /* ================= WebSocket ================= */
 let reconnectDelay = 500;
