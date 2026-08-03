@@ -12,7 +12,7 @@
   <!-- Opens the connection to the ad host early. Costs one handshake and no
        download, and takes that handshake off the wait once Support is tapped. -->
   <link rel="preconnect" href="https://js.onclckmn.com" crossorigin>
-  <link rel="stylesheet" href="css/style.css?v=80">
+  <link rel="stylesheet" href="css/style.css?v=81">
 </head>
 <body>
   <div id="app">
@@ -178,24 +178,55 @@
       </div>
     </div>
 
-    <!-- ============ ADVERTISE WITH US (overlay) ============ -->
-    <div class="overlay" id="overlay-ads" hidden>
-      <div class="modal">
-        <div class="modal-emoji">📣</div>
-        <h2 data-i18n="ads_title"></h2>
-        <p class="hint" data-i18n="ads_intro"></p>
+    <!-- ============ ADVERTISE WITH US ============ -->
+    <!-- A screen of its own rather than a box floating over a blurred menu.
+         This is the one page a possible advertiser reads end to end, so it
+         gets the whole width: what the audience is, in numbers, before what
+         can be bought. -->
+    <section class="screen" id="screen-ads">
+      <header class="sub-head">
+        <button class="btn-back" data-back>‹</button>
+        <h2 data-i18n="ads_short_plain"></h2>
+      </header>
+
+      <div class="ads-page">
+        <div class="ads-hero">
+          <div class="modal-emoji">📣</div>
+          <h3 data-i18n="ads_title"></h3>
+          <p class="hint" data-i18n="ads_intro"></p>
+        </div>
+
+        <!-- The numbers come first: an advertiser decides on reach, and
+             sending them away to ask for it loses most of them. Deliberately
+             rounded down — every one of them holds on the game's worst day. -->
+        <div class="ads-stats">
+          <div class="ads-stat"><b>5 000+</b><small data-i18n="ads_l_day"></small></div>
+          <div class="ads-stat"><b>50 000+</b><small data-i18n="ads_l_month"></small></div>
+          <div class="ads-stat"><b>10 000+</b><small data-i18n="ads_l_match"></small></div>
+          <div class="ads-stat"><b>30+</b><small data-i18n="ads_l_geo"></small></div>
+        </div>
+
         <div class="fmt-list">
+          <div class="fmt"><span class="fmt-ico">🌍</span><div><b data-i18n="ads_f0"></b><small data-i18n="ads_f0_sub"></small></div></div>
           <div class="fmt"><span class="fmt-ico">🖼️</span><div><b data-i18n="ads_f1"></b><small data-i18n="ads_f1_sub"></small></div></div>
           <div class="fmt"><span class="fmt-ico">🤝</span><div><b data-i18n="ads_f2"></b><small data-i18n="ads_f2_sub"></small></div></div>
           <div class="fmt"><span class="fmt-ico">🎯</span><div><b data-i18n="ads_f3"></b><small data-i18n="ads_f3_sub"></small></div></div>
         </div>
-        <p class="opt-foot" data-i18n="ads_foot"></p>
-        <div class="modal-buttons">
+
+        <div class="ads-cta">
+          <b data-i18n="ads_cta"></b>
+          <p class="hint" data-i18n="ads_foot"></p>
           <a class="btn-big" id="ads-contact" href="https://t.me/Karoboev" target="_blank" rel="noopener noreferrer" data-i18n="ads_contact"></a>
-          <button class="btn-big btn-outline" id="ads-close" data-i18n="legal_close"></button>
+          <!-- both routes spelled out, and the address itself is the link:
+               people who prefer email want to see it, not a word to tap -->
+          <p class="ads-ways">
+            <a href="https://t.me/Karoboev" target="_blank" rel="noopener noreferrer">✈️ Telegram</a>
+            <span>·</span>
+            <a href="mailto:kharatovkarif@gmail.com?subject=WallRush%20—%20advertising">✉️ kharatovkarif@gmail.com</a>
+          </p>
         </div>
       </div>
-    </div>
+    </section>
 
     <!-- ============ LANGUAGE PICKER (overlay) ============ -->
     <div class="overlay" id="overlay-lang" hidden>
@@ -654,7 +685,7 @@
     <div id="toast" hidden></div>
   </div>
 
-  <script src="vendor/supabase.js?v=80" defer></script>
-  <script type="module" src="js/app.js?v=80"></script>
+  <script src="vendor/supabase.js?v=81" defer></script>
+  <script type="module" src="js/app.js?v=81"></script>
 </body>
 </html>

@@ -644,6 +644,35 @@ a.btn-big { text-decoration: none; display: block; }
 .fmt b { display: block; font-size: 14px; }
 .fmt small { display: block; color: var(--muted); font-size: 12px; line-height: 1.4; margin-top: 2px; }
 
+/* ---------- the advertising page ---------- */
+.ads-hero { text-align: center; margin-bottom: 18px; }
+.ads-hero h3 { font-size: 22px; text-wrap: balance; }
+.ads-hero .hint { margin-top: 6px; font-size: 15px; text-wrap: balance; }
+.ads-hero .modal-emoji { font-size: 40px; margin-bottom: 8px; }
+
+/* Reach, up front and in two columns — the first thing an advertiser looks
+   for, and the reason most of them stop reading if they cannot find it. */
+.ads-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
+.ads-stat {
+  background: var(--bg2); border-radius: 14px; padding: 13px 12px; text-align: center;
+}
+/* "5 000+" is one left-to-right token even in Persian — without the isolation
+   the browser reorders it to "+000 5" */
+.ads-stat b {
+  display: block; font-size: 21px; line-height: 1.1; color: var(--blue);
+  direction: ltr; unicode-bidi: isolate;
+}
+.ads-stat small { display: block; color: var(--muted); font-size: 12px; line-height: 1.35; margin-top: 3px; }
+
+.ads-cta { margin-top: 22px; text-align: center; }
+.ads-cta > b { display: block; font-size: 17px; }
+.ads-cta .hint { margin: 6px 0 14px; text-wrap: balance; }
+.ads-ways {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: center;
+  gap: 8px; margin-top: 12px; font-size: 13px; color: var(--muted);
+}
+.ads-ways a { color: var(--blue); text-decoration: none; word-break: break-all; }
+
 /* ============ daily streak ============ */
 /* The flame never becomes a different object — it is recoloured and grown, so
    each tier reads as the same fire levelling up rather than a new trophy. */
@@ -735,11 +764,13 @@ a.btn-big { text-decoration: none; display: block; }
 .flame-list li {
   display: inline-flex; align-items: center; gap: 5px; font-size: 13px;
   background: var(--bg2); border-radius: 999px; padding: 5px 10px;
+  /* ranges and milestone lists read low-to-high in every language */
+  direction: ltr; unicode-bidi: isolate;
 }
 /* the tier the player is on right now */
 .flame-list li.now { box-shadow: inset 0 0 0 2px var(--blue); font-weight: 700; }
 .flame-list .flame { font-size: 18px; }
-.milestones { font-weight: 700; font-size: 15px; }
+.milestones { font-weight: 700; font-size: 15px; direction: ltr; unicode-bidi: isolate; }
 html[data-theme="dark"] .btn-restore { background: #1d2b46; color: #9fc8ff; border-color: #2c3f63; }
 .streak-card .flame { font-size: 26px; }
 .streak-meta { min-width: 0; }

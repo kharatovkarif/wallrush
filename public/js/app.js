@@ -1,10 +1,10 @@
 // WallRush client app: screens, board UI, online play (WebSocket), AI mode, auth.
-import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=80';
-import { aiMove } from './ai.js?v=80';
-import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=80';
-import { rankOf, nextRank } from './ranks.js?v=80';
-import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=80';
-import { checkNick, randomNick } from './nick.js?v=80';
+import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=81';
+import { aiMove } from './ai.js?v=81';
+import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=81';
+import { rankOf, nextRank } from './ranks.js?v=81';
+import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=81';
+import { checkNick, randomNick } from './nick.js?v=81';
 
 /* ================= state ================= */
 const $ = (id) => document.getElementById(id);
@@ -181,7 +181,7 @@ function getAiWorker() {
   if (aiWorker === false) return null;
   if (!aiWorker) {
     try {
-      aiWorker = new Worker('js/ai-worker.js?v=80', { type: 'module' });
+      aiWorker = new Worker('js/ai-worker.js?v=81', { type: 'module' });
       aiWorker.onmessage = (e) => {
         const cb = aiPending.get(e.data.id);
         aiPending.delete(e.data.id);
@@ -1349,8 +1349,7 @@ $('wallet-copy').addEventListener('click', async () => {
   setTimeout(() => { b.textContent = t('copy'); }, 2000);
 });
 
-$('btn-open-ads').addEventListener('click', () => { $('overlay-ads').hidden = false; });
-$('ads-close').addEventListener('click', () => { $('overlay-ads').hidden = true; });
+$('btn-open-ads').addEventListener('click', () => show('screen-ads'));
 
 $('btn-to-menu').addEventListener('click', () => {
   if (game?.mode === 'online') wsSend({ t: 'rematch', yes: false });
