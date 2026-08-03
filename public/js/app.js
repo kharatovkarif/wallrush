@@ -1,10 +1,10 @@
 // WallRush client app: screens, board UI, online play (WebSocket), AI mode, auth.
-import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=85';
-import { aiMove } from './ai.js?v=85';
-import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=85';
-import { rankOf, nextRank } from './ranks.js?v=85';
-import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=85';
-import { checkNick, randomNick } from './nick.js?v=85';
+import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=86';
+import { aiMove } from './ai.js?v=86';
+import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=86';
+import { rankOf, nextRank } from './ranks.js?v=86';
+import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=86';
+import { checkNick, randomNick } from './nick.js?v=86';
 
 /* ================= state ================= */
 const $ = (id) => document.getElementById(id);
@@ -97,6 +97,47 @@ function runsInstalled() {
   } catch { return false; }
 }
 
+/* Where a player came from, worked out once and then kept forever.
+
+   A tagged link wins: wallrush.online/?f=tt is put in the TikTok bio and
+   nothing can be confused with anything else. Where there is no tag we fall
+   back to who sent them — enough to tell Google from a random forum.
+
+   First touch only. Somebody who arrives from Instagram and comes back the
+   next day by typing the address is still an Instagram player; overwriting
+   would quietly turn every returning visitor into "direct" and make the whole
+   table say that nothing works. */
+const SRC_HOSTS = [
+  [/instagram|ig\.me/, 'instagram'], [/tiktok|musical\.ly/, 'tiktok'],
+  [/youtube|youtu\.be/, 'youtube'], [/facebook|fb\.com|fb\.me/, 'facebook'],
+  [/t\.me|telegram/, 'telegram'], [/google\./, 'google'],
+  [/yandex\./, 'yandex'], [/bing\./, 'bing'], [/duckduckgo/, 'duckduckgo'],
+  [/reddit/, 'reddit'], [/discord/, 'discord'], [/twitter|x\.com/, 'twitter'],
+  [/pinterest/, 'pinterest'], [/whatsapp/, 'whatsapp'],
+];
+
+function trafficSource() {
+  const saved = localStorage.getItem('wr_src');
+  if (saved) return saved;
+  let src = '';
+  try {
+    const q = new URLSearchParams(location.search);
+    // ?f= is ours and short enough to type; utm_source is what every other
+    // tool writes, so both are read
+    const tag = (q.get('f') || q.get('utm_source') || '').toLowerCase();
+    if (/^[a-z0-9_-]{1,24}$/.test(tag)) src = tag;
+    if (!src && document.referrer) {
+      const host = new URL(document.referrer).hostname;
+      if (host && host !== location.hostname) {
+        src = (SRC_HOSTS.find(([re]) => re.test(host)) || [])[1] || 'ref:' + host.replace(/^www\./, '').slice(0, 32);
+      }
+    }
+    if (!src) src = 'direct';
+  } catch { src = 'direct'; }
+  localStorage.setItem('wr_src', src);
+  return src;
+}
+
 function logVisit(game = false, installed = false) {
   try {
     fetch('/api/visit', {
@@ -112,6 +153,7 @@ function logVisit(game = false, installed = false) {
         tz: Intl.DateTimeFormat().resolvedOptions().timeZone || '',
         // installed-the-app flag: fires on install and on standalone launches
         installed: installed || runsInstalled(),
+        src: trafficSource(),
       }),
     }).catch(() => {});
   } catch {}
@@ -181,7 +223,7 @@ function getAiWorker() {
   if (aiWorker === false) return null;
   if (!aiWorker) {
     try {
-      aiWorker = new Worker('js/ai-worker.js?v=85', { type: 'module' });
+      aiWorker = new Worker('js/ai-worker.js?v=86', { type: 'module' });
       aiWorker.onmessage = (e) => {
         const cb = aiPending.get(e.data.id);
         aiPending.delete(e.data.id);

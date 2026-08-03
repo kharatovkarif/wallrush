@@ -153,9 +153,14 @@ app.post('/api/visit', async (req, res) => {
     const lang = String(req.body?.lang || '').slice(0, 16) || null;
     const tz = String(req.body?.tz || '').slice(0, 48) || null;
     const installed = req.body?.installed === true;
+    // Where they came from. Written once and never overwritten: the second
+    // visit is almost always someone typing the address, and letting that win
+    // would relabel every returning player as "direct".
+    const rawSrc = String(req.body?.src || '').slice(0, 40).toLowerCase();
+    const src = /^[a-z0-9_.:-]{1,40}$/.test(rawSrc) ? rawSrc : null;
     const user = await verifyUser(bearer(req));
     const { data: ex } = await supa.from('visitors')
-      .select('visits, games, installed_at').eq('device_id', device).maybeSingle();
+      .select('visits, games, installed_at, source').eq('device_id', device).maybeSingle();
     if (ex) {
       await supa.from('visitors').update({
         last_seen: new Date().toISOString(),
@@ -165,6 +170,7 @@ app.post('/api/visit', async (req, res) => {
         ...(lang ? { lang } : {}),
         ...(tz ? { tz } : {}),
         ...(user ? { user_id: user.id } : {}),
+        ...(src && !ex.source ? { source: src } : {}),
         ...(installed && !ex.installed_at ? { installed_at: new Date().toISOString() } : {}),
         ...(installed ? { standalone_at: new Date().toISOString() } : {}), // every launch from the icon
       }).eq('device_id', device);
@@ -173,7 +179,7 @@ app.post('/api/visit', async (req, res) => {
         device_id: device,
         last_nick: nick,
         games: game ? 1 : 0,
-        lang, tz,
+        lang, tz, source: src,
         user_id: user ? user.id : null,
         installed_at: installed ? new Date().toISOString() : null,
         standalone_at: installed ? new Date().toISOString() : null,
@@ -545,6 +551,44 @@ app.get('/admin', async (req, res) => {
 ${rowsHtml || '<p class="note">Пока нет данных за этот период.</p>'}
 ${rest ? `<p class="note">+ ещё ${rest.toLocaleString('ru')} чел. из остальных стран</p>` : ''}
 <p class="note">Страна определяется по часовому поясу устройства — это близко к правде, но не паспорт: через VPN человек может выглядеть как из другой страны.</p>`;
+  } else if (view === 'src') {
+    /* ----- where the traffic comes from -----
+       Arrivals alone decide nothing, so each channel is shown with what
+       happened after the click: how many started a game at all, and how many
+       were still here the next day. A channel that lands 10 000 people who
+       bounce is worth less than one that lands 500 who stay, and only these
+       three columns side by side make that visible. */
+    const period = String(req.query.p || 'week');
+    const fromTs = period === 'today' ? todayStartIso
+      : period === 'week' ? new Date(Date.now() - 7 * dayMs).toISOString() : null;
+    const { data: srcRows } = await supa.rpc('admin_sources', { from_ts: fromTs });
+    const list = (srcRows || []).map(r => ({
+      name: r.source, people: Number(r.people) || 0,
+      played: Number(r.played) || 0, kept: Number(r.kept) || 0, games: Number(r.games) || 0,
+    }));
+    const sum = list.reduce((s, c) => s + c.people, 0) || 1;
+    const pTab = (id, label) =>
+      `<a class="${period === id ? 'on' : ''}" href="/admin?key=${ADMIN_KEY}&view=src&p=${id}">${label}</a>`;
+    const rowsHtml = list.map(c => {
+      const pct = 100 * c.people / sum;
+      const pPlayed = c.people ? Math.round(100 * c.played / c.people) : 0;
+      const pKept = c.people ? Math.round(100 * c.kept / c.people) : 0;
+      return `<div class="geo">
+        <div class="top">
+          <span class="name">${esc(c.name)}</span>
+          <span class="pct">${pct.toFixed(1)}%</span>
+        </div>
+        <div class="track"><i style="width:${Math.max(1, pct).toFixed(1)}%"></i></div>
+        <div class="num">${c.people.toLocaleString('ru')} чел. · сыграли ${pPlayed}% · вернулись ${pKept}% · ${c.games.toLocaleString('ru')} партий</div>
+      </div>`;
+    }).join('');
+    content = `<h2>Откуда приходят игроки</h2>
+<div class="tabs">${pTab('all', 'За всё время')}${pTab('week', 'За 7 дней')}${pTab('today', 'Сегодня')}</div>
+${rowsHtml || '<p class="note">Пока нет данных за этот период.</p>'}
+<p class="note"><b>Метки для ссылок.</b> В каждой соцсети ставь свою — тогда строки ниже перестанут быть «не размечено»:<br>
+wallrush.online/?f=ig — Instagram · /?f=tt — TikTok · /?f=yt — YouTube · /?f=fb — Facebook · /?f=tg — Telegram<br>
+Метка запоминается при первом заходе и больше не меняется, поэтому вернувшийся игрок остаётся за своим каналом. Без метки источник определяется по тому, кто прислал — это ловит Google и сайты, но не соцсети: они ссылку прячут.</p>
+<p class="note">«Сыграли» — начали хотя бы одну партию. «Вернулись» — заходили ещё через сутки после первого раза. Смотреть надо на них, а не на количество: канал, который приводит толпу, ничего не стоит, если из неё никто не играет.</p>`;
   } else {
     // ----- people view: journal, filtered and paged IN the database so the
     // filters and counts apply to everyone, not just the first page -----
@@ -693,6 +737,7 @@ ${pager}`;
   ${viewTab('people', '👥 Люди')}
   ${viewTab('days', '📅 По дням')}
   ${viewTab('geo', '🌍 Страны')}
+  ${viewTab('src', '📈 Источники')}
 </div>
 ${content}`));
 });
