@@ -1,10 +1,10 @@
 // WallRush client app: screens, board UI, online play (WebSocket), AI mode, auth.
-import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=78';
-import { aiMove } from './ai.js?v=78';
-import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=78';
-import { rankOf, nextRank } from './ranks.js?v=78';
-import { flameClass, isMilestone } from './streak.js?v=78';
-import { checkNick, randomNick } from './nick.js?v=78';
+import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=79';
+import { aiMove } from './ai.js?v=79';
+import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=79';
+import { rankOf, nextRank } from './ranks.js?v=79';
+import { flameClass, isMilestone } from './streak.js?v=79';
+import { checkNick, randomNick } from './nick.js?v=79';
 
 /* ================= state ================= */
 const $ = (id) => document.getElementById(id);
@@ -181,7 +181,7 @@ function getAiWorker() {
   if (aiWorker === false) return null;
   if (!aiWorker) {
     try {
-      aiWorker = new Worker('js/ai-worker.js?v=78', { type: 'module' });
+      aiWorker = new Worker('js/ai-worker.js?v=79', { type: 'module' });
       aiWorker.onmessage = (e) => {
         const cb = aiPending.get(e.data.id);
         aiPending.delete(e.data.id);
@@ -1532,10 +1532,13 @@ const daysPhrase = (n, key = 'streak_days') =>
 // before they have done anything.
 function renderStreak() {
   const pill = $('streak-pill');
-  const offer = restorable();
-  const days = myStreak > 0 ? myStreak : offer;
+  // The flame always carries the number, alive or broken. It is the streak
+  // itself — vanishing would read as the count being lost. Only the offer
+  // behind it has a minimum, so a one-day streak still shows 1 and simply has
+  // nothing to tap.
+  const days = myStreak > 0 ? myStreak : myStreakLost;
   pill.hidden = days < 1;
-  pill.classList.toggle('broken', myStreak < 1 && offer > 0);
+  pill.classList.toggle('broken', myStreak < 1 && restorable() > 0);
   if (days < 1) return;
   $('streak-count').textContent = days;
   const lit = myStreak > 0 && myStreakState === 'today';
