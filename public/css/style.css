@@ -667,11 +667,14 @@ a.btn-big { text-decoration: none; display: block; }
 .ads-cta { margin-top: 22px; text-align: center; }
 .ads-cta > b { display: block; font-size: 17px; }
 .ads-cta .hint { margin: 6px 0 14px; text-wrap: balance; }
-.ads-ways {
-  display: flex; flex-wrap: wrap; align-items: center; justify-content: center;
-  gap: 8px; margin-top: 12px; font-size: 13px; color: var(--muted);
+.ads-cta .btn-big + .btn-big { margin-top: 10px; }
+/* the address is the label, so it has to survive a narrow phone */
+.ads-mail { font-size: 15px; word-break: break-all; }
+.ads-copy {
+  display: block; margin: 10px auto 0; padding: 6px 12px;
+  border: none; background: none; cursor: pointer;
+  font: inherit; font-size: 13px; color: var(--muted); text-decoration: underline;
 }
-.ads-ways a { color: var(--blue); text-decoration: none; word-break: break-all; }
 
 /* ============ daily streak ============ */
 /* The flame never becomes a different object — it is recoloured and grown, so

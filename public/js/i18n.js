@@ -97,7 +97,8 @@ export const I18N = {
     ads_f3_sub: 'Интеграция вашего бренда непосредственно в игру.',
     ads_cta: 'Хотите разместить рекламу?',
     ads_foot: 'Напишите нам — отправим актуальную статистику аудитории, форматы и стоимость.',
-    ads_contact: '📩 Получить условия размещения',
+    ads_tg: '✈️ Написать в Telegram',
+    ads_copy_mail: 'Копировать почту',
     opp_disconnected: 'Соперник отключился, ждём…',
     opp_reconnected: 'Соперник вернулся',
     resign: 'Сдаться',
@@ -329,7 +330,8 @@ export const I18N = {
     ads_f3_sub: 'Your brand built into the game itself.',
     ads_cta: 'Want to advertise here?',
     ads_foot: 'Write to us and we will send current audience figures, formats and prices.',
-    ads_contact: '📩 Request rates and formats',
+    ads_tg: '✈️ Message on Telegram',
+    ads_copy_mail: 'Copy the address',
     opp_disconnected: 'Opponent disconnected, waiting…',
     opp_reconnected: 'Opponent is back',
     resign: 'Resign',
@@ -480,7 +482,7 @@ export const LANGS = [
 export const LANG_CODES = LANGS.map((l) => l.code);
 export const RTL = new Set(['fa']);
 
-const V = '81';
+const V = '82';
 
 // Loads a translation file on demand. Safe to call repeatedly and safe to fail:
 // if the request never lands, makeT keeps falling back to English.

@@ -12,7 +12,7 @@
   <!-- Opens the connection to the ad host early. Costs one handshake and no
        download, and takes that handshake off the wait once Support is tapped. -->
   <link rel="preconnect" href="https://js.onclckmn.com" crossorigin>
-  <link rel="stylesheet" href="css/style.css?v=81">
+  <link rel="stylesheet" href="css/style.css?v=82">
 </head>
 <body>
   <div id="app">
@@ -216,14 +216,14 @@
         <div class="ads-cta">
           <b data-i18n="ads_cta"></b>
           <p class="hint" data-i18n="ads_foot"></p>
-          <a class="btn-big" id="ads-contact" href="https://t.me/Karoboev" target="_blank" rel="noopener noreferrer" data-i18n="ads_contact"></a>
-          <!-- both routes spelled out, and the address itself is the link:
-               people who prefer email want to see it, not a word to tap -->
-          <p class="ads-ways">
-            <a href="https://t.me/Karoboev" target="_blank" rel="noopener noreferrer">✈️ Telegram</a>
-            <span>·</span>
-            <a href="mailto:kharatovkarif@gmail.com?subject=WallRush%20—%20advertising">✉️ kharatovkarif@gmail.com</a>
-          </p>
+          <!-- Two ways in, both the same size. The email used to be a footnote
+               under the button; half of the people who buy advertising work by
+               email and want to see the address, not a word to tap. -->
+          <a class="btn-big" id="ads-contact" href="https://t.me/Karoboev" target="_blank" rel="noopener noreferrer" data-i18n="ads_tg"></a>
+          <a class="btn-big btn-outline ads-mail" href="mailto:kharatovkarif@gmail.com?subject=WallRush%20—%20advertising">✉️ kharatovkarif@gmail.com</a>
+          <!-- a desktop browser with no mail client makes mailto: do nothing,
+               so the address can always be taken away by hand -->
+          <button class="ads-copy" id="ads-email-copy" data-i18n="ads_copy_mail"></button>
         </div>
       </div>
     </section>
@@ -543,8 +543,11 @@
         <h2>🏆 <span data-i18n="leaderboard_title"></span></h2>
         <p class="hint" data-i18n="leaderboard_sub"></p>
       </header>
-      <!-- HilltopAds 300x250 banner, in the menu only and never in-game. It
-           used to sit under all fifty rows, where hardly anyone scrolled. -->
+      <div id="lb-list" class="lb-list"></div>
+
+      <!-- HilltopAds 300x250 banner, in the menu only and never in-game. Back
+           under the table: above it, the ad was the first thing anyone opening
+           the leaderboard saw, in place of the leaderboard. -->
       <div class="ad-slot ad-slot-lg" aria-hidden="true">
         <script>
         (function(immt){
@@ -559,8 +562,6 @@
         })({})
         </script>
       </div>
-
-      <div id="lb-list" class="lb-list"></div>
     </section>
 
     <!-- ============ PROFILE ============ -->
@@ -685,7 +686,7 @@
     <div id="toast" hidden></div>
   </div>
 
-  <script src="vendor/supabase.js?v=81" defer></script>
-  <script type="module" src="js/app.js?v=81"></script>
+  <script src="vendor/supabase.js?v=82" defer></script>
+  <script type="module" src="js/app.js?v=82"></script>
 </body>
 </html>
