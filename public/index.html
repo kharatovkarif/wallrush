@@ -12,7 +12,7 @@
   <!-- Opens the connection to the ad host early. Costs one handshake and no
        download, and takes that handshake off the wait once Support is tapped. -->
   <link rel="preconnect" href="https://js.onclckmn.com" crossorigin>
-  <link rel="stylesheet" href="css/style.css?v=83">
+  <link rel="stylesheet" href="css/style.css?v=84">
 </head>
 <body>
   <div id="app">
@@ -504,6 +504,22 @@
       </div>
     </div>
 
+    <!-- ============ ASK ABOUT NOTIFICATIONS ============ -->
+    <!-- Shown once in a player's life, after a third match. The browser's own
+         prompt is fired only for whoever says yes here, because that prompt
+         gets one showing ever and a refusal to it can never be taken back. -->
+    <div class="overlay" id="overlay-push" hidden>
+      <div class="modal">
+        <div class="modal-emoji">🔔</div>
+        <h2 data-i18n="push_ask_title"></h2>
+        <p class="hint" data-i18n="push_ask_body"></p>
+        <div class="modal-buttons">
+          <button class="btn-big" id="btn-push-yes" data-i18n="push_ask_yes"></button>
+          <button class="btn-big btn-outline" id="btn-push-no" data-i18n="push_ask_no"></button>
+        </div>
+      </div>
+    </div>
+
     <!-- ============ THE FLAME, EXPLAINED (opened by tapping it) ============ -->
     <!-- One window for everything the flame does: where the streak stands, the
          way back if it broke, how many free restores are left this month, and
@@ -693,7 +709,7 @@
     <div id="toast" hidden></div>
   </div>
 
-  <script src="vendor/supabase.js?v=83" defer></script>
-  <script type="module" src="js/app.js?v=83"></script>
+  <script src="vendor/supabase.js?v=84" defer></script>
+  <script type="module" src="js/app.js?v=84"></script>
 </body>
 </html>

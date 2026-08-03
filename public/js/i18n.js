@@ -157,6 +157,10 @@ export const I18N = {
     stats_online_note: 'Считаются только игры против других игроков',
     theme_label: 'Тёмная тема',
     push_label: 'Уведомления',
+    push_ask_title: 'Напоминать про серию?',
+    push_ask_body: 'Пришлём одно короткое сообщение вечером, если огонёк вот-вот погаснет. Не чаще раза в день, и только если ты сегодня ещё не играл.',
+    push_ask_yes: '🔔 Напоминать',
+    push_ask_no: 'Не надо',
     push_on: 'Уведомления включены 🔔',
     push_off: 'Уведомления выключены',
     push_blocked: 'Браузер не разрешил уведомления — включи их в настройках сайта',
@@ -394,6 +398,10 @@ export const I18N = {
     stats_online_note: 'Only games against other players are counted',
     theme_label: 'Dark theme',
     push_label: 'Notifications',
+    push_ask_title: 'Remind you about your streak?',
+    push_ask_body: 'One short message in the evening if the flame is about to go out. Never more than once a day, and only if you have not played yet.',
+    push_ask_yes: '🔔 Remind me',
+    push_ask_no: 'No thanks',
     push_on: 'Notifications are on 🔔',
     push_off: 'Notifications are off',
     push_blocked: 'The browser refused — turn notifications on in its site settings',
@@ -490,7 +498,7 @@ export const LANGS = [
 export const LANG_CODES = LANGS.map((l) => l.code);
 export const RTL = new Set(['fa']);
 
-const V = '83';
+const V = '84';
 
 // Loads a translation file on demand. Safe to call repeatedly and safe to fail:
 // if the request never lands, makeT keeps falling back to English.

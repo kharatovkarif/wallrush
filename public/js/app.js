@@ -1,10 +1,10 @@
 // WallRush client app: screens, board UI, online play (WebSocket), AI mode, auth.
-import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=83';
-import { aiMove } from './ai.js?v=83';
-import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=83';
-import { rankOf, nextRank } from './ranks.js?v=83';
-import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=83';
-import { checkNick, randomNick } from './nick.js?v=83';
+import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=84';
+import { aiMove } from './ai.js?v=84';
+import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=84';
+import { rankOf, nextRank } from './ranks.js?v=84';
+import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=84';
+import { checkNick, randomNick } from './nick.js?v=84';
 
 /* ================= state ================= */
 const $ = (id) => document.getElementById(id);
@@ -181,7 +181,7 @@ function getAiWorker() {
   if (aiWorker === false) return null;
   if (!aiWorker) {
     try {
-      aiWorker = new Worker('js/ai-worker.js?v=83', { type: 'module' });
+      aiWorker = new Worker('js/ai-worker.js?v=84', { type: 'module' });
       aiWorker.onmessage = (e) => {
         const cb = aiPending.get(e.data.id);
         aiPending.delete(e.data.id);
@@ -2067,7 +2067,16 @@ async function subscribePush() {
   }
 }
 
-// Called after every finished match. Asks at most once, ever.
+/* Called after every finished match. Shows a question of our own, once, ever.
+
+   It used to fire the browser's permission prompt straight at people. That
+   prompt can be shown once in the lifetime of the site — a refusal is final
+   and nothing we do afterwards can undo it — so throwing it at everyone spent
+   the single chance on the many who were not going to say yes. Our own window
+   costs nothing when refused and asks in words a player understands.
+
+   The flag is written the moment the window opens, not when it is answered,
+   so reloading the page cannot bring it back. One time and no more. */
 async function maybeAskPush() {
   if (!pushSupported() || !config?.vapid) return;
   if (localStorage.getItem('wr_push')) return;          // already subscribed
@@ -2077,12 +2086,21 @@ async function maybeAskPush() {
   localStorage.setItem('wr_games', String(played));
   if (played < PUSH_AFTER_GAMES) return;
   localStorage.setItem('wr_push_asked', '1');
-  if (Notification.permission === 'granted') { subscribePush(); return; }
-  try {
-    if (await Notification.requestPermission() === 'granted') subscribePush();
-  } catch { /* some browsers reject outside a gesture */ }
-  renderPushRow();
+  // Permission already given on another visit: nothing to ask, just finish up.
+  if (Notification.permission === 'granted') { subscribePush().then(renderPushRow); return; }
+  $('overlay-push').hidden = false;
 }
+
+$('btn-push-no').addEventListener('click', () => { $('overlay-push').hidden = true; });
+$('btn-push-yes').addEventListener('click', async () => {
+  $('overlay-push').hidden = true;
+  // Asked inside the tap, which is what makes the browser show its prompt.
+  let ok = false;
+  try { ok = await Notification.requestPermission() === 'granted'; } catch { ok = false; }
+  if (ok) ok = await subscribePush();
+  if (ok) toast(t('push_on'));
+  renderPushRow();
+});
 
 /* ---------- the switch in the profile ---------- */
 // The one-time prompt after a third match reaches nobody who tapped past it,
