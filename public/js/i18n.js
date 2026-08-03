@@ -130,8 +130,15 @@ export const I18N = {
     streak_saved: '🧊 Заморозка спасла серию —',
     streak_milestone: '%n %u подряд!',
     streak_wow: 'Так держать — не потеряй серию!',
+    streak_free_label: 'Бесплатных восстановлений в этом месяце',
+    streak_free_note: 'Одно бесплатное восстановление в месяц. Когда оно потрачено, серию всё равно можно вернуть — перед этим коротко покажем рекламу.',
+    streak_info_flames: 'Как меняется огонёк',
+    streak_info_unlit: 'Серый огонёк значит, что сегодня ты ещё не играл и серия может прерваться. Одна игра — и он снова горит.',
+    streak_info_days: 'Дни с анимацией',
+    streak_info_days_sub: 'В эти дни после матча появляется анимация на весь экран:',
     ok_word: 'Отлично',
     later_word: 'Позже',
+    close_word: 'Понятно',
     profile_title: 'Профиль',
     guest_hint: 'Ты играешь как гость. Очки хранятся на этом устройстве — зарегистрируйся, чтобы не потерять их и попасть в таблицу лидеров.',
     stats_games: 'Игр',
@@ -347,8 +354,15 @@ export const I18N = {
     streak_saved: '🧊 A freeze saved your streak —',
     streak_milestone: '%n %u in a row!',
     streak_wow: 'Keep it going — do not lose the streak!',
+    streak_free_label: 'Free restores left this month',
+    streak_free_note: 'One free restore a month. Once it is used the streak can still come back — a short ad plays first.',
+    streak_info_flames: 'How the flame changes',
+    streak_info_unlit: 'A grey flame means you have not played today and the streak can still break. One game lights it again.',
+    streak_info_days: 'Days with a celebration',
+    streak_info_days_sub: 'On these days a full-screen animation appears after the match:',
     ok_word: 'Nice',
     later_word: 'Later',
+    close_word: 'Got it',
     profile_title: 'Profile',
     guest_hint: 'You play as a guest. Your points live on this device — sign up so you never lose them and join the leaderboard.',
     stats_games: 'Games',
@@ -450,7 +464,7 @@ export const LANGS = [
 export const LANG_CODES = LANGS.map((l) => l.code);
 export const RTL = new Set(['fa']);
 
-const V = '79';
+const V = '80';
 
 // Loads a translation file on demand. Safe to call repeatedly and safe to fail:
 // if the request never lands, makeT keeps falling back to English.

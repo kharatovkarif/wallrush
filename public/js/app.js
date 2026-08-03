@@ -1,10 +1,10 @@
 // WallRush client app: screens, board UI, online play (WebSocket), AI mode, auth.
-import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=79';
-import { aiMove } from './ai.js?v=79';
-import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=79';
-import { rankOf, nextRank } from './ranks.js?v=79';
-import { flameClass, isMilestone } from './streak.js?v=79';
-import { checkNick, randomNick } from './nick.js?v=79';
+import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=80';
+import { aiMove } from './ai.js?v=80';
+import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=80';
+import { rankOf, nextRank } from './ranks.js?v=80';
+import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=80';
+import { checkNick, randomNick } from './nick.js?v=80';
 
 /* ================= state ================= */
 const $ = (id) => document.getElementById(id);
@@ -181,7 +181,7 @@ function getAiWorker() {
   if (aiWorker === false) return null;
   if (!aiWorker) {
     try {
-      aiWorker = new Worker('js/ai-worker.js?v=79', { type: 'module' });
+      aiWorker = new Worker('js/ai-worker.js?v=80', { type: 'module' });
       aiWorker.onmessage = (e) => {
         const cb = aiPending.get(e.data.id);
         aiPending.delete(e.data.id);
@@ -1550,18 +1550,64 @@ function restorable() {
   return myStreakLost >= MIN_RESTORE_DAYS ? myStreakLost : 0;
 }
 
-$('streak-pill').addEventListener('click', () => {
-  if (!restorable()) return;
-  $('lost-flame').className = 'flame ' + flameClass(myStreakLost) + ' unlit cel-flame';
-  $('lost-title').textContent = daysPhrase(myStreakLost, 'streak_lost');
-  $('lost-sub').textContent = t('streak_lost_sub');
-  $('btn-restore-home').textContent = daysPhrase(myStreakLost, 'streak_restore');
-  $('btn-restore-home').disabled = false;
-  $('overlay-streak-lost').hidden = false;
-});
-$('btn-lost-close').addEventListener('click', () => { $('overlay-streak-lost').hidden = true; });
-$('overlay-streak-lost').addEventListener('click', (e) => {
-  if (e.target === $('overlay-streak-lost')) $('overlay-streak-lost').hidden = true;
+/* ---------- the flame, explained ---------- */
+// Everything the streak does lives behind the flame itself, on both screens.
+// Before this the rules only surfaced once a streak had already broken, so the
+// players actually keeping one — the ones the flame is for — never saw them.
+function streakShownDays() {
+  return Math.max(1, myStreak > 0 ? myStreak : myStreakLost);
+}
+
+// The ladder of tiers, with the one currently in force marked. Built on every
+// open because the language, the streak and the tier can all have moved since.
+function renderFlameLadder() {
+  const box = $('info-flames');
+  const mine = flameClass(streakShownDays());
+  box.innerHTML = '';
+  FLAMES.forEach((f, i) => {
+    const next = FLAMES[i + 1];
+    const li = document.createElement('li');
+    if (f.cls === mine) li.className = 'now';
+    const icon = document.createElement('span');
+    icon.className = 'flame ' + f.cls;
+    icon.textContent = '🔥';
+    const label = document.createElement('span');
+    // plain numbers, so the range needs no translating in six languages
+    label.textContent = next ? `${f.min}–${next.min - 1}` : `${f.min}+`;
+    li.append(icon, label);
+    box.appendChild(li);
+  });
+}
+
+function openStreakInfo() {
+  const days = streakShownDays();
+  const broken = myStreak < 1 && myStreakLost > 0;
+  const lit = myStreak > 0 && myStreakState === 'today';
+  $('info-flame').className = 'flame ' + flameClass(days) + (lit ? '' : ' unlit') + ' cel-flame';
+  $('info-title').textContent = broken ? daysPhrase(myStreakLost, 'streak_lost')
+    : myStreak > 0 ? daysPhrase(myStreak) : t('streak_none');
+  $('info-sub').textContent = broken ? t('streak_lost_sub')
+    : myStreak > 0 ? (lit ? t('streak_keep') : t('streak_today')) : '';
+
+  const btn = $('btn-restore-home');
+  btn.hidden = !restorable();
+  btn.disabled = false;
+  if (restorable()) btn.textContent = daysPhrase(myStreakLost, 'streak_restore');
+
+  // One free restore per calendar month, counted the way a player expects to
+  // read it: what is left over what they get.
+  $('info-free').textContent = (myStreakFree ? 1 : 0) + '/1';
+  renderFlameLadder();
+  $('info-milestones').textContent = MILESTONES.join('  ·  ');
+  $('overlay-streak-info').hidden = false;
+}
+
+for (const id of ['streak-pill', 'streak-flame-btn']) {
+  $(id).addEventListener('click', openStreakInfo);
+}
+$('btn-info-close').addEventListener('click', () => { $('overlay-streak-info').hidden = true; });
+$('overlay-streak-info').addEventListener('click', (e) => {
+  if (e.target === $('overlay-streak-info')) $('overlay-streak-info').hidden = true;
 });
 
 // One line on the result screen — and on a milestone day, a celebration over
@@ -1670,7 +1716,7 @@ async function claimStreak() {
   }
 }
 
-function renderStreakOffer() { $('overlay-streak-lost').hidden = true; }
+function renderStreakOffer() { $('overlay-streak-info').hidden = true; }
 
 function celebrateStreak(days) {
   if (celebratedDay === days) return;   // already shown for this milestone

@@ -12,7 +12,7 @@
   <!-- Opens the connection to the ad host early. Costs one handshake and no
        download, and takes that handshake off the wait once Support is tapped. -->
   <link rel="preconnect" href="https://js.onclckmn.com" crossorigin>
-  <link rel="stylesheet" href="css/style.css?v=79">
+  <link rel="stylesheet" href="css/style.css?v=80">
 </head>
 <body>
   <div id="app">
@@ -37,9 +37,9 @@
         <div class="head-pills">
           <div class="online-pill"><span class="dot"></span><b id="online-count">0</b>&nbsp;<span data-i18n="online_count"></span></div>
           <!-- the streak is the reason to come back tomorrow, so it greets you.
-               When it has been broken the flame stays here, grey, and tapping
-               it opens the offer to get it back — a banner across the home
-               screen was louder than the thing it was offering. -->
+               Tapping it opens everything the flame does — including the offer
+               to get a broken streak back. A banner across the home screen was
+               louder than the thing it was offering. -->
           <button class="streak-pill" id="streak-pill" hidden>
             <span class="flame fl-1" id="streak-flame">🔥</span><b id="streak-count">0</b>
           </button>
@@ -473,15 +473,35 @@
       </div>
     </div>
 
-    <!-- ============ STREAK BROKEN (opened by tapping the flame) ============ -->
-    <div class="overlay" id="overlay-streak-lost" hidden>
+    <!-- ============ THE FLAME, EXPLAINED (opened by tapping it) ============ -->
+    <!-- One window for everything the flame does: where the streak stands, the
+         way back if it broke, how many free restores are left this month, and
+         what the fire turns into as the days add up. It used to open only once
+         the streak was already lost, which left the rules invisible to
+         everyone still keeping one. -->
+    <div class="overlay" id="overlay-streak-info" hidden>
       <div class="modal">
-        <span class="flame fl-1 unlit cel-flame" id="lost-flame">🔥</span>
-        <h2 id="lost-title"></h2>
-        <p class="hint" id="lost-sub"></p>
+        <span class="flame fl-1 cel-flame" id="info-flame">🔥</span>
+        <h2 id="info-title"></h2>
+        <p class="hint" id="info-sub"></p>
+
+        <button class="btn-big btn-restore" id="btn-restore-home" hidden></button>
+
+        <div class="info-row">
+          <span data-i18n="streak_free_label"></span><b id="info-free">1/1</b>
+        </div>
+        <p class="hint" data-i18n="streak_free_note"></p>
+
+        <h3 class="info-h" data-i18n="streak_info_flames"></h3>
+        <ul class="flame-list" id="info-flames"></ul>
+        <p class="hint" data-i18n="streak_info_unlit"></p>
+
+        <h3 class="info-h" data-i18n="streak_info_days"></h3>
+        <p class="hint" data-i18n="streak_info_days_sub"></p>
+        <p class="milestones" id="info-milestones"></p>
+
         <div class="modal-buttons">
-          <button class="btn-big btn-restore" id="btn-restore-home"></button>
-          <button class="btn-big btn-outline" id="btn-lost-close" data-i18n="later_word"></button>
+          <button class="btn-big btn-outline" id="btn-info-close" data-i18n="close_word"></button>
         </div>
       </div>
     </div>
@@ -531,7 +551,10 @@
           </div>
         </div>
         <div class="streak-card" id="streak-card">
-          <span class="flame fl-1" id="streak-flame-big">🔥</span>
+          <!-- tappable here too: the same window opens from the home screen -->
+          <button class="flame-btn" id="streak-flame-btn" aria-label="🔥">
+            <span class="flame fl-1" id="streak-flame-big">🔥</span>
+          </button>
           <div class="streak-meta">
             <b id="streak-days"></b>
             <small id="streak-sub"></small>
@@ -631,7 +654,7 @@
     <div id="toast" hidden></div>
   </div>
 
-  <script src="vendor/supabase.js?v=79" defer></script>
-  <script type="module" src="js/app.js?v=79"></script>
+  <script src="vendor/supabase.js?v=80" defer></script>
+  <script type="module" src="js/app.js?v=80"></script>
 </body>
 </html>

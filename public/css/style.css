@@ -701,13 +701,45 @@ a.btn-big { text-decoration: none; display: block; }
 .btn-restore {
   margin-top: 10px; background: #e8f1ff; color: #1a4f9c; border: 1px solid #c2dbff;
 }
-/* The flame is a button now. When the streak is broken it stays on the home
-   screen, grey, and a soft ring says there is something behind it. */
-.streak-pill { border: none; font: inherit; color: inherit; cursor: default; }
-.streak-pill.broken { cursor: pointer; box-shadow: var(--shadow), 0 0 0 2px rgba(47, 109, 246, .35); }
-.streak-pill.broken:active { transform: scale(.95); }
-#overlay-streak-lost .flame { font-size: 56px; animation: none; }
-#overlay-streak-lost h2 { font-size: 20px; margin-top: 6px; }
+/* The flame is a button on both screens, and always tappable: it opens the
+   window that explains itself. The ring is added only when a broken streak is
+   waiting behind it, so the offer still reads as urgent without a banner. */
+.streak-pill, .flame-btn {
+  border: none; font: inherit; color: inherit; cursor: pointer;
+}
+.flame-btn { background: none; padding: 0; line-height: 1; }
+.streak-pill:active, .flame-btn:active { transform: scale(.95); }
+.streak-pill.broken { box-shadow: var(--shadow), 0 0 0 2px rgba(47, 109, 246, .35); }
+
+/* the flame window */
+/* the window is long, so the flame is smaller here than in the celebration and
+   the sections sit tight — most phones then get the whole thing without a scroll */
+#overlay-streak-info .flame.cel-flame { font-size: 46px; animation: none; }
+#overlay-streak-info h2 { font-size: 19px; margin-top: 4px; }
+#overlay-streak-info .hint { font-size: 13px; }
+#overlay-streak-info .modal-buttons { margin-top: 16px; }
+.info-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  background: var(--bg2); border-radius: 14px; padding: 11px 14px;
+  margin: 14px 0 7px; font-size: 14px; text-align: start;
+}
+.info-row b { white-space: nowrap; font-size: 16px; }
+.info-h {
+  font-size: 12px; letter-spacing: .06em; text-transform: uppercase;
+  color: var(--muted); margin-top: 16px; margin-bottom: 6px;
+}
+.flame-list {
+  list-style: none; display: flex; flex-wrap: wrap; gap: 6px;
+  justify-content: center; margin-bottom: 8px;
+}
+.flame-list li {
+  display: inline-flex; align-items: center; gap: 5px; font-size: 13px;
+  background: var(--bg2); border-radius: 999px; padding: 5px 10px;
+}
+/* the tier the player is on right now */
+.flame-list li.now { box-shadow: inset 0 0 0 2px var(--blue); font-weight: 700; }
+.flame-list .flame { font-size: 18px; }
+.milestones { font-weight: 700; font-size: 15px; }
 html[data-theme="dark"] .btn-restore { background: #1d2b46; color: #9fc8ff; border-color: #2c3f63; }
 .streak-card .flame { font-size: 26px; }
 .streak-meta { min-width: 0; }
