@@ -1,10 +1,10 @@
 // WallRush client app: screens, board UI, online play (WebSocket), AI mode, auth.
-import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=82';
-import { aiMove } from './ai.js?v=82';
-import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=82';
-import { rankOf, nextRank } from './ranks.js?v=82';
-import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=82';
-import { checkNick, randomNick } from './nick.js?v=82';
+import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=83';
+import { aiMove } from './ai.js?v=83';
+import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=83';
+import { rankOf, nextRank } from './ranks.js?v=83';
+import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=83';
+import { checkNick, randomNick } from './nick.js?v=83';
 
 /* ================= state ================= */
 const $ = (id) => document.getElementById(id);
@@ -181,7 +181,7 @@ function getAiWorker() {
   if (aiWorker === false) return null;
   if (!aiWorker) {
     try {
-      aiWorker = new Worker('js/ai-worker.js?v=82', { type: 'module' });
+      aiWorker = new Worker('js/ai-worker.js?v=83', { type: 'module' });
       aiWorker.onmessage = (e) => {
         const cb = aiPending.get(e.data.id);
         aiPending.delete(e.data.id);
@@ -288,7 +288,7 @@ function show(screenId) {
   document.querySelectorAll('.nav-btn').forEach(b =>
     b.classList.toggle('active', b.dataset.screen === screenId));
   if (screenId === 'screen-leaderboard') loadLeaderboard();
-  if (screenId === 'screen-profile') updateProfileUI(); // points move every match
+  if (screenId === 'screen-profile') { updateProfileUI(); renderPushRow(); } // points move every match
   if (screenId === 'screen-rooms') wsSend({ t: 'lobby_sub' });
   else wsSend({ t: 'lobby_unsub' });
 }
@@ -1313,10 +1313,11 @@ function watchAdClosed() {
 }
 
 $('ad-close').addEventListener('click', closeAdOverlay);
-// tapping the backdrop closes it too, same as every other overlay in the game
-$('overlay-ad').addEventListener('click', (e) => {
-  if (e.target === $('overlay-ad')) closeAdOverlay();
-});
+// Deliberately no backdrop-to-close here, unlike every other overlay. The ad
+// fills most of the screen, so a thumb resting anywhere beside it killed the
+// window mid-load — and the player got neither the ad nor any idea why. This
+// window now only ever leaves on its own: the ad's close button, ours after
+// the escape delay, or by itself when no ad turns up.
 
 /* Support / advertise dialogs on the home screen. Both are opt-in: nothing
    loads or fires until the player opens them. */
@@ -2059,8 +2060,10 @@ async function subscribePush() {
       }),
     });
     localStorage.setItem('wr_push', '1');
+    return true;
   } catch (e) {
     console.warn('push subscribe failed', e);
+    return false;
   }
 }
 
@@ -2078,7 +2081,55 @@ async function maybeAskPush() {
   try {
     if (await Notification.requestPermission() === 'granted') subscribePush();
   } catch { /* some browsers reject outside a gesture */ }
+  renderPushRow();
 }
+
+/* ---------- the switch in the profile ---------- */
+// The one-time prompt after a third match reaches nobody who tapped past it,
+// and a browser will not show it twice. A switch of their own is the only way
+// back — and the way in for everyone the prompt caught at a bad moment.
+function renderPushRow() {
+  const row = $('push-row');
+  if (!pushSupported() || !config?.vapid || Notification.permission === 'denied') {
+    row.hidden = true;
+    return;
+  }
+  row.hidden = false;
+  $('push-toggle').checked = Boolean(localStorage.getItem('wr_push'));
+}
+
+$('push-toggle').addEventListener('change', async (e) => {
+  const box = e.target;
+  if (box.checked) {
+    // Asking inside the tap is what makes the browser show the prompt at all.
+    box.disabled = true;
+    let ok = Notification.permission === 'granted';
+    if (!ok) {
+      localStorage.setItem('wr_push_asked', '1');
+      try { ok = await Notification.requestPermission() === 'granted'; } catch { ok = false; }
+    }
+    if (ok) ok = await subscribePush();
+    box.disabled = false;
+    box.checked = ok;
+    toast(t(ok ? 'push_on' : 'push_blocked'));
+    if (!ok) renderPushRow();          // a refusal hides the row for good
+    return;
+  }
+  localStorage.removeItem('wr_push');
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    const sub = await reg.pushManager.getSubscription();
+    if (sub) {
+      await fetch('/api/push/unsubscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ endpoint: sub.endpoint }),
+      });
+      await sub.unsubscribe();
+    }
+  } catch { /* the row is off either way; the server drops dead endpoints */ }
+  toast(t('push_off'));
+});
 
 /* ================= legal / info pages ================= */
 

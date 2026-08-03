@@ -156,6 +156,10 @@ export const I18N = {
     stats_rate: '% побед',
     stats_online_note: 'Считаются только игры против других игроков',
     theme_label: 'Тёмная тема',
+    push_label: 'Уведомления',
+    push_on: 'Уведомления включены 🔔',
+    push_off: 'Уведомления выключены',
+    push_blocked: 'Браузер не разрешил уведомления — включи их в настройках сайта',
     email_or_nick: 'Почта или ник',
     err_login_not_found: 'Игрок с таким ником не найден',
     login: 'Войти',
@@ -389,6 +393,10 @@ export const I18N = {
     stats_rate: 'Win rate',
     stats_online_note: 'Only games against other players are counted',
     theme_label: 'Dark theme',
+    push_label: 'Notifications',
+    push_on: 'Notifications are on 🔔',
+    push_off: 'Notifications are off',
+    push_blocked: 'The browser refused — turn notifications on in its site settings',
     email_or_nick: 'Email or nickname',
     err_login_not_found: 'No player with that nickname',
     login: 'Log in',
@@ -482,7 +490,7 @@ export const LANGS = [
 export const LANG_CODES = LANGS.map((l) => l.code);
 export const RTL = new Set(['fa']);
 
-const V = '82';
+const V = '83';
 
 // Loads a translation file on demand. Safe to call repeatedly and safe to fail:
 // if the request never lands, makeT keeps falling back to English.

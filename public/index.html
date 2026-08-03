@@ -12,7 +12,7 @@
   <!-- Opens the connection to the ad host early. Costs one handshake and no
        download, and takes that handshake off the wait once Support is tapped. -->
   <link rel="preconnect" href="https://js.onclckmn.com" crossorigin>
-  <link rel="stylesheet" href="css/style.css?v=82">
+  <link rel="stylesheet" href="css/style.css?v=83">
 </head>
 <body>
   <div id="app">
@@ -649,6 +649,13 @@
           <span data-i18n="theme_label"></span>
           <label class="toggle"><input type="checkbox" id="theme-toggle"><span></span></label>
         </div>
+        <!-- The game used to offer notifications exactly once, after a third
+             match, and never again — so anyone who tapped past that prompt had
+             no way back. Hidden where the browser has already refused. -->
+        <div class="setting-row" id="push-row" hidden>
+          <span data-i18n="push_label"></span>
+          <label class="toggle"><input type="checkbox" id="push-toggle"><span></span></label>
+        </div>
       </div>
 
       <!-- HilltopAds 300x250 banner, its own ad code so this slot is measured
@@ -686,7 +693,7 @@
     <div id="toast" hidden></div>
   </div>
 
-  <script src="vendor/supabase.js?v=82" defer></script>
-  <script type="module" src="js/app.js?v=82"></script>
+  <script src="vendor/supabase.js?v=83" defer></script>
+  <script type="module" src="js/app.js?v=83"></script>
 </body>
 </html>
