@@ -1,10 +1,10 @@
 // WallRush client app: screens, board UI, online play (WebSocket), AI mode, auth.
-import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=86';
-import { aiMove } from './ai.js?v=86';
-import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=86';
-import { rankOf, nextRank } from './ranks.js?v=86';
-import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=86';
-import { checkNick, randomNick } from './nick.js?v=86';
+import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=87';
+import { aiMove } from './ai.js?v=87';
+import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=87';
+import { rankOf, nextRank } from './ranks.js?v=87';
+import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=87';
+import { checkNick, randomNick } from './nick.js?v=87';
 
 /* ================= state ================= */
 const $ = (id) => document.getElementById(id);
@@ -99,14 +99,37 @@ function runsInstalled() {
 
 /* Where a player came from, worked out once and then kept forever.
 
-   A tagged link wins: wallrush.online/?f=tt is put in the TikTok bio and
-   nothing can be confused with anything else. Where there is no tag we fall
-   back to who sent them — enough to tell Google from a random forum.
+   Three ways of knowing, in order of how much they can be trusted.
+
+   A tag in the link — /?f=tt — is put there on purpose and cannot be confused
+   with anything. It is the only way to tell one video from another.
+
+   Failing that, the app they came out of. Instagram, TikTok and Facebook open
+   links inside a browser of their own and hide who sent the visitor, which is
+   why the referrer is useless for exactly the places that matter most — but
+   that browser announces itself by name, so the visit can be attributed with
+   no tag at all. This covers the ordinary case: a finger on the link in a bio.
+
+   Failing that, who sent them. Catches search engines, Reddit, forums — every
+   place that plays by the normal rules.
+
+   Nothing catches a person who reads the address off the screen and types it.
+   Those are honestly counted as direct.
 
    First touch only. Somebody who arrives from Instagram and comes back the
    next day by typing the address is still an Instagram player; overwriting
    would quietly turn every returning visitor into "direct" and make the whole
    table say that nothing works. */
+const SRC_APPS = [
+  [/Instagram/i, 'instagram'],
+  [/BytedanceWebview|musical_ly|TikTok|Bytedance|trill/i, 'tiktok'],
+  [/FBAN|FBAV|FB_IAB|FBIOS|FBSV/i, 'facebook'],
+  [/Telegram/i, 'telegram'],
+  [/Snapchat/i, 'snapchat'],
+  [/Twitter/i, 'twitter'],
+  [/Pinterest/i, 'pinterest'],
+  [/LinkedInApp/i, 'linkedin'],
+];
 const SRC_HOSTS = [
   [/instagram|ig\.me/, 'instagram'], [/tiktok|musical\.ly/, 'tiktok'],
   [/youtube|youtu\.be/, 'youtube'], [/facebook|fb\.com|fb\.me/, 'facebook'],
@@ -126,6 +149,7 @@ function trafficSource() {
     // tool writes, so both are read
     const tag = (q.get('f') || q.get('utm_source') || '').toLowerCase();
     if (/^[a-z0-9_-]{1,24}$/.test(tag)) src = tag;
+    if (!src) src = (SRC_APPS.find(([re]) => re.test(navigator.userAgent || '')) || [])[1] || '';
     if (!src && document.referrer) {
       const host = new URL(document.referrer).hostname;
       if (host && host !== location.hostname) {
@@ -223,7 +247,7 @@ function getAiWorker() {
   if (aiWorker === false) return null;
   if (!aiWorker) {
     try {
-      aiWorker = new Worker('js/ai-worker.js?v=86', { type: 'module' });
+      aiWorker = new Worker('js/ai-worker.js?v=87', { type: 'module' });
       aiWorker.onmessage = (e) => {
         const cb = aiPending.get(e.data.id);
         aiPending.delete(e.data.id);
