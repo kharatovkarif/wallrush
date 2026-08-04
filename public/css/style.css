@@ -484,10 +484,11 @@ html[data-theme="dark"] .soc-tt { box-shadow: inset 0 0 0 1px #2f3550, var(--sha
   animation: hintPop .25s ease;
   transition: transform .12s ease-out;
 }
-/* The move itself is instant, but until the finger lifts nothing under it
-   moved — so the tap read as ignored for a moment. The dot now answers the
-   touch immediately, with no wait for the move to resolve. */
-.cell.legal:active::after { transform: scale(1.45); transition-duration: 0s; }
+/* The dot answers the finger rather than waiting for the move to resolve, but
+   it leans in — it does not jump. The first version went to 1.45 with no
+   transition at all, and instant turned out to read as violent: the board
+   flinched under every touch. Small and quick beats large and immediate. */
+.cell.legal:active::after { transform: scale(1.15); transition-duration: .07s; }
 @keyframes hintPop { from { transform: scale(.4); opacity: 0; } }
 #board.my-blue .cell.legal::after { background: radial-gradient(circle at 32% 28%, #9cc1ff, #2f6df6 65%, #1d4fbd); }
 #board.my-red .cell.legal::after { background: radial-gradient(circle at 32% 28%, #ffa3ac, #e33d52 65%, #b02338); }
