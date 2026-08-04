@@ -1,10 +1,10 @@
 // WallRush client app: screens, board UI, online play (WebSocket), AI mode, auth.
-import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=87';
-import { aiMove } from './ai.js?v=87';
-import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=87';
-import { rankOf, nextRank } from './ranks.js?v=87';
-import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=87';
-import { checkNick, randomNick } from './nick.js?v=87';
+import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=88';
+import { aiMove } from './ai.js?v=88';
+import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=88';
+import { rankOf, nextRank } from './ranks.js?v=88';
+import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=88';
+import { checkNick, randomNick } from './nick.js?v=88';
 
 /* ================= state ================= */
 const $ = (id) => document.getElementById(id);
@@ -247,7 +247,7 @@ function getAiWorker() {
   if (aiWorker === false) return null;
   if (!aiWorker) {
     try {
-      aiWorker = new Worker('js/ai-worker.js?v=87', { type: 'module' });
+      aiWorker = new Worker('js/ai-worker.js?v=88', { type: 'module' });
       aiWorker.onmessage = (e) => {
         const cb = aiPending.get(e.data.id);
         aiPending.delete(e.data.id);
@@ -368,6 +368,27 @@ document.querySelectorAll('[data-back]').forEach(b =>
 // Without this one empty listener every button on an iPhone stayed flat under
 // the finger and the whole app felt a beat behind.
 document.addEventListener('touchstart', () => {}, { passive: true });
+
+/* ---------- with no connection ----------
+   The app already worked offline — the shell is cached and the AI plays
+   locally — but it gave no sign of it. Quick match, the lobby and playing a
+   friend all looked exactly as usual and led to a wait with no end, so the
+   whole game read as broken when in fact only half of it was unavailable. */
+const ONLINE_ONLY = ['btn-quick', 'btn-online', 'btn-friend'];
+
+function renderOnlineState() {
+  const off = !navigator.onLine;
+  $('offline-bar').hidden = !off;
+  for (const id of ONLINE_ONLY) $(id).disabled = off;
+  // an online count of 0 next to a green dot reads as "nobody is playing"
+  $('online-count').parentElement.hidden = off;
+}
+window.addEventListener('online', () => {
+  renderOnlineState();
+  connectWs();                       // reconnect at once instead of on a timer
+  if (currentScreen === 'screen-leaderboard') loadLeaderboard();
+});
+window.addEventListener('offline', renderOnlineState);
 
 /* ================= WebSocket ================= */
 let reconnectDelay = 500;
@@ -1534,16 +1555,46 @@ function showEmoji(e, mine = false) {
 }
 
 /* ================= leaderboard ================= */
+/* The table as it was the last time it could be fetched.
+
+   Offline this used to say "error, try again", which is true and useless: the
+   player is on a train and cannot try anything. Yesterday's standings are
+   worth far more than an apology, so long as they are labelled as yesterday's
+   rather than passed off as live. */
+const LB_CACHE = 'wr_lb';
+
 async function loadLeaderboard() {
   const list = $('lb-list');
   try {
     const res = await fetch('/api/leaderboard');
     const { rows } = await res.json();
-    list.innerHTML = '';
-    if (!rows?.length) {
-      list.innerHTML = `<div class="lb-empty">${t('leaderboard_empty')}</div>`;
-      return;
+    if (rows?.length) {
+      try { localStorage.setItem(LB_CACHE, JSON.stringify({ at: Date.now(), rows })); } catch {}
     }
+    renderLeaderboard(rows, 0);
+  } catch {
+    let cached = null;
+    try { cached = JSON.parse(localStorage.getItem(LB_CACHE) || 'null'); } catch {}
+    if (cached?.rows?.length) renderLeaderboard(cached.rows, cached.at);
+    else list.innerHTML = `<div class="lb-empty">${t(navigator.onLine ? 'err_generic' : 'offline_bar')}</div>`;
+  }
+}
+
+// `savedAt` marks the list as a copy: 0 means it came from the server just now.
+function renderLeaderboard(rows, savedAt) {
+  const list = $('lb-list');
+  list.innerHTML = '';
+  if (!rows?.length) {
+    list.innerHTML = `<div class="lb-empty">${t('leaderboard_empty')}</div>`;
+    return;
+  }
+  if (savedAt) {
+    const p = document.createElement('p');
+    p.className = 'lb-stale';
+    p.textContent = t('lb_stale').replace('%t', new Date(savedAt).toLocaleString());
+    list.appendChild(p);
+  }
+  {
     rows.forEach((row, i) => {
       const el = document.createElement('div');
       el.className = 'lb-item';
@@ -1563,8 +1614,6 @@ async function loadLeaderboard() {
         `${t('points_label')} · ${row.wins} ${t('lb_wins')}`;
       list.appendChild(el);
     });
-  } catch {
-    list.innerHTML = `<div class="lb-empty">${t('err_generic')}</div>`;
   }
 }
 
@@ -2284,6 +2333,7 @@ async function boot() {
   applyI18n();
   logVisit(false);
   updateProfileUI();
+  renderOnlineState();
   connectWs();
   try {
     config = await (await fetch('/api/config')).json();

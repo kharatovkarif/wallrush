@@ -107,6 +107,8 @@ export default {
   leaderboard_title: 'Clasificación',
   leaderboard_sub: 'Mejores jugadores por puntos',
   leaderboard_empty: 'Aún vacío — ¡sé el primero!',
+  offline_bar: 'Sin conexión — puedes jugar contra la IA',
+  lb_stale: 'Guardado el %t — no se actualiza sin conexión',
   lb_wins: 'Victorias',
   lb_losses: 'Derrotas',
   rank_rookie: 'Novato',

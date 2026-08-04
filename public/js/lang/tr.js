@@ -107,6 +107,8 @@ export default {
   leaderboard_title: 'Sıralama',
   leaderboard_sub: 'Puana göre en iyi oyuncular',
   leaderboard_empty: 'Henüz boş — ilk sen ol!',
+  offline_bar: 'Bağlantı yok — yapay zekâya karşı oynayabilirsin',
+  lb_stale: '%t tarihinde kaydedildi — bağlantı olmadan güncellenmez',
   lb_wins: 'Galibiyet',
   lb_losses: 'Mağlubiyet',
   rank_rookie: 'Çaylak',

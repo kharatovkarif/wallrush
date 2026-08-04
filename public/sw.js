@@ -1,7 +1,7 @@
 // WallRush service worker: caches the app shell so the game opens instantly
 // and the AI mode keeps working offline. Pages go network-first (fresh
 // deploys land right away), versioned assets go cache-first.
-const V = '87';
+const V = '88';
 const CACHE = 'wr-' + V;
 const SHELL = [
   '/',
@@ -14,6 +14,13 @@ const SHELL = [
   `/js/streak.js?v=${V}`,
   `/js/nick.js?v=${V}`,
   `/js/ai-worker.js?v=${V}`,
+  // Persian, Turkish, French and Spanish load on demand, so with no signal
+  // they fell back to English — the app changed language the moment the train
+  // went into a tunnel. A few kilobytes each; cache them with the rest.
+  `/js/lang/fa.js?v=${V}`,
+  `/js/lang/tr.js?v=${V}`,
+  `/js/lang/fr.js?v=${V}`,
+  `/js/lang/es.js?v=${V}`,
   `/vendor/supabase.js?v=${V}`,
   '/manifest.json',
   '/icons/icon-192.png',

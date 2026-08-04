@@ -12,10 +12,16 @@
   <!-- Opens the connection to the ad host early. Costs one handshake and no
        download, and takes that handshake off the wait once Support is tapped. -->
   <link rel="preconnect" href="https://js.onclckmn.com" crossorigin>
-  <link rel="stylesheet" href="css/style.css?v=87">
+  <link rel="stylesheet" href="css/style.css?v=88">
 </head>
 <body>
   <div id="app">
+
+    <!-- Offline, the game opened and looked completely normal: online buttons
+         bright and pressable, leading to a wait that never ended. This says so
+         once, at the top of every screen, and the buttons that cannot work go
+         grey underneath. -->
+    <div id="offline-bar" hidden>📴 <span data-i18n="offline_bar"></span></div>
 
     <!-- ============ HOME ============ -->
     <section class="screen active" id="screen-home">
@@ -711,7 +717,7 @@
     <div id="toast" hidden></div>
   </div>
 
-  <script src="vendor/supabase.js?v=87" defer></script>
-  <script type="module" src="js/app.js?v=87"></script>
+  <script src="vendor/supabase.js?v=88" defer></script>
+  <script type="module" src="js/app.js?v=88"></script>
 </body>
 </html>

@@ -117,6 +117,19 @@ html[data-theme="dark"] .side-ads { color: #8fb2ff; background: rgba(47, 109, 24
 }
 .wallet button:active { transform: scale(.97); }
 
+/* ============ offline ============ */
+#offline-bar {
+  position: sticky; top: 0; z-index: 40;
+  display: flex; align-items: center; justify-content: center; gap: 7px;
+  padding: 10px 14px; font-size: 13px; font-weight: 600;
+  background: #2c3349; color: #fff;
+}
+/* the online modes stay in place rather than vanishing — the menu should not
+   rearrange itself the moment a train goes into a tunnel */
+.card:disabled { opacity: .4; box-shadow: none; cursor: default; }
+.card:disabled:active { transform: none; }
+.lb-stale { text-align: center; color: var(--muted); font-size: 12px; margin: 0 0 10px; }
+
 /* ============ screens ============ */
 .screen {
   display: none;

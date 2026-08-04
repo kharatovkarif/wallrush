@@ -107,6 +107,8 @@ export default {
   leaderboard_title: 'رتبه‌بندی',
   leaderboard_sub: 'بهترین بازیکنان بر اساس امتیاز',
   leaderboard_empty: 'هنوز خالی است — اولین نفر باش!',
+  offline_bar: 'اینترنت نیست — می‌توانی با هوش مصنوعی بازی کنی',
+  lb_stale: 'این فهرست در %t ذخیره شده — بدون اینترنت به‌روز نمی‌شود',
   lb_wins: 'برد',
   lb_losses: 'باخت',
   rank_rookie: 'تازه‌کار',
