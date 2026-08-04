@@ -492,15 +492,12 @@ html[data-theme="dark"] .soc-tt { box-shadow: inset 0 0 0 1px #2f3550, var(--sha
 .pawn {
   position: absolute; border-radius: 50%; z-index: 5; pointer-events: none;
   box-shadow: inset -4px -8px 12px rgba(0,0,0,.4), inset 2px 4px 6px rgba(255,255,255,.25), 0 8px 12px rgba(10, 20, 50, .45);
-  /* Soft and slightly springy, as it was from the first version.
+  /* Springy, and timed by hand between two wrong answers.
 
-     On 28 July this was cut to .16s on a flat decelerating curve, to stop the
-     ball drifting a little past its square. Nobody had asked: the overshoot
-     was mine to notice and mine to dislike. What it actually did was take 43%
-     off the length of every move and remove the give at the end, and the game
-     started to feel like it snapped rather than moved. The drift is the
-     smaller sin. */
-  transition: left .28s cubic-bezier(.5,1.6,.4,1), top .28s cubic-bezier(.5,1.6,.4,1);
+     .16s on a flat curve snapped; .28s with the spring dragged. The curve is
+     the part that matters — the give at the end is what makes a move read as
+     movement — so only the length was tuned, and .21s is where it sat right. */
+  transition: left .21s cubic-bezier(.5,1.6,.4,1), top .21s cubic-bezier(.5,1.6,.4,1);
 }
 /* crisp specular highlight, like a billiard ball */
 .pawn::after {
