@@ -1,7 +1,7 @@
 // WallRush service worker: caches the app shell so the game opens instantly
 // and the AI mode keeps working offline. Pages go network-first (fresh
 // deploys land right away), versioned assets go cache-first.
-const V = '88';
+const V = '89';
 const CACHE = 'wr-' + V;
 const SHELL = [
   '/',
@@ -13,6 +13,7 @@ const SHELL = [
   `/js/ranks.js?v=${V}`,
   `/js/streak.js?v=${V}`,
   `/js/nick.js?v=${V}`,
+  `/js/portal.js?v=${V}`,
   `/js/ai-worker.js?v=${V}`,
   // Persian, Turkish, French and Spanish load on demand, so with no signal
   // they fell back to English — the app changed language the moment the train

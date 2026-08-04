@@ -1,10 +1,14 @@
 // WallRush client app: screens, board UI, online play (WebSocket), AI mode, auth.
-import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=88';
-import { aiMove } from './ai.js?v=88';
-import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=88';
-import { rankOf, nextRank } from './ranks.js?v=88';
-import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=88';
-import { checkNick, randomNick } from './nick.js?v=88';
+import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=89';
+import { aiMove } from './ai.js?v=89';
+import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=89';
+import { rankOf, nextRank } from './ranks.js?v=89';
+import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=89';
+import { checkNick, randomNick } from './nick.js?v=89';
+import {
+  embedded, initPortal, inPortal, portalAd, portalPlaying, portalHappy,
+  portalLoaded, portalInviteCode, portalShowInvite, portalHideInvite, portalInstant,
+} from './portal.js?v=89';
 
 /* ================= state ================= */
 const $ = (id) => document.getElementById(id);
@@ -247,7 +251,7 @@ function getAiWorker() {
   if (aiWorker === false) return null;
   if (!aiWorker) {
     try {
-      aiWorker = new Worker('js/ai-worker.js?v=88', { type: 'module' });
+      aiWorker = new Worker('js/ai-worker.js?v=89', { type: 'module' });
       aiWorker.onmessage = (e) => {
         const cb = aiPending.get(e.data.id);
         aiPending.delete(e.data.id);
@@ -438,6 +442,7 @@ function handleWsMessage(msg) {
       updateProfileUI();
       flushPendingJoin();   // arrived through an invite link
       flushPendingQuick();  // arrived from a notification
+      flushPortalRoom();    // leading a group in from the portal
       break;
     case 'lobby':
       $('online-count').textContent = msg.online;
@@ -446,9 +451,13 @@ function handleWsMessage(msg) {
     case 'room_created':
       $('waiting-code').hidden = !msg.code;
       if (msg.code) showInvite(msg.code);
+      // Inside the portal the same code also goes to their invite button in
+      // the frame's footer, so a group can be gathered without leaving it.
+      if (msg.code) portalShowInvite(msg.code);
       show('screen-waiting');
       break;
     case 'game_start':
+      portalHideInvite();       // the room is full; there is nobody left to invite
       startOnlineGame(msg);
       break;
     case 'state':
@@ -681,6 +690,8 @@ function takeInviteFromUrl() {
 
 // arriving from a notification: straight into matchmaking
 let pendingQuick = false;
+// leading a group in from a portal: open a private room the moment we connect
+let pendingPortalRoom = false;
 function takeQuickFromUrl() {
   const q = new URLSearchParams(location.search);
   if (q.get('go') !== 'quick') return;
@@ -702,7 +713,7 @@ function flushPendingQuick() {
   show('screen-waiting');
   $('waiting-code').hidden = true;
 }
-$('btn-cancel-wait').addEventListener('click', () => { wsSend({ t: 'leave_room' }); show('screen-home'); });
+$('btn-cancel-wait').addEventListener('click', () => { portalHideInvite(); wsSend({ t: 'leave_room' }); show('screen-home'); });
 $('btn-how').addEventListener('click', () => { $('overlay-how').hidden = false; });
 $('btn-how-close').addEventListener('click', () => { $('overlay-how').hidden = true; });
 
@@ -1175,6 +1186,7 @@ function startAiGame(level = 'normal', boardMode = 'duel') {
   show('screen-game');
   buildBoard();
   renderGame();
+  portalPlaying(true);   // a portal keeps its own ads out of a live match
   if (game.state.turn === 1) scheduleAiMove();
 }
 
@@ -1210,14 +1222,30 @@ function startOnlineGame(msg) {
   show('screen-game');
   buildBoard();
   renderGame();
+  portalPlaying(true);   // a portal keeps its own ads out of a live match
   vibrate([20, 40, 20]);
 }
 
 /* ================= game over / rematch ================= */
+/* Their ad goes between matches and nowhere else, and not after every one.
+   A portal pays per ad shown, which makes it tempting to ask on every result
+   screen — and that is exactly how a game gets closed and never opened again.
+   One every four minutes at most, on a screen the player is leaving anyway. */
+const PORTAL_AD_GAP_MS = 4 * 60 * 1000;
+let lastPortalAd = 0;
+
+function maybePortalAd() {
+  if (!inPortal() || Date.now() - lastPortalAd < PORTAL_AD_GAP_MS) return;
+  lastPortalAd = Date.now();
+  portalAd('midgame');
+}
+
 function onGameOver(iWon, reason) {
   if (!game || game.over) return;
   game.over = true;
   clearTimeout(aiTimer);
+  portalPlaying(false);
+  if (iWon) portalHappy();
   renderGame();
   const reasonKey = {
     goal: 'reason_goal', timeout: 'reason_timeout', move_timeout: 'reason_move_timeout',
@@ -1244,6 +1272,7 @@ function onGameOver(iWon, reason) {
     $('rematch-status').hidden = true;
     $('overlay-gameover').hidden = false;
     maybeAskPush();
+    maybePortalAd();
   }, 600);
   vibrate(iWon ? [40, 60, 40, 60, 80] : 60);
 }
@@ -1322,7 +1351,7 @@ let adTimer = 0;
 // download used to happen while the player stared at an empty box. Called
 // again on later matches, it does nothing — the script is already here.
 function preloadAd() {
-  if (adScriptAdded) return;
+  if (adScriptAdded || embedded) return;   // never our own network inside a portal
   adScriptAdded = true;
   const s = document.createElement('script');
   s.async = true;
@@ -1362,6 +1391,12 @@ function adRendered() {
 const AD_ESCAPE_MS = 25000;
 
 function openSupportVideo() {
+  // Inside the portal, Support and the streak restore keep working — the
+  // rewarded video simply comes from the portal instead of our own network,
+  // in their own player rather than our window.
+  // A button that does nothing at all is worse than one that says no: an ad
+  // that never arrives gets the same answer here as it does on our own site.
+  if (embedded) { portalAd('rewarded').then((ok) => toast(t(ok ? 'support_thanks' : 'ad_none'))); return; }
   const note = $('ad-note');
   const own = $('ad-close');
   note.textContent = t('ad_loading');
@@ -1454,6 +1489,7 @@ $('ads-email-copy').addEventListener('click', async () => {
 
 $('btn-to-menu').addEventListener('click', () => {
   if (game?.mode === 'online') wsSend({ t: 'rematch', yes: false });
+  portalHideInvite();
   wsSend({ t: 'leave_room' });
   stopReplay();
   game = null; // history goes with it — nothing is kept
@@ -1804,6 +1840,9 @@ function startRestore() {
   $('btn-restore-streak').disabled = true;
   $('btn-restore-home').disabled = true;
   if (myStreakFree) { claimStreak(); return; }
+  // In the portal the ad is theirs and tells us when it is over, so there is
+  // nothing to watch for and no reason to make the player wait out a timeout.
+  if (embedded) { portalAd('rewarded').then(claimStreak); return; }
   openSupportVideo();
   const started = Date.now();
   (function waitForAd() {
@@ -2325,9 +2364,40 @@ window.addEventListener('resize', () => {
   if (game && currentScreen === 'screen-game') { buildBoard(); cancelWallPreview(); renderGame(); }
 });
 
+/* Arriving inside the portal, with their group.
+
+   Their model has a leader and invitees. The leader's game is told to open
+   straight into a room — no menu, no settings — and hands the room code back
+   to them for the invite button. The invitees launch already carrying that
+   code and must land in the same room without touching anything.
+
+   Both cases map onto private rooms, which this game already has: the only
+   new part is reading their code instead of ours out of the address bar. */
+function takePortalInvite() {
+  if (!inPortal()) return;
+  portalLoaded();
+  const code = portalInviteCode();
+  if (code) { pendingJoin = String(code).toUpperCase(); return; }
+  // no code and told to go straight in: this player is the leader
+  if (portalInstant()) pendingPortalRoom = true;
+}
+
+function flushPortalRoom() {
+  if (!pendingPortalRoom) return;
+  pendingPortalRoom = false;
+  wsSend({
+    t: 'create_room', private: true,
+    mode: createCfg.mode, walls: Number(createCfg.walls), time: createCfg.time,
+  });
+}
+
 async function boot() {
   takeInviteFromUrl();   // read the code before anything can rewrite the URL
   takeQuickFromUrl();
+  // Before the socket opens, so an invited player has their room code ready
+  // and lands in the room on the first connection rather than the second.
+  await initPortal();
+  takePortalInvite();
   buildLangList();
   await loadLang(lang);            // detected pack, if it is not ru/en
   applyI18n();

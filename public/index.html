@@ -12,7 +12,16 @@
   <!-- Opens the connection to the ad host early. Costs one handshake and no
        download, and takes that handshake off the wait once Support is tapped. -->
   <link rel="preconnect" href="https://js.onclckmn.com" crossorigin>
-  <link rel="stylesheet" href="css/style.css?v=88">
+  <link rel="stylesheet" href="css/style.css?v=89">
+  <!-- Are we inside somebody else's page? Every game portal forbids running
+       your own ads inside theirs, and the ad scripts below start the moment
+       the parser reaches them — long before any module could stop one. So the
+       answer has to be known here, in the head, before anything else runs. -->
+  <script>
+    try { window.WR_EMBED = window.self !== window.top; }
+    catch (e) { window.WR_EMBED = true; }   // a cross-origin parent throws, which is itself a yes
+    if (window.WR_EMBED) document.documentElement.className += ' embedded';
+  </script>
 </head>
 <body>
   <div id="app">
@@ -113,7 +122,7 @@
            in the menu only and is never present on the game screen. -->
       <div class="ad-slot" aria-hidden="true">
         <script>
-        (function(osjgznp){
+        if (!window.WR_EMBED) (function(osjgznp){
         var d = document,
             s = d.createElement('script'),
             l = d.scripts[d.scripts.length - 1];
@@ -574,7 +583,7 @@
            the leaderboard saw, in place of the leaderboard. -->
       <div class="ad-slot ad-slot-lg" aria-hidden="true">
         <script>
-        (function(immt){
+        if (!window.WR_EMBED) (function(immt){
         var d = document,
             s = d.createElement('script'),
             l = d.scripts[d.scripts.length - 1];
@@ -687,7 +696,7 @@
            profile is read from the top down, and nothing here is in the way. -->
       <div class="ad-slot ad-slot-lg" aria-hidden="true">
         <script>
-        (function(usypz){
+        if (!window.WR_EMBED) (function(usypz){
         var d = document,
             s = d.createElement('script'),
             l = d.scripts[d.scripts.length - 1];
@@ -717,7 +726,7 @@
     <div id="toast" hidden></div>
   </div>
 
-  <script src="vendor/supabase.js?v=88" defer></script>
-  <script type="module" src="js/app.js?v=88"></script>
+  <script src="vendor/supabase.js?v=89" defer></script>
+  <script type="module" src="js/app.js?v=89"></script>
 </body>
 </html>
