@@ -499,10 +499,15 @@ html[data-theme="dark"] .soc-tt { box-shadow: inset 0 0 0 1px #2f3550, var(--sha
      which from across the table looks like two steps forward and one back. A
      move that appears to be taken back is worse than a move that is too fast.
 
-     So keep the length that felt right and take the overshoot out. Every
-     control point now sits inside 0–1, so the piece cannot pass its square: it
-     eases away, crosses the gap where the eye can follow it, and stops. */
-  transition: left .21s cubic-bezier(.4, 0, .2, 1), top .21s cubic-bezier(.4, 0, .2, 1);
+     Then the overshoot went and a third fault came out from behind it: that
+     curve also eases IN, so for the first third of the move the piece barely
+     shifts and then bolts. Standing still and then darting reads as faster and
+     rougher than moving the whole way, even though the duration is identical.
+
+     This one leaves at ordinary speed — the slope at the start is exactly 1,
+     no dead time — travels evenly, and only softens as it arrives. Press, it
+     goes, it stops. */
+  transition: left .21s cubic-bezier(.33, .33, .55, 1), top .21s cubic-bezier(.33, .33, .55, 1);
 }
 /* crisp specular highlight, like a billiard ball */
 .pawn::after {
