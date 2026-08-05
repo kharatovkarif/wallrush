@@ -492,12 +492,16 @@ html[data-theme="dark"] .soc-tt { box-shadow: inset 0 0 0 1px #2f3550, var(--sha
 .pawn {
   position: absolute; border-radius: 50%; z-index: 5; pointer-events: none;
   box-shadow: inset -4px -8px 12px rgba(0,0,0,.4), inset 2px 4px 6px rgba(255,255,255,.25), 0 8px 12px rgba(10, 20, 50, .45);
-  /* Springy, and timed by hand between two wrong answers.
+  /* Linear. Three things were asked for and every curve tried breaks one:
 
-     .16s on a flat curve snapped; .28s with the spring dragged. The curve is
-     the part that matters — the give at the end is what makes a move read as
-     movement — so only the length was tuned, and .21s is where it sat right. */
-  transition: left .21s cubic-bezier(.5,1.6,.4,1), top .21s cubic-bezier(.5,1.6,.4,1);
+       one square only    — any control point above 1 overshoots and comes back
+       even, unhurried    — an ease-in stalls at the start, an ease-out at the end
+       .21s               — the length itself was never the complaint
+
+     A straight line does all three. Constant speed from the square it leaves
+     to the square it lands on: nothing to overshoot, nothing to wait through,
+     no part of the journey faster than any other. */
+  transition: left .21s linear, top .21s linear;
 }
 /* crisp specular highlight, like a billiard ball */
 .pawn::after {
