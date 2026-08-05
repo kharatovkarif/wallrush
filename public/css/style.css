@@ -492,27 +492,12 @@ html[data-theme="dark"] .soc-tt { box-shadow: inset 0 0 0 1px #2f3550, var(--sha
 .pawn {
   position: absolute; border-radius: 50%; z-index: 5; pointer-events: none;
   box-shadow: inset -4px -8px 12px rgba(0,0,0,.4), inset 2px 4px 6px rgba(255,255,255,.25), 0 8px 12px rgba(10, 20, 50, .45);
-  /* Length and curve are two separate problems, and each got blamed for the
-     other. .16s felt like a snap — too short to read as travel at all. The
-     spring was brought back to fix that and it did, but a spring means a
-     control point above 1: the piece flies past its square and walks back,
-     which from across the table looks like two steps forward and one back. A
-     move that appears to be taken back is worse than a move that is too fast.
+  /* Springy, and timed by hand between two wrong answers.
 
-     Then the overshoot went and a third fault came out from behind it: that
-     curve also eases IN, so for the first third of the move the piece barely
-     shifts and then bolts. Standing still and then darting reads as faster and
-     rougher than moving the whole way, even though the duration is identical.
-
-     This one leaves at ordinary speed — the slope at the start is exactly 1,
-     no dead time — travels evenly, and only softens as it arrives. Press, it
-     goes, it stops.
-
-     .28s. The same number was tried once before and called draggy, but that
-     was with the spring on top: the piece reached its square early and spent
-     the rest of the time wobbling. With an even curve the whole .28s is spent
-     travelling, and travelling is the part that was asked for. */
-  transition: left .28s cubic-bezier(.33, .33, .55, 1), top .28s cubic-bezier(.33, .33, .55, 1);
+     .16s on a flat curve snapped; .28s with the spring dragged. The curve is
+     the part that matters — the give at the end is what makes a move read as
+     movement — so only the length was tuned, and .21s is where it sat right. */
+  transition: left .21s cubic-bezier(.5,1.6,.4,1), top .21s cubic-bezier(.5,1.6,.4,1);
 }
 /* crisp specular highlight, like a billiard ball */
 .pawn::after {
