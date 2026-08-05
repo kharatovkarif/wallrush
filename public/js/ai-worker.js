@@ -1,6 +1,6 @@
 // Runs the AI search off the main thread so the board never freezes
 // while the engine thinks.
-import { aiMove } from './ai.js?v=96';
+import { aiMove } from './ai.js?v=97';
 
 self.onmessage = (e) => {
   const { id, state, level, opts } = e.data;

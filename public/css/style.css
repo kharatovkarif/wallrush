@@ -506,8 +506,13 @@ html[data-theme="dark"] .soc-tt { box-shadow: inset 0 0 0 1px #2f3550, var(--sha
 
      This one leaves at ordinary speed — the slope at the start is exactly 1,
      no dead time — travels evenly, and only softens as it arrives. Press, it
-     goes, it stops. */
-  transition: left .21s cubic-bezier(.33, .33, .55, 1), top .21s cubic-bezier(.33, .33, .55, 1);
+     goes, it stops.
+
+     .28s. The same number was tried once before and called draggy, but that
+     was with the spring on top: the piece reached its square early and spent
+     the rest of the time wobbling. With an even curve the whole .28s is spent
+     travelling, and travelling is the part that was asked for. */
+  transition: left .28s cubic-bezier(.33, .33, .55, 1), top .28s cubic-bezier(.33, .33, .55, 1);
 }
 /* crisp specular highlight, like a billiard ball */
 .pawn::after {
