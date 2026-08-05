@@ -1,14 +1,15 @@
 // WallRush client app: screens, board UI, online play (WebSocket), AI mode, auth.
-import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=93';
-import { aiMove } from './ai.js?v=93';
-import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=93';
-import { rankOf, nextRank } from './ranks.js?v=93';
-import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=93';
-import { checkNick, randomNick } from './nick.js?v=93';
+import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=94';
+import { aiMove } from './ai.js?v=94';
+import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=94';
+import { rankOf, nextRank } from './ranks.js?v=94';
+import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=94';
+import { checkNick, nickOk, randomNick } from './nick.js?v=94';
 import {
   embedded, initPortal, inPortal, portalAd, portalPlaying, portalHappy,
   portalLoaded, portalInviteCode, portalShowInvite, portalHideInvite, portalInstant,
-} from './portal.js?v=93';
+  portalRoom, portalOnJoin, portalInviteLink, portalMuted, portalOnMute, portalUserName,
+} from './portal.js?v=94';
 
 /* ================= state ================= */
 const $ = (id) => document.getElementById(id);
@@ -47,12 +48,15 @@ let lang = detectLang();
 let t = makeT(lang);
 let vibroOn = localStorage.getItem('wr_vibro') !== '0';
 let soundOn = localStorage.getItem('wr_sound') !== '0';
+// A portal's own mute control sits outside the frame and outranks our
+// setting: silencing their page must silence us, whatever the profile says.
+let portalMute = false;
 
 // move sounds, like a chess clock (WebAudio, no files needed):
 // pawn = short high "tick", wall = lower wooden "knock"
 let audioCtx = null;
 function tick(mine, wall = false) {
-  if (!soundOn) return;
+  if (!soundOn || portalMute) return;
   try {
     audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
     if (audioCtx.state === 'suspended') audioCtx.resume();
@@ -251,7 +255,7 @@ function getAiWorker() {
   if (aiWorker === false) return null;
   if (!aiWorker) {
     try {
-      aiWorker = new Worker('js/ai-worker.js?v=93', { type: 'module' });
+      aiWorker = new Worker('js/ai-worker.js?v=94', { type: 'module' });
       aiWorker.onmessage = (e) => {
         const cb = aiPending.get(e.data.id);
         aiPending.delete(e.data.id);
@@ -454,10 +458,15 @@ function handleWsMessage(msg) {
       // Inside the portal the same code also goes to their invite button in
       // the frame's footer, so a group can be gathered without leaving it.
       if (msg.code) portalShowInvite(msg.code);
+      // Their friends list shows a Join button beside this player only while
+      // this is true, so it is set the moment the room opens and cleared the
+      // moment it fills — a stale "joinable" sends friends into a full room.
+      portalRoom(msg.code, true);
       show('screen-waiting');
       break;
     case 'game_start':
       portalHideInvite();       // the room is full; there is nobody left to invite
+      portalRoom(inviteCode, false);   // same room, no longer open
       startOnlineGame(msg);
       break;
     case 'state':
@@ -663,7 +672,9 @@ $('btn-invite-friend').addEventListener('click', () => {
 });
 
 $('invite-share').addEventListener('click', async () => {
-  const url = roomLink(inviteCode);
+  // Inside a portal our own address is the wrong one to hand out: it takes
+  // the friend out of the page they are on. Theirs opens the room in place.
+  const url = (await portalInviteLink(inviteCode)) || roomLink(inviteCode);
   logEvent('invite_share');
   // the native sheet puts the link straight into WhatsApp or Telegram
   if (navigator.share) {
@@ -713,7 +724,7 @@ function flushPendingQuick() {
   show('screen-waiting');
   $('waiting-code').hidden = true;
 }
-$('btn-cancel-wait').addEventListener('click', () => { portalHideInvite(); wsSend({ t: 'leave_room' }); show('screen-home'); });
+$('btn-cancel-wait').addEventListener('click', () => { portalHideInvite(); portalRoom('', false); wsSend({ t: 'leave_room' }); show('screen-home'); });
 $('btn-how').addEventListener('click', () => { $('overlay-how').hidden = false; });
 $('btn-how-close').addEventListener('click', () => { $('overlay-how').hidden = true; });
 
@@ -1490,6 +1501,7 @@ $('ads-email-copy').addEventListener('click', async () => {
 $('btn-to-menu').addEventListener('click', () => {
   if (game?.mode === 'online') wsSend({ t: 'rematch', yes: false });
   portalHideInvite();
+  portalRoom('', false);
   wsSend({ t: 'leave_room' });
   stopReplay();
   game = null; // history goes with it — nothing is kept
@@ -2373,9 +2385,38 @@ window.addEventListener('resize', () => {
 
    Both cases map onto private rooms, which this game already has: the only
    new part is reading their code instead of ours out of the address bar. */
-function takePortalInvite() {
+async function takePortalInvite() {
   if (!inPortal()) return;
   portalLoaded();
+
+  // Their mute switch, now and whenever it is touched.
+  portalMute = portalMuted();
+  portalOnMute((m) => { portalMute = m; });
+
+  /* A friend pressing Join in their friends drawer while this game is already
+     running. Nothing reloads, so the room has to be changed from underneath:
+     leave whatever we are in and go to theirs. */
+  portalOnJoin((code) => {
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      portalHideInvite();
+      wsSend({ t: 'leave_room' });
+      wsSend({ t: 'join_code', code });
+    } else {
+      pendingJoin = code;   // not connected yet: it goes out with the hello
+    }
+  });
+
+  /* Signed in on CrazyGames, they play under that name. Their requirement,
+     and a fair one — friends have to recognise each other across the board.
+     Only for a guest: an account of ours already has a name its owner chose. */
+  if (!profile) {
+    const name = await portalUserName();
+    if (name) {
+      const clean = name.slice(0, 16);
+      if (nickOk(clean)) { guestNick = clean; localStorage.setItem('wr_nick', clean); }
+    }
+  }
+
   const code = portalInviteCode();
   if (code) { pendingJoin = String(code).toUpperCase(); return; }
   // no code and told to go straight in: this player is the leader
@@ -2397,7 +2438,7 @@ async function boot() {
   // Before the socket opens, so an invited player has their room code ready
   // and lands in the room on the first connection rather than the second.
   await initPortal();
-  takePortalInvite();
+  await takePortalInvite();   // the nick it may set has to be in place before hello
   buildLangList();
   await loadLang(lang);            // detected pack, if it is not ru/en
   applyI18n();

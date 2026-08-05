@@ -104,17 +104,80 @@ export function portalHappy() {
   try { sdk && sdk.game.happytime(); } catch {}
 }
 
+// v3 renamed these from sdkGameLoadingStart/Stop. Both are tried: whichever
+// the loaded SDK actually has is the one that runs.
 export function portalLoaded() {
-  try { sdk && sdk.game.sdkGameLoadingStop(); } catch {}
+  try {
+    if (!sdk) return;
+    (sdk.game.loadingStop || sdk.game.sdkGameLoadingStop).call(sdk.game);
+  } catch {}
 }
 
 /* ---------- playing with friends, their way ----------
-   They have their own invite flow: a player presses a button in the frame's
-   footer, their friends open a link, and everyone must land in the same room
-   without passing through a menu. Our private rooms already work like that —
-   these three only translate between their code and ours. */
+
+   Their model has three ways into the same room and all three must work.
+
+     A friend taps an invite notification, or opens an invite link — the game
+     starts with the room already named in the launch parameters.
+
+     A friend already inside the game presses Join in the CrazyGames friends
+     drawer — nothing restarts, the running game is handed the room and has to
+     move there itself.
+
+     A group leader arrives with isInstantMultiplayer set and must land in a
+     fresh private room without seeing a menu at all.
+
+   Our private rooms already behave this way; what follows is only the
+   translation between their vocabulary and ours. */
+
+// Their launch parameters, whether the game was opened from a link or a
+// notification. `code` is ours — the private-room code.
 export function portalInviteCode() {
-  try { return (sdk && sdk.game.getInviteParam('code')) || ''; } catch { return ''; }
+  try {
+    if (!sdk) return '';
+    const direct = sdk.game.getInviteParam && sdk.game.getInviteParam('code');
+    if (direct) return String(direct);
+    const params = sdk.game.inviteParams;
+    return (params && params.code) ? String(params.code) : '';
+  } catch { return ''; }
+}
+
+/* Where this player is right now, and whether anyone may join them.
+
+   This is what lights up Join beside their name in a friend's list, so it has
+   to be told the truth at every turn: on entering a room, when the room fills
+   up, and when the player walks out. A room left marked joinable after the
+   second player arrives sends friends into a room that will refuse them. */
+export function portalRoom(code, joinable) {
+  try {
+    if (!sdk || !sdk.game.updateRoom) return;
+    if (!code) { sdk.game.updateRoom({ isJoinable: false }); return; }
+    sdk.game.updateRoom({
+      room: String(code),
+      isJoinable: Boolean(joinable),
+      inviteParams: { code: String(code) },
+    });
+  } catch {}
+}
+
+// A friend pressing Join while we are already running. No reload happens, so
+// the game has to notice and move rooms on its own.
+export function portalOnJoin(handler) {
+  try {
+    if (!sdk || !sdk.game.addJoinRoomListener) return;
+    sdk.game.addJoinRoomListener((params) => {
+      const code = params && (params.code || params.roomId);
+      if (code) handler(String(code).toUpperCase());
+    });
+  } catch {}
+}
+
+// A link the player can copy and paste anywhere, alongside their own button.
+export async function portalInviteLink(code) {
+  try {
+    if (!sdk || !sdk.game.inviteLink) return '';
+    return (await sdk.game.inviteLink({ code: String(code) })) || '';
+  } catch { return ''; }
 }
 
 export function portalShowInvite(code) {
@@ -128,4 +191,32 @@ export function portalHideInvite() {
 // Set when a group arrives together: open straight into a room, no menu.
 export function portalInstant() {
   try { return Boolean(sdk && sdk.game.isInstantMultiplayer); } catch { return false; }
+}
+
+/* ---------- their sound switch ----------
+   The mute control sits on their page, outside the frame, and the player
+   expects it to silence everything on it. Their setting outranks ours: a game
+   that keeps ticking after the page was muted reads as broken. */
+export function portalMuted() {
+  try { return Boolean(sdk && sdk.game.settings && sdk.game.settings.muteAudio); } catch { return false; }
+}
+
+export function portalOnMute(handler) {
+  try {
+    if (!sdk || !sdk.game.addSettingsChangeListener) return;
+    sdk.game.addSettingsChangeListener((s) => handler(Boolean(s && s.muteAudio)));
+  } catch {}
+}
+
+/* ---------- who they are on CrazyGames ----------
+   Their requirement, and a fair one: friends have to be able to recognise
+   each other. A player signed in to CrazyGames plays under that name, so the
+   person across the board is the person they meant to play. */
+export async function portalUserName() {
+  try {
+    if (!sdk || !sdk.user) return '';
+    if (sdk.user.isUserAccountAvailable === false) return '';
+    const u = await sdk.user.getUser();
+    return (u && u.username) ? String(u.username) : '';
+  } catch { return ''; }
 }
