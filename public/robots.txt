@@ -1,0 +1,9 @@
+# Everything is one page, and all of it is meant to be found.
+User-agent: *
+Allow: /
+
+# The owner's journal: real nicknames and per-device history behind a key.
+# Never for a crawler, key or no key.
+Disallow: /admin
+
+Sitemap: https://wallrush.online/sitemap.xml

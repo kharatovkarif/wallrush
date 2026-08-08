@@ -146,6 +146,8 @@ export default {
   streak_info_unlit: 'Une flamme grise signifie que tu n’as pas encore joué aujourd’hui et que la série peut se briser. Une partie la rallume.',
   streak_info_days: 'Jours de célébration',
   streak_info_days_sub: 'Ces jours-là, une animation plein écran apparaît après le match :',
+  about_title: 'Qu’est-ce que WallRush ?',
+  about_body: 'WallRush est un jeu de stratégie gratuit à deux, directement dans le navigateur — le Quoridor classique, en ligne. Amène ton pion de l’autre côté du plateau 9×9 avant ton adversaire, et sers-toi de tes dix murs pour rallonger son chemin. Un mur ne se saute pas, il se contourne, et tu ne peux jamais bloquer complètement quelqu’un. Joue contre de vraies personnes, contre un ami par code de salon, ou contre l’IA. Sans téléchargement ni inscription.',
   ok_word: 'Super',
   later_word: 'Plus tard',
   close_word: 'Compris',

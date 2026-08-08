@@ -146,6 +146,8 @@ export default {
   streak_info_unlit: 'Gri alev, bugün oynamadığın ve serinin hâlâ kırılabileceği anlamına gelir. Tek bir oyun onu yeniden yakar.',
   streak_info_days: 'Kutlama günleri',
   streak_info_days_sub: 'Bu günlerde maçtan sonra tam ekran bir animasyon çıkar:',
+  about_title: 'WallRush nedir?',
+  about_body: 'WallRush, doğrudan tarayıcıda oynanan ücretsiz bir 1v1 strateji oyunu — klasik Quoridor’un çevrimiçi hâli. Piyonunu rakibinden önce 9×9 tahtanın karşı tarafına ulaştır, on duvarınla onun yolunu uzat. Duvarın üstünden atlanamaz, yalnızca etrafından dolaşılır ve kimsenin yolunu tamamen kapatamazsın. Gerçek insanlarla, oda koduyla bir arkadaşınla ya da yapay zekâya karşı oyna. İndirme yok, kayıt yok.',
   ok_word: 'Harika',
   later_word: 'Daha sonra',
   close_word: 'Anladım',

@@ -1,18 +1,79 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
   <meta name="theme-color" content="#f4f4fb">
   <meta name="78579d7798af5fd100ce65fc79be9e3e89a522e7" content="78579d7798af5fd100ce65fc79be9e3e89a522e7" />
-  <title>WallRush — Block their way</title>
+
+  <!-- ============ how this page gets found ============
+       Everything a crawler is handed lives in the next forty lines, because
+       everything below is written by JavaScript: 131 elements start empty and
+       are filled once the app boots. A search engine fetching the raw file saw
+       no words at all — which is why the result carried a title and nothing
+       underneath it.
+
+       In English on purpose. There is one indexable page behind six languages,
+       and English reaches the widest search audience; the game itself still
+       opens in whatever language the visitor's browser asks for. -->
+  <title>WallRush — Play Quoridor Online Free, 1v1 Strategy Game</title>
+  <meta name="description" content="Play WallRush free in your browser — a 1v1 Quoridor strategy duel. Race your pawn to the far side of a 9×9 board, or wall your rival off. Against real people online, a friend by room code, or the AI. No download, no signup.">
+  <link rel="canonical" href="https://wallrush.online/">
+
+  <!-- The card a messenger draws when the link is shared. Without these, a
+       link pasted into Telegram or WhatsApp arrived as bare text. -->
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="WallRush">
+  <meta property="og:url" content="https://wallrush.online/">
+  <meta property="og:title" content="WallRush — Play Quoridor Online Free">
+  <meta property="og:description" content="A 1v1 strategy duel in your browser. Race to the far side of the board, or wall your rival off. Against real players, a friend, or the AI — no signup.">
+  <meta property="og:image" content="https://wallrush.online/icons/icon-512.png">
+  <meta property="og:image:width" content="512">
+  <meta property="og:image:height" content="512">
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="WallRush — Play Quoridor Online Free">
+  <meta name="twitter:description" content="A 1v1 strategy duel in your browser. Race to the far side of the board, or wall your rival off. No signup.">
+  <meta name="twitter:image" content="https://wallrush.online/icons/icon-512.png">
+
+  <!-- One page serves every language, so each alternate points back to it. -->
+  <link rel="alternate" hreflang="en" href="https://wallrush.online/">
+  <link rel="alternate" hreflang="ru" href="https://wallrush.online/">
+  <link rel="alternate" hreflang="fa" href="https://wallrush.online/">
+  <link rel="alternate" hreflang="tr" href="https://wallrush.online/">
+  <link rel="alternate" hreflang="fr" href="https://wallrush.online/">
+  <link rel="alternate" hreflang="es" href="https://wallrush.online/">
+  <link rel="alternate" hreflang="x-default" href="https://wallrush.online/">
+
+  <!-- Structured data: what a search engine, and an assistant reading through
+       one, uses to say what this thing actually is. -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "VideoGame",
+    "name": "WallRush",
+    "alternateName": "Wall Rush",
+    "url": "https://wallrush.online/",
+    "image": "https://wallrush.online/icons/icon-512.png",
+    "description": "A free 1v1 Quoridor-style strategy game played in the browser. Move your pawn to the opposite side of a 9×9 board before your opponent does, using a limited supply of walls to block their path. Play against real people online, against a friend by room code, or against an AI opponent.",
+    "genre": ["Strategy", "Board Game", "Puzzle"],
+    "gamePlatform": ["Web browser", "Android", "iOS"],
+    "playMode": ["MultiPlayer", "SinglePlayer"],
+    "numberOfPlayers": { "@type": "QuantitativeValue", "minValue": 1, "maxValue": 2 },
+    "applicationCategory": "GameApplication",
+    "operatingSystem": "Any",
+    "inLanguage": ["en", "ru", "fa", "tr", "fr", "es"],
+    "isAccessibleForFree": true,
+    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD", "availability": "https://schema.org/InStock" }
+  }
+  </script>
+
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect x='8' y='14' width='84' height='30' rx='8' fill='%237c5cff'/><rect x='8' y='56' width='40' height='30' rx='8' fill='%237c5cff'/><rect x='56' y='56' width='36' height='30' rx='8' fill='%23b3a1ff'/></svg>">
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
   <!-- Opens the connection to the ad host early. Costs one handshake and no
        download, and takes that handshake off the wait once Support is tapped. -->
   <link rel="preconnect" href="https://js.onclckmn.com" crossorigin>
-  <link rel="stylesheet" href="css/style.css?v=100">
+  <link rel="stylesheet" href="css/style.css?v=101">
   <!-- Are we inside somebody else's page? Every game portal forbids running
        your own ads inside theirs, and the ad scripts below start the moment
        the parser reaches them — long before any module could stop one. So the
@@ -48,7 +109,7 @@
           <div class="logo-mark"><span></span><span></span><span></span></div>
           <h1>WallRush</h1>
         </div>
-        <p class="tagline" data-i18n="tagline"></p>
+        <p class="tagline" data-i18n="tagline">Block their way</p>
         <div class="head-pills">
           <div class="online-pill"><span class="dot"></span><b id="online-count">0</b>&nbsp;<span data-i18n="online_count"></span></div>
           <!-- the streak is the reason to come back tomorrow, so it greets you.
@@ -64,27 +125,27 @@
       <div class="cards">
         <button class="card card-primary" id="btn-quick">
           <div class="card-icon">⚡</div>
-          <div class="card-text"><b data-i18n="quick_match"></b><small data-i18n="quick_match_sub"></small></div>
+          <div class="card-text"><b data-i18n="quick_match">Quick match</b><small data-i18n="quick_match_sub">Find an opponent</small></div>
           <div class="card-arrow">›</div>
         </button>
         <div class="cards-row">
           <button class="card card-violet" id="btn-online">
             <div class="card-icon">🌐</div>
-            <div class="card-text"><b data-i18n="play_online"></b><small data-i18n="play_online_sub"></small></div>
+            <div class="card-text"><b data-i18n="play_online">Play online</b><small data-i18n="play_online_sub">Public rooms</small></div>
           </button>
           <button class="card card-violet2" id="btn-friend">
             <div class="card-icon">🤝</div>
-            <div class="card-text"><b data-i18n="play_friend"></b><small data-i18n="play_friend_sub"></small></div>
+            <div class="card-text"><b data-i18n="play_friend">Play a friend</b><small data-i18n="play_friend_sub">By room code</small></div>
           </button>
         </div>
         <button class="card card-light" id="btn-ai">
           <div class="card-icon dark">🤖</div>
-          <div class="card-text"><b data-i18n="play_ai"></b><small data-i18n="play_ai_sub"></small></div>
+          <div class="card-text"><b data-i18n="play_ai">Play the AI</b><small data-i18n="play_ai_sub">Practice</small></div>
           <div class="card-arrow">›</div>
         </button>
         <button class="card card-light" id="btn-how">
           <div class="card-icon dark">📖</div>
-          <div class="card-text"><b data-i18n="how_title"></b></div>
+          <div class="card-text"><b data-i18n="how_title">How to play</b></div>
           <div class="card-arrow">›</div>
         </button>
       </div>
@@ -111,12 +172,25 @@
           </a>
         </div>
         <nav class="legal-links">
-          <a data-legal="rules" data-i18n="legal_rules"></a><span>·</span>
-          <a data-legal="help" data-i18n="legal_help"></a><span>·</span>
-          <a data-legal="terms" data-i18n="legal_terms"></a><span>·</span>
-          <a data-legal="privacy" data-i18n="legal_privacy"></a>
+          <a data-legal="rules" data-i18n="legal_rules">Rules</a><span>·</span>
+          <a data-legal="help" data-i18n="legal_help">Help</a><span>·</span>
+          <a data-legal="terms" data-i18n="legal_terms">Terms</a><span>·</span>
+          <a data-legal="privacy" data-i18n="legal_privacy">Privacy</a>
         </nav>
       </div>
+
+      <!-- A real paragraph, in the page from the moment it is served.
+
+           Everything else here is drawn by JavaScript, so a crawler that does
+           not run scripts was given a page with no sentence in it — hence a
+           search result with a title and nothing underneath. This is the one
+           block that is already text when the file arrives, and it is shown to
+           players rather than hidden from them: a paragraph written for robots
+           alone is cloaking, and worth neither the risk nor the trick. -->
+      <section class="about">
+        <h2 data-i18n="about_title">What is WallRush?</h2>
+        <p data-i18n="about_body">WallRush is a free 1v1 strategy game you play straight in the browser — the classic Quoridor, online. Get your pawn to the far side of the 9×9 board before your opponent does, and use your ten walls to make their path longer. A wall cannot be jumped, only walked around, and you may never block someone off completely. Play against real people, against a friend by room code, or against the AI. No download and no signup.</p>
+      </section>
 
       <!-- HilltopAds 300x100 banner: lives inside the home screen, so it shows
            in the menu only and is never present on the game screen. -->
@@ -726,7 +800,7 @@
     <div id="toast" hidden></div>
   </div>
 
-  <script src="vendor/supabase.js?v=100" defer></script>
-  <script type="module" src="js/app.js?v=100"></script>
+  <script src="vendor/supabase.js?v=101" defer></script>
+  <script type="module" src="js/app.js?v=101"></script>
 </body>
 </html>

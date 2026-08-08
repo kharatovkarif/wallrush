@@ -146,6 +146,8 @@ export default {
   streak_info_unlit: 'Una llama gris significa que hoy no has jugado y la racha aún puede romperse. Una partida la vuelve a encender.',
   streak_info_days: 'Días de celebración',
   streak_info_days_sub: 'Esos días aparece una animación a pantalla completa tras la partida:',
+  about_title: '¿Qué es WallRush?',
+  about_body: 'WallRush es un juego de estrategia 1c1 gratuito que se juega directamente en el navegador — el clásico Quoridor, en línea. Lleva tu peón al lado opuesto del tablero de 9×9 antes que tu rival y usa tus diez muros para alargar su camino. Un muro no se salta, solo se rodea, y nunca puedes bloquear del todo a nadie. Juega contra personas reales, contra un amigo con código de sala o contra la IA. Sin descargas ni registro.',
   ok_word: 'Genial',
   later_word: 'Más tarde',
   close_word: 'Entendido',

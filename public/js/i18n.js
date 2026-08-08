@@ -147,6 +147,8 @@ export const I18N = {
     streak_info_unlit: 'Серый огонёк значит, что сегодня ты ещё не играл и серия может прерваться. Одна игра — и он снова горит.',
     streak_info_days: 'Дни с анимацией',
     streak_info_days_sub: 'В эти дни после матча появляется анимация на весь экран:',
+    about_title: 'Что такое WallRush?',
+    about_body: 'WallRush — бесплатная игра один на один прямо в браузере, классический «Коридор» онлайн. Доведи свой шар до противоположного края поля 9×9 раньше соперника, а десятью стенами удлиняй его путь. Стену нельзя перепрыгнуть, только обойти, и полностью перекрыть дорогу нельзя никогда. Играй с живыми людьми, с другом по коду или против ИИ. Без скачивания и без регистрации.',
     ok_word: 'Отлично',
     later_word: 'Позже',
     close_word: 'Понятно',
@@ -390,6 +392,8 @@ export const I18N = {
     streak_info_unlit: 'A grey flame means you have not played today and the streak can still break. One game lights it again.',
     streak_info_days: 'Days with a celebration',
     streak_info_days_sub: 'On these days a full-screen animation appears after the match:',
+    about_title: 'What is WallRush?',
+    about_body: 'WallRush is a free 1v1 strategy game you play straight in the browser — the classic Quoridor, online. Get your pawn to the far side of the 9×9 board before your opponent does, and use your ten walls to make their path longer. A wall cannot be jumped, only walked around, and you may never block someone off completely. Play against real people, against a friend by room code, or against the AI. No download and no signup.',
     ok_word: 'Nice',
     later_word: 'Later',
     close_word: 'Got it',
@@ -502,7 +506,7 @@ export const LANGS = [
 export const LANG_CODES = LANGS.map((l) => l.code);
 export const RTL = new Set(['fa']);
 
-const V = '100';
+const V = '101';
 
 // Loads a translation file on demand. Safe to call repeatedly and safe to fail:
 // if the request never lands, makeT keeps falling back to English.

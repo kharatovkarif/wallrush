@@ -123,6 +123,13 @@ html[data-theme="dark"] .side-ads { color: #8fb2ff; background: rgba(47, 109, 24
    be three empty gaps down the page. */
 html.embedded .ad-slot { display: none !important; }
 
+/* The one paragraph that is real text in the served file, and the only place
+   on the home screen that says in plain words what this game is. Quiet, at the
+   bottom, below everything a returning player came for. */
+.about { margin: 26px 2px 8px; text-align: start; }
+.about h2 { font-size: 15px; margin-bottom: 7px; }
+.about p { color: var(--muted); font-size: 13px; line-height: 1.65; }
+
 /* ============ offline ============ */
 #offline-bar {
   position: sticky; top: 0; z-index: 40;
