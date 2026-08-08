@@ -218,6 +218,64 @@ export async function createProfile(userId, nick) {
   return { ok: true };
 }
 
+/* Carry a guest's progress into the account they have just made.
+
+   Everyone plays as a guest first, and their points and streak are kept
+   against the device. Signing up created an empty profile beside all of that
+   and started the player from zero — while the very screen they signed up
+   from promised the opposite: "your points live on this device, sign up so
+   you never lose them". A player at four thousand points and ten days running
+   had no safe move in either direction.
+
+   Guarded so that one device cannot be spent twice:
+
+     only for a profile created a moment ago — an existing account is never
+     topped up, or a single strong device could feed one account after another;
+
+     only from a device no other account has already claimed;
+
+     and the device is marked as claimed here, so a second signup from it
+     carries nothing.
+
+   Wins and losses stay behind — they are only ever counted for accounts, so
+   there is nothing on the guest side to move. A cheating flag does come
+   across: a fresh email should not wash it off. */
+export async function claimGuestProgress(userId, deviceId) {
+  if (!dbEnabled || !userId || !deviceId) return null;
+  try {
+    const { data: v } = await supa.from('visitors')
+      .select('user_id, points, streak, streak_best, streak_day, freeze_month, streak_prev, points_day, points_today, flagged')
+      .eq('device_id', deviceId).maybeSingle();
+    if (!v) return null;
+    if (v.user_id && v.user_id !== userId) return null;   // somebody else's device
+
+    const points = v.points || 0;
+    const streak = v.streak || 0;
+    if (points > 0 || streak > 0 || (v.streak_best || 0) > 0) {
+      await supa.from('profiles').update({
+        points,
+        streak,
+        streak_best: v.streak_best || 0,
+        streak_day: v.streak_day,
+        freeze_month: v.freeze_month,
+        streak_prev: v.streak_prev || 0,
+        points_day: v.points_day,
+        points_today: v.points_today || 0,
+        ...(v.flagged ? { flagged: true } : {}),
+      }).eq('id', userId);
+    }
+    /* Claimed either way: an empty device must not stay open for a second
+       account either. The row keeps its own numbers — the leaderboard is built
+       from profiles alone so nothing is counted twice, and a player who signs
+       out still finds their guest progress where they left it. */
+    await supa.from('visitors').update({ user_id: userId }).eq('device_id', deviceId);
+    return { points, streak };
+  } catch (e) {
+    console.error('claimGuestProgress failed:', e.message);
+    return null;
+  }
+}
+
 // count a finished game between two real humans (for the owner's stats)
 export async function recordHumanMatch(mode) {
   if (!dbEnabled) return;

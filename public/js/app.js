@@ -1,15 +1,15 @@
 // WallRush client app: screens, board UI, online play (WebSocket), AI mode, auth.
-import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=99';
-import { aiMove } from './ai.js?v=99';
-import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=99';
-import { rankOf, nextRank } from './ranks.js?v=99';
-import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=99';
-import { checkNick, nickOk, randomNick } from './nick.js?v=99';
+import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=100';
+import { aiMove } from './ai.js?v=100';
+import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=100';
+import { rankOf, nextRank } from './ranks.js?v=100';
+import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=100';
+import { checkNick, nickOk, randomNick } from './nick.js?v=100';
 import {
   embedded, initPortal, inPortal, portalAd, portalPlaying, portalHappy,
   portalLoaded, portalInviteCode, portalShowInvite, portalHideInvite, portalInstant,
   portalRoom, portalOnJoin, portalInviteLink, portalMuted, portalOnMute, portalUserName,
-} from './portal.js?v=99';
+} from './portal.js?v=100';
 
 /* ================= state ================= */
 const $ = (id) => document.getElementById(id);
@@ -255,7 +255,7 @@ function getAiWorker() {
   if (aiWorker === false) return null;
   if (!aiWorker) {
     try {
-      aiWorker = new Worker('js/ai-worker.js?v=99', { type: 'module' });
+      aiWorker = new Worker('js/ai-worker.js?v=100', { type: 'module' });
       aiWorker.onmessage = (e) => {
         const cb = aiPending.get(e.data.id);
         aiPending.delete(e.data.id);
@@ -2015,7 +2015,8 @@ $('btn-auth-submit').addEventListener('click', async () => {
       const res = await fetch('/api/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password, nick }),
+        // the device carries the guest progress this account inherits
+        body: JSON.stringify({ email, password, nick, device: deviceId }),
       });
       const data = await res.json();
       if (data.error) {
@@ -2066,7 +2067,7 @@ async function createProfileReq(nick) {
   const res = await fetch('/api/profile', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
-    body: JSON.stringify({ nick }),
+    body: JSON.stringify({ nick, device: deviceId }),
   });
   const data = await res.json();
   if (data.error === 'nick_taken') { authMsg(t('err_nick_taken')); return false; }

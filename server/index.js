@@ -10,7 +10,7 @@ import { RANKS } from '../public/js/ranks.js';
 import { checkNick } from '../public/js/nick.js';
 import { localDay } from '../public/js/streak.js';
 import { initPush, pushPublicKey, saveSub, dropSub, pushTick } from './push.js';
-import { dbEnabled, dbStatus, dbDetail, cleanEnv, likeEscape, supa, verifyUser, getProfile, createProfile, leaderboard, clearNickNotice, restoreStreak } from './db.js';
+import { dbEnabled, dbStatus, dbDetail, cleanEnv, likeEscape, supa, verifyUser, getProfile, createProfile, claimGuestProgress, leaderboard, clearNickNotice, restoreStreak } from './db.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -82,6 +82,14 @@ app.post('/api/nick-notice/ack', async (req, res) => {
 });
 
 // Create profile with chosen nick (right after signup).
+// The device id as the client reports it, or '' when it is not a device id at
+// all. Same shape the visitor log accepts, checked in one place so neither
+// signup route has to trust the body.
+const deviceOf = (req) => {
+  const d = String(req.body?.device || '');
+  return /^[A-Za-z0-9-]{8,64}$/.test(d) ? d : '';
+};
+
 app.post('/api/profile', async (req, res) => {
   const user = await verifyUser(bearer(req));
   if (!user) return res.status(401).json({ error: 'unauthorized' });
@@ -92,6 +100,9 @@ app.post('/api/profile', async (req, res) => {
   if (existing) return res.json({ profile: existing });
   const result = await createProfile(user.id, nick);
   if (result.error) return res.status(400).json({ error: result.error });
+  // the guest who has been playing on this device is the person who just
+  // signed up: their points and streak come with them
+  await claimGuestProgress(user.id, deviceOf(req));
   res.json({ profile: await getProfile(user.id) });
 });
 
@@ -137,6 +148,7 @@ app.post('/api/register', async (req, res) => {
   }
   const prof = await createProfile(userId, nick);
   if (prof.error) return res.status(400).json({ error: prof.error });
+  await claimGuestProgress(userId, deviceOf(req));
   res.json({ ok: true });
 });
 
