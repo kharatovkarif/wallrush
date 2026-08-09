@@ -330,21 +330,129 @@ const ADMIN_CSS = `
   .geo .num { font-size: 11px; color: #8892b0; margin-left: 6px; }
   .geo .track { height: 6px; background: #232842; border-radius: 4px; margin-top: 7px; overflow: hidden; }
   .geo .track i { display: block; height: 100%; background: linear-gradient(90deg, #5b8cff, #2f6df6); border-radius: 4px; }
-  .note { color: #6d7796; font-size: 12px; line-height: 1.6; }`;
+  .note { color: #6d7796; font-size: 12px; line-height: 1.6; }
+  /* ---------- new: bottom nav + card dashboard ---------- */
+  .adm-body { padding-bottom: 76px; }
+  .adm-nav {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 50;
+    display: flex; background: rgba(15, 17, 28, .94); backdrop-filter: blur(10px);
+    border-top: 1px solid #232842; padding: 6px 2px calc(6px + env(safe-area-inset-bottom));
+  }
+  .an-btn {
+    flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px;
+    padding: 6px 2px; font-size: 10.5px; font-weight: 600; color: #6d7796;
+  }
+  .an-ic { font-size: 19px; filter: grayscale(1) opacity(.6); }
+  .an-btn.on { color: #6d9bf8; }
+  .an-btn.on .an-ic { filter: none; }
+  .live-strip {
+    display: flex; align-items: center; gap: 8px; background: #191d2e; border: 1px solid #232842;
+    border-radius: 13px; padding: 11px 14px; margin-bottom: 12px; font-size: 13.5px;
+  }
+  .live-strip .dot { width: 8px; height: 8px; border-radius: 50%; background: #21c07a; flex: none; animation: lpulse 2s infinite; }
+  @keyframes lpulse { 50% { opacity: .35; } }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .card2 { background: #191d2e; border: 1px solid #232842; border-radius: 16px; padding: 14px 15px; position: relative; }
+  .c2-ic { font-size: 18px; opacity: .85; }
+  .c2-label { font-size: 12px; color: #8892b0; margin-top: 8px; line-height: 1.3; }
+  .c2-val { font-size: 25px; font-weight: 800; margin-top: 2px; line-height: 1.15; }
+  .delta { display: inline-flex; align-items: center; gap: 3px; font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 999px; margin-top: 8px; }
+  .delta.up { color: #21c07a; background: rgba(33, 192, 122, .14); }
+  .delta.down { color: #e35d6a; background: rgba(227, 61, 82, .14); }
+  .totals-row { display: flex; flex-wrap: wrap; gap: 8px 18px; background: #191d2e; border: 1px solid #232842; border-radius: 13px; padding: 12px 14px; font-size: 13px; }
+  .totals-row b { font-size: 15px; margin-right: 4px; }
+  .pcard { display: flex; align-items: center; gap: 12px; background: #191d2e; border: 1px solid #232842; border-radius: 15px; padding: 11px 13px; margin-bottom: 8px; }
+  .pcard:active { background: #1f2438; }
+  .pc-avatar { width: 38px; height: 38px; border-radius: 50%; flex: none; background: linear-gradient(135deg, #5b8cff, #2f6df6); display: grid; place-items: center; font-weight: 700; color: #fff; }
+  .pc-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+  .pc-info b { font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; gap: 5px; }
+  .pc-info small { font-size: 11.5px; color: #8892b0; }
+  .pc-right { text-align: right; flex: none; }
+  .pc-right b { font-size: 16px; display: block; }
+  .pc-right small { font-size: 10px; color: #8892b0; }
+  .badge-reg { color: #21c07a; font-size: 12px; }
+  .pc-go { color: #6d7796; font-size: 18px; flex: none; }
+  .search-box { width: 100%; padding: 11px 14px; border-radius: 12px; border: 1px solid #232842; background: #191d2e; color: #e8ecf8; font-size: 14px; margin-bottom: 10px; }
+  .subsect { font-size: 13px; font-weight: 700; color: #cfd6ee; margin: 20px 0 8px; }`;
 
 const nowMskHms = () => {
   const d = new Date(Date.now() + 3 * 3600e3);
   const p = (n) => String(n).padStart(2, '0');
   return `${p(d.getUTCHours())}:${p(d.getUTCMinutes())}:${p(d.getUTCSeconds())}`;
 };
-const adminPage = (title, body) => `<!DOCTYPE html><html lang="ru"><head><meta charset="utf-8">
+// The five sections the owner actually checks, reached from a fixed bottom
+// bar instead of scrolling past everything else to get to one of them.
+const NAV_ITEMS = [
+  ['obzor', '📊', 'Обзор'],
+  ['people', '👥', 'Люди'],
+  ['audience', '🌍', 'Аудитория'],
+  ['sources', '📈', 'Источники'],
+  ['days', '📅', 'Дни'],
+];
+const bottomNav = (active) => `<nav class="adm-nav">${NAV_ITEMS.map(([id, ic, label]) =>
+  `<a class="an-btn ${active === id ? 'on' : ''}" href="/admin?key=${ADMIN_KEY}&view=${id}"><span class="an-ic">${ic}</span>${label}</a>`
+).join('')}</nav>`;
+
+const adminPage = (title, body, active = 'obzor') => `<!DOCTYPE html><html lang="ru"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#12141f">
 <meta http-equiv="refresh" content="60">
 <meta http-equiv="Cache-Control" content="no-store">
-<title>${title}</title><style>${ADMIN_CSS}</style></head><body>${body}
+<title>${title}</title><style>${ADMIN_CSS}</style></head><body>
+<div class="adm-body">${body}
 <p style="text-align:center;color:#5b6480;font-size:12px;margin:18px 0 6px">🕐 обновлено в ${nowMskHms()} МСК · страница сама обновляется раз в минуту</p>
+</div>
+${bottomNav(active)}
 </body></html>`;
+
+// ---- period ranges for the Обзор dashboard: today / yesterday / 7d / 30d,
+// each paired with an equal-length previous window so a % change means something.
+function periodRange(p) {
+  const today = mskDayStart(Date.now());
+  if (p === 'yesterday') {
+    return {
+      from: new Date((today - 1) * dayMs - 3 * 3600e3).toISOString(),
+      to: new Date(today * dayMs - 3 * 3600e3).toISOString(),
+      prevFrom: new Date((today - 2) * dayMs - 3 * 3600e3).toISOString(),
+      prevTo: new Date((today - 1) * dayMs - 3 * 3600e3).toISOString(),
+      label: 'вчера',
+    };
+  }
+  if (p === 'week' || p === 'month') {
+    const days = p === 'week' ? 7 : 30;
+    const to = new Date().toISOString();
+    const from = new Date(Date.now() - days * dayMs).toISOString();
+    return {
+      from, to,
+      prevFrom: new Date(Date.now() - 2 * days * dayMs).toISOString(),
+      prevTo: from,
+      label: p === 'week' ? '7 дней' : '30 дней',
+    };
+  }
+  return {
+    from: new Date(mskDayStart(Date.now()) * dayMs - 3 * 3600e3).toISOString(),
+    to: new Date().toISOString(),
+    prevFrom: new Date((today - 1) * dayMs - 3 * 3600e3).toISOString(),
+    prevTo: new Date(today * dayMs - 3 * 3600e3).toISOString(),
+    label: 'сегодня',
+  };
+}
+const rangeQ = (q, col, from, to) => to ? q.gte(col, from).lt(col, to) : q.gte(col, from);
+async function periodStats(from, to) {
+  const c = async (q) => (await q).count || 0;
+  const [newPeople, active, games, humans] = await Promise.all([
+    c(rangeQ(supa.from('visitors').select('*', { count: 'exact', head: true }), 'first_seen', from, to)),
+    c(rangeQ(supa.from('visitors').select('*', { count: 'exact', head: true }), 'last_seen', from, to)),
+    c(rangeQ(supa.from('visit_log').select('*', { count: 'exact', head: true }).eq('kind', 'game'), 'at', from, to)),
+    c(rangeQ(supa.from('human_matches').select('*', { count: 'exact', head: true }), 'at', from, to)),
+  ]);
+  return { newPeople, active, games, humans };
+}
+const pct = (cur, prev) => prev ? Math.round(100 * (cur - prev) / prev) : (cur ? 100 : null);
+const deltaHtml = (p) => p === null ? '' :
+  `<div class="delta ${p >= 0 ? 'up' : 'down'}">${p >= 0 ? '▲' : '▼'} ${Math.abs(p)}%</div>`;
+const statCard = (icon, label, value, p) =>
+  `<div class="card2"><div class="c2-ic">${icon}</div><div class="c2-val">${value}</div><div class="c2-label">${esc(label)}</div>${deltaHtml(p)}</div>`;
 
 // display name for a visitor row: 📲 = installed the game as an app
 // installed but hasn't launched from the icon for a week while still visiting
@@ -426,183 +534,28 @@ const visName = (v, byId) => {
 app.get('/admin', async (req, res) => {
   if ((req.query.key || '') !== ADMIN_KEY) return res.status(404).send('Not found');
   if (!dbEnabled) return res.send('DB is off');
-  const { data: profs } = await supa.from('profiles').select('id, nick, wins, losses');
-  const byId = new Map((profs || []).map(p => [p.id, p]));
 
-  // every headline number is counted in the DB — never from a fetched page
+  const num = (n) => Number(n || 0).toLocaleString('ru');
+  const cnt = async (q) => (await q).count || 0;
   const today = mskDayStart(Date.now());
   const todayStartIso = new Date(today * dayMs - 3 * 3600e3).toISOString();
-  const cnt = async (q) => (await q).count || 0;
-  const [totalPeople, played, regs, installs, newToday, activeToday, humansToday, humansTotal] = await Promise.all([
-    cnt(supa.from('visitors').select('*', { count: 'exact', head: true })),
-    cnt(supa.from('visitors').select('*', { count: 'exact', head: true }).gt('games', 0)),
-    cnt(supa.from('visitors').select('*', { count: 'exact', head: true }).not('user_id', 'is', null)),
-    cnt(supa.from('visitors').select('*', { count: 'exact', head: true }).not('installed_at', 'is', null)),
-    cnt(supa.from('visitors').select('*', { count: 'exact', head: true }).gte('first_seen', todayStartIso)),
-    cnt(supa.from('visitors').select('*', { count: 'exact', head: true }).gte('last_seen', todayStartIso)),
-    cnt(supa.from('human_matches').select('*', { count: 'exact', head: true }).gte('at', todayStartIso)),
-    cnt(supa.from('human_matches').select('*', { count: 'exact', head: true })),
-  ]);
-  const [totalGames, gamesToday] = await Promise.all([
-    cnt(supa.from('visit_log').select('*', { count: 'exact', head: true }).eq('kind', 'game')),
-    cnt(supa.from('visit_log').select('*', { count: 'exact', head: true }).eq('kind', 'game').gte('at', todayStartIso)),
-  ]);
-
-  // ---- the three things shipped this week, none of which were measurable ----
-  // A streak counts as alive if it was touched today or yesterday; anything
-  // older is a broken run still sitting in the row.
-  const dayAgoIso = new Date(Date.now() - dayMs).toISOString().slice(0, 10);
-  const [
-    streakAliveN, streak3, streak7, streakTopRow,
-    invShareToday, invJoinToday, invShareWeek, invJoinWeek,
-  ] = await Promise.all([
-    cnt(supa.from('visitors').select('*', { count: 'exact', head: true }).gte('streak_day', dayAgoIso).gt('streak', 0)),
-    cnt(supa.from('visitors').select('*', { count: 'exact', head: true }).gte('streak_day', dayAgoIso).gte('streak', 3)),
-    cnt(supa.from('visitors').select('*', { count: 'exact', head: true }).gte('streak_day', dayAgoIso).gte('streak', 7)),
-    supa.from('visitors').select('streak_best').order('streak_best', { ascending: false }).limit(1).maybeSingle(),
-    cnt(supa.from('visit_log').select('*', { count: 'exact', head: true }).eq('kind', 'invite_share').gte('at', todayStartIso)),
-    cnt(supa.from('visit_log').select('*', { count: 'exact', head: true }).eq('kind', 'invite_join').gte('at', todayStartIso)),
-    cnt(supa.from('visit_log').select('*', { count: 'exact', head: true }).eq('kind', 'invite_share').gte('at', new Date(Date.now() - 7 * dayMs).toISOString())),
-    cnt(supa.from('visit_log').select('*', { count: 'exact', head: true }).eq('kind', 'invite_join').gte('at', new Date(Date.now() - 7 * dayMs).toISOString())),
-  ]);
-  const bestStreak = streakTopRow?.data?.streak_best || 0;
-
-  // Rank spread. The leaderboard ranks guests, registered accounts and bots
-  // together, so counting only guests here made a real GOAT show up as zero.
-  // Bots are counted apart: they belong on the leaderboard but not in a
-  // headline about how the audience is doing.
-  const rankBand = (table, r, i, extra) => {
-    const next = RANKS[i + 1];
-    let q = supa.from(table).select('*', { count: 'exact', head: true }).gte('points', r.min);
-    if (next) q = q.lt('points', next.min);
-    if (extra) q = extra(q);
-    return cnt(q);
-  };
-  const [guestBands, accountBands, botBands] = await Promise.all([
-    // guests who never played are not "Rookies", they are visitors — exclude them
-    Promise.all(RANKS.map((r, i) => rankBand('visitors', r, i, (q) => q.gt('games', 0)))),
-    Promise.all(RANKS.map((r, i) => rankBand('profiles', r, i))),
-    Promise.all(RANKS.map((r, i) => rankBand('bot_players', r, i))),
-  ]);
-  const rankCounts = RANKS.map((_, i) => guestBands[i] + accountBands[i]);
-  const botTotal = botBands.reduce((a, b) => a + b, 0);
-  const ranked = rankCounts.reduce((a, b) => a + b, 0) - (rankCounts[0] || 0);
-
-  // new people per MSK day, counted IN the database — the 500-row journal fetch
-  // above must never be used for these numbers (it silently truncates them)
-  const { data: npd } = await supa.rpc('new_per_day', {
-    from_ts: new Date((today - 13) * dayMs - 3 * 3600e3).toISOString(),
-  });
-  const npdMap = new Map((npd || []).map(r => [Number(r.day), Number(r.n)]));
-
-  const view = String(req.query.view || 'people');
-  const viewTab = (id, label) =>
-    `<a class="${view === id ? 'on' : ''}" href="/admin?key=${ADMIN_KEY}&view=${id}">${label}</a>`;
+  const view = ['obzor', 'people', 'audience', 'sources', 'days'].includes(String(req.query.view))
+    ? String(req.query.view) : 'obzor';
 
   let content = '';
-  if (view === 'days') {
-    // ----- days view: each day = a block with its own numbers and people -----
-    // aggregate per MSK day IN the database (no 1000-row truncation)
-    const fromTs = new Date((today - 13) * dayMs - 3 * 3600e3).toISOString();
-    const { data: buckets } = await supa.rpc('admin_buckets', {
-      from_ts: fromTs, to_ts: new Date().toISOString(), bucket_secs: 86400, offset_secs: 10800,
-    });
-    const dmap = new Map(); // MSK day index -> { people, games }
-    for (const b of (buckets || [])) dmap.set(Number(b.bucket), { people: Number(b.people), games: Number(b.games) });
 
-    const blocks = [];
-    for (let day = today; day > today - 14; day--) {
-      const rec = dmap.get(day);
-      const fresh = npdMap.get(day) || 0;      // exact, straight from the DB
-      if (!rec && !fresh) continue;
-      blocks.push(`<a class="dayrow" href="/admin/day?key=${ADMIN_KEY}&day=${day}">
-        <span class="d">${mskDayLabel(day)}${day === today ? ' <span style="color:#21c07a;font-size:11px">сегодня</span>' : ''}</span>
-        <span class="m">
-          <span><i>Новых</i><u style="color:#4d8dff">${fresh}</u></span>
-          <span><i>Заходили</i><u>${rec ? rec.people : '—'}</u></span>
-          <span><i>Партий</i><u>${rec ? rec.games : '—'}</u></span>
-        </span>
-        <span class="go">›</span>
-      </a>`);
-    }
-    content = `<h2>По дням — нажми на день, чтобы увидеть по часам</h2>` +
-      (blocks.join('') || '<p class="note">Подневная история пишется с 19.07 — строки появятся по мере заходов.</p>');
-  } else if (view === 'geo') {
-    // ----- countries: share of the audience, aggregated in the DB -----
-    const period = String(req.query.p || 'all');
-    const fromTs = period === 'today' ? todayStartIso
-      : period === 'week' ? new Date(Date.now() - 7 * dayMs).toISOString() : null;
-    const { data: tzRows } = await supa.rpc('admin_timezones', { from_ts: fromTs });
-    const agg = new Map();                     // country -> { people, games }
-    for (const r of (tzRows || [])) {
-      const name = countryOf(r.tz);
-      const cur = agg.get(name) || { people: 0, games: 0 };
-      cur.people += Number(r.people) || 0;
-      cur.games += Number(r.games) || 0;
-      agg.set(name, cur);
-    }
-    const list = [...agg.entries()].map(([name, v]) => ({ name, ...v }))
-      .sort((a, b) => b.people - a.people);
-    const sum = list.reduce((s, c) => s + c.people, 0) || 1;
-    const pTab = (id, label) =>
-      `<a class="${period === id ? 'on' : ''}" href="/admin?key=${ADMIN_KEY}&view=geo&p=${id}">${label}</a>`;
-    const rowsHtml = list.slice(0, 30).map(c => {
-      const pct = (100 * c.people / sum);
-      return `<div class="geo">
-        <div class="top">
-          <span class="name">${esc(c.name)}</span>
-          <span class="pct">${pct.toFixed(1)}%</span>
-        </div>
-        <div class="track"><i style="width:${Math.max(1, pct).toFixed(1)}%"></i></div>
-        <div class="num">${c.people.toLocaleString('ru')} чел. · ${c.games.toLocaleString('ru')} партий</div>
-      </div>`;
-    }).join('');
-    const rest = list.slice(30).reduce((s, c) => s + c.people, 0);
-    content = `<h2>Откуда игроки — ${list.length} стран</h2>
-<div class="tabs">${pTab('all', 'За всё время')}${pTab('week', 'За 7 дней')}${pTab('today', 'Сегодня')}</div>
-${rowsHtml || '<p class="note">Пока нет данных за этот период.</p>'}
-${rest ? `<p class="note">+ ещё ${rest.toLocaleString('ru')} чел. из остальных стран</p>` : ''}
-<p class="note">Страна определяется по часовому поясу устройства — это близко к правде, но не паспорт: через VPN человек может выглядеть как из другой страны.</p>`;
-  } else if (view === 'src') {
-    /* ----- where the traffic comes from -----
-       Arrivals alone decide nothing, so each channel is shown with what
-       happened after the click: how many started a game at all, and how many
-       were still here the next day. A channel that lands 10 000 people who
-       bounce is worth less than one that lands 500 who stay, and only these
-       three columns side by side make that visible. */
-    const period = String(req.query.p || 'week');
-    const fromTs = period === 'today' ? todayStartIso
-      : period === 'week' ? new Date(Date.now() - 7 * dayMs).toISOString() : null;
-    const { data: srcRows } = await supa.rpc('admin_sources', { from_ts: fromTs });
-    const list = (srcRows || []).map(r => ({
-      name: r.source, people: Number(r.people) || 0,
-      played: Number(r.played) || 0, kept: Number(r.kept) || 0, games: Number(r.games) || 0,
-    }));
-    const sum = list.reduce((s, c) => s + c.people, 0) || 1;
-    const pTab = (id, label) =>
-      `<a class="${period === id ? 'on' : ''}" href="/admin?key=${ADMIN_KEY}&view=src&p=${id}">${label}</a>`;
-    const rowsHtml = list.map(c => {
-      const pct = 100 * c.people / sum;
-      const pPlayed = c.people ? Math.round(100 * c.played / c.people) : 0;
-      const pKept = c.people ? Math.round(100 * c.kept / c.people) : 0;
-      return `<div class="geo">
-        <div class="top">
-          <span class="name">${esc(c.name)}</span>
-          <span class="pct">${pct.toFixed(1)}%</span>
-        </div>
-        <div class="track"><i style="width:${Math.max(1, pct).toFixed(1)}%"></i></div>
-        <div class="num">${c.people.toLocaleString('ru')} чел. · сыграли ${pPlayed}% · вернулись ${pKept}% · ${c.games.toLocaleString('ru')} партий</div>
-      </div>`;
-    }).join('');
-    content = `<h2>Откуда приходят игроки</h2>
-<div class="tabs">${pTab('all', 'За всё время')}${pTab('week', 'За 7 дней')}${pTab('today', 'Сегодня')}</div>
-${rowsHtml || '<p class="note">Пока нет данных за этот период.</p>'}
-<p class="note"><b>Определяется само.</b> Instagram, TikTok, Facebook и Telegram открывают ссылки во встроенном браузере, который называет себя по имени — такие заходы распознаются без всяких меток. Google, Яндекс, Reddit и обычные сайты видно по переходу. «Прямые» — это те, кто набрал адрес руками с экрана видео: их не определить никак.</p>
-<p class="note"><b>Метки нужны только для мелочей.</b> Отличить один ролик от другого или проверить платный посев: <code>wallrush.online/?f=reels_walls</code>, <code>/?f=tg_kanal1</code>. Метка сильнее автоопределения и запоминается при первом заходе навсегда.</p>
-<p class="note">«Сыграли» — начали хотя бы одну партию. «Вернулись» — заходили ещё через сутки после первого раза. Смотреть надо на них, а не на количество: канал, который приводит толпу, ничего не стоит, если из неё никто не играет.</p>`;
-  } else {
-    // ----- people view: journal, filtered and paged IN the database so the
-    // filters and counts apply to everyone, not just the first page -----
+  if (view === 'people') {
+    // ----- journal: filtered and paged IN the database so the filters and
+    // counts apply to everyone, not just the first page -----
+    const { data: profs } = await supa.from('profiles').select('id, nick, wins, losses');
+    const byId = new Map((profs || []).map(p => [p.id, p]));
+    const [totalPeople, played, installs, regs] = await Promise.all([
+      cnt(supa.from('visitors').select('*', { count: 'exact', head: true })),
+      cnt(supa.from('visitors').select('*', { count: 'exact', head: true }).gt('games', 0)),
+      cnt(supa.from('visitors').select('*', { count: 'exact', head: true }).not('installed_at', 'is', null)),
+      cnt(supa.from('visitors').select('*', { count: 'exact', head: true }).not('user_id', 'is', null)),
+    ]);
+
     const f = String(req.query.f || 'all');
     const q = String(req.query.q || '').trim().slice(0, 40);
     const PAGE = 100;
@@ -631,15 +584,20 @@ ${rowsHtml || '<p class="note">Пока нет данных за этот пер
       return '/admin?' + Object.entries(p).map(([k, v]) => `${k}=${encodeURIComponent(v)}`).join('&');
     };
     const tab = (id, label, n) =>
-      `<a class="${f === id ? 'on' : ''}" href="${link({ f: id, pg: 1 })}">${label} (${Number(n).toLocaleString('ru')})</a>`;
-    const trs = (pageRows || []).map(v => {
+      `<a class="${f === id ? 'on' : ''}" href="${link({ f: id, pg: 1 })}">${label} (${num(n)})</a>`;
+    const cardsHtml = (pageRows || []).map(v => {
       const prof = v.user_id ? byId.get(v.user_id) : null;
-      const badge = prof ? '<b style="color:#21c07a">✔ рег.</b>' : '<span style="color:#8892b0">гость</span>';
-      const games = v.games > 0 ? `<b>${v.games}</b>` : '<span style="color:#c0392b">0</span>';
       const href = `/admin/v?key=${ADMIN_KEY}&d=${encodeURIComponent(v.device_id)}`;
-      return `<tr class="click" onclick="location.href='${href}'"><td>${esc(visName(v, byId))} ›</td><td>${badge}</td><td>${esc(countryOf(v.tz))}</td><td>${mskFmt(v.first_seen)}</td><td>${mskFmt(v.last_seen)}</td><td>${v.visits}</td><td>${games}</td><td>${esc(v.lang || '—')}</td></tr>`;
-    }).join('') || '<tr><td colspan="8" style="color:#8892b0">Никого не нашлось</td></tr>';
-
+      return `<a class="pcard" href="${href}">
+        <div class="pc-avatar">${esc((v.last_nick || '?')[0].toUpperCase())}</div>
+        <div class="pc-info">
+          <b>${esc(visName(v, byId))}${prof ? ' <span class="badge-reg">✔</span>' : ''}</b>
+          <small>${esc(countryOf(v.tz))} · заходил ${mskFmt(v.last_seen)}</small>
+        </div>
+        <div class="pc-right"><b${v.games > 0 ? '' : ' style="color:#c0392b"'}>${v.games}</b><small>партий</small></div>
+        <span class="pc-go">›</span>
+      </a>`;
+    }).join('') || '<p class="note">Никого не нашлось</p>';
     const pager = pages > 1 ? `<div class="tabs" style="margin-top:12px">
       ${page > 1 ? `<a href="${link({ pg: page - 1 })}">‹ Назад</a>` : ''}
       <a class="on">${page} из ${pages}</a>
@@ -647,12 +605,11 @@ ${rowsHtml || '<p class="note">Пока нет данных за этот пер
     </div>` : '';
 
     content = `
-<h2>Люди — нажми на человека, чтобы увидеть его историю (📲 = установил приложение)</h2>
-<form method="get" action="/admin" style="margin:10px 0">
+<h2>Люди (📲 = установил приложение)</h2>
+<form method="get" action="/admin">
   <input type="hidden" name="key" value="${ADMIN_KEY}"><input type="hidden" name="view" value="people">
   <input type="hidden" name="f" value="${esc(f)}">
-  <input name="q" value="${esc(q)}" placeholder="Поиск по нику…" autocomplete="off"
-    style="width:100%;max-width:340px;padding:10px 13px;border-radius:11px;border:1px solid #232842;background:#191d2e;color:#e8ecf8;font-size:14px">
+  <input class="search-box" name="q" value="${esc(q)}" placeholder="Поиск по нику…" autocomplete="off">
 </form>
 <div class="tabs">
   ${tab('all', 'Все', totalPeople)}
@@ -661,96 +618,204 @@ ${rowsHtml || '<p class="note">Пока нет данных за этот пер
   ${tab('inst', '📲 Установили', installs)}
   ${tab('reg', '✔ Регистрация', regs)}
 </div>
-<p class="note">${q ? `Найдено: ${total.toLocaleString('ru')}` : `Всего в этом фильтре: ${total.toLocaleString('ru')}`} · показано по ${PAGE} на странице</p>
-<div class="wrap"><table>
-<tr><th>Ник</th><th>Статус</th><th>Страна</th><th>Первый заход (МСК)</th><th>Последний</th><th>Заходов</th><th>Партий</th><th>Язык</th></tr>
-${trs}
-</table></div>
+<p class="note">${q ? `Найдено: ${num(total)}` : `Всего в этом фильтре: ${num(total)}`} · показано по ${PAGE} на странице</p>
+${pager}
+${cardsHtml}
 ${pager}`;
-  }
+  } else if (view === 'audience') {
+    // ----- who the audience is: countries, ranks, streaks -----
+    const geoPeriod = String(req.query.p || 'all');
+    const geoFromTs = geoPeriod === 'today' ? todayStartIso
+      : geoPeriod === 'week' ? new Date(Date.now() - 7 * dayMs).toISOString() : null;
 
-  const days = [];
-  for (let i = 13; i >= 0; i--) {
-    const day = today - i;
-    days.push({ label: mskDayLabel(day), n: npdMap.get(day) || 0 });
-  }
-  const maxDay = Math.max(1, ...days.map(d => d.n));
-  const bars = days.map(d =>
-    `<div class="bar"><div class="fill" style="height:${Math.round(100 * d.n / maxDay)}%"></div><small>${d.n}</small><span>${d.label}</span></div>`
-  ).join('');
+    const dayAgoIso = new Date(Date.now() - dayMs).toISOString().slice(0, 10);
+    const rankBand = (table, r, i, extra) => {
+      const next = RANKS[i + 1];
+      let q = supa.from(table).select('*', { count: 'exact', head: true }).gte('points', r.min);
+      if (next) q = q.lt('points', next.min);
+      if (extra) q = extra(q);
+      return cnt(q);
+    };
+    const [tzRes, streakAliveN, streak3, streak7, streakTopRow, guestBands, accountBands, botBands] = await Promise.all([
+      supa.rpc('admin_timezones', { from_ts: geoFromTs }),
+      cnt(supa.from('visitors').select('*', { count: 'exact', head: true }).gte('streak_day', dayAgoIso).gt('streak', 0)),
+      cnt(supa.from('visitors').select('*', { count: 'exact', head: true }).gte('streak_day', dayAgoIso).gte('streak', 3)),
+      cnt(supa.from('visitors').select('*', { count: 'exact', head: true }).gte('streak_day', dayAgoIso).gte('streak', 7)),
+      supa.from('visitors').select('streak_best').order('streak_best', { ascending: false }).limit(1).maybeSingle(),
+      // guests who never played are not "Rookies", they are visitors — exclude them
+      Promise.all(RANKS.map((r, i) => rankBand('visitors', r, i, (q) => q.gt('games', 0)))),
+      Promise.all(RANKS.map((r, i) => rankBand('profiles', r, i))),
+      Promise.all(RANKS.map((r, i) => rankBand('bot_players', r, i))),
+    ]);
+    const bestStreak = streakTopRow?.data?.streak_best || 0;
+    const rankCounts = RANKS.map((_, i) => guestBands[i] + accountBands[i]);
+    const botTotal = botBands.reduce((a, b) => a + b, 0);
+    const ranked = rankCounts.reduce((a, b) => a + b, 0) - (rankCounts[0] || 0);
 
-  const num = (n) => Number(n || 0).toLocaleString('ru');
-  // yesterday, so today's numbers have something to be compared against
-  const yesterday = npdMap.get(today - 1) || 0;
-  const trend = yesterday
-    ? (newToday >= yesterday
-        ? `<span style="color:#21c07a">▲ +${Math.round(100 * (newToday - yesterday) / yesterday)}%</span>`
-        : `<span style="color:#e06">▼ −${Math.round(100 * (yesterday - newToday) / yesterday)}%</span>`)
-    : '';
+    const agg = new Map(); // country -> { people, games }
+    for (const r of (tzRes?.data || [])) {
+      const name = countryOf(r.tz);
+      const c = agg.get(name) || { people: 0, games: 0 };
+      c.people += Number(r.people) || 0;
+      c.games += Number(r.games) || 0;
+      agg.set(name, c);
+    }
+    const list = [...agg.entries()].map(([name, v]) => ({ name, ...v })).sort((a, b) => b.people - a.people);
+    const sum = list.reduce((s, c) => s + c.people, 0) || 1;
+    const pTab = (id, label) =>
+      `<a class="${geoPeriod === id ? 'on' : ''}" href="/admin?key=${ADMIN_KEY}&view=audience&p=${id}">${label}</a>`;
+    const geoRows = list.slice(0, 30).map(c => {
+      const p = 100 * c.people / sum;
+      return `<div class="geo">
+        <div class="top"><span class="name">${esc(c.name)}</span><span class="pct">${p.toFixed(1)}%</span></div>
+        <div class="track"><i style="width:${Math.max(1, p).toFixed(1)}%"></i></div>
+        <div class="num">${num(c.people)} чел. · ${num(c.games)} партий</div>
+      </div>`;
+    }).join('');
+    const rest = list.slice(30).reduce((s, c) => s + c.people, 0);
+
+    content = `
+<p class="sect">🔥 Серии дней <span class="note" style="font-weight:400">— живая = играл сегодня или вчера</span></p>
+<div class="grid2">
+  ${statCard('🔥', 'Живых серий', num(streakAliveN), null)}
+  ${statCard('📈', '3 дня и больше', num(streak3), null)}
+  ${statCard('🗓️', 'Неделя и больше', num(streak7), null)}
+  ${statCard('🏅', 'Рекорд серии', num(bestStreak), null)}
+</div>
+
+<p class="sect" style="margin-top:22px">🏆 Звания <span class="note" style="font-weight:400">— ${num(ranked)} выбрались из Новичка · ${num(botTotal)} ботов в таблице лидеров не учтены</span></p>
+<div class="grid2">
+  ${RANKS.map((r, i) => statCard(r.icon, RANK_RU[r.key] || r.key, num(rankCounts[i]), null)).join('')}
+</div>
+
+<p class="sect" style="margin-top:22px">🌍 Страны — ${list.length}</p>
+<div class="tabs">${pTab('all', 'За всё время')}${pTab('week', '7 дней')}${pTab('today', 'Сегодня')}</div>
+${geoRows || '<p class="note">Пока нет данных за этот период.</p>'}
+${rest ? `<p class="note">+ ещё ${num(rest)} чел. из остальных стран</p>` : ''}
+<p class="note">Страна определяется по часовому поясу устройства — это близко к правде, но не паспорт: через VPN человек может выглядеть как из другой страны.</p>`;
+  } else if (view === 'sources') {
+    /* ----- where the traffic comes from -----
+       Arrivals alone decide nothing, so each channel is shown with what
+       happened after the click: how many started a game at all, and how many
+       were still here the next day. */
+    const period = String(req.query.p || 'week');
+    const fromTs = period === 'today' ? todayStartIso
+      : period === 'week' ? new Date(Date.now() - 7 * dayMs).toISOString() : null;
+    const { data: srcRows } = await supa.rpc('admin_sources', { from_ts: fromTs });
+    const list = (srcRows || []).map(r => ({
+      name: r.source, people: Number(r.people) || 0,
+      played: Number(r.played) || 0, kept: Number(r.kept) || 0, games: Number(r.games) || 0,
+    }));
+    const sum = list.reduce((s, c) => s + c.people, 0) || 1;
+    const pTab = (id, label) =>
+      `<a class="${period === id ? 'on' : ''}" href="/admin?key=${ADMIN_KEY}&view=sources&p=${id}">${label}</a>`;
+    const rowsHtml = list.map(c => {
+      const p = 100 * c.people / sum;
+      const pPlayed = c.people ? Math.round(100 * c.played / c.people) : 0;
+      const pKept = c.people ? Math.round(100 * c.kept / c.people) : 0;
+      return `<div class="geo">
+        <div class="top"><span class="name">${esc(c.name)}</span><span class="pct">${p.toFixed(1)}%</span></div>
+        <div class="track"><i style="width:${Math.max(1, p).toFixed(1)}%"></i></div>
+        <div class="num">${num(c.people)} чел. · сыграли ${pPlayed}% · вернулись ${pKept}% · ${num(c.games)} партий</div>
+      </div>`;
+    }).join('');
+    content = `<h2>Откуда приходят игроки</h2>
+<div class="tabs">${pTab('all', 'За всё время')}${pTab('week', 'За 7 дней')}${pTab('today', 'Сегодня')}</div>
+${rowsHtml || '<p class="note">Пока нет данных за этот период.</p>'}
+<p class="note"><b>Определяется само.</b> Instagram, TikTok, Facebook и Telegram открывают ссылки во встроенном браузере, который называет себя по имени — такие заходы распознаются без всяких меток. Google, Яндекс, Reddit и обычные сайты видно по переходу. «Прямые» — это те, кто набрал адрес руками с экрана видео: их не определить никак.</p>
+<p class="note"><b>Метки нужны только для мелочей.</b> Отличить один ролик от другого или проверить платный посев: <code>wallrush.online/?f=reels_walls</code>, <code>/?f=tg_kanal1</code>. Метка сильнее автоопределения и запоминается при первом заходе навсегда.</p>
+<p class="note">«Сыграли» — начали хотя бы одну партию. «Вернулись» — заходили ещё через сутки после первого раза.</p>`;
+  } else if (view === 'days') {
+    // ----- days: each day a block with its own numbers, plus a 14-day chart -----
+    const fromTs = new Date((today - 13) * dayMs - 3 * 3600e3).toISOString();
+    const [{ data: buckets }, { data: npd }, invites] = await Promise.all([
+      supa.rpc('admin_buckets', { from_ts: fromTs, to_ts: new Date().toISOString(), bucket_secs: 86400, offset_secs: 10800 }),
+      supa.rpc('new_per_day', { from_ts: fromTs }),
+      Promise.all([
+        cnt(supa.from('visit_log').select('*', { count: 'exact', head: true }).eq('kind', 'invite_share').gte('at', todayStartIso)),
+        cnt(supa.from('visit_log').select('*', { count: 'exact', head: true }).eq('kind', 'invite_join').gte('at', todayStartIso)),
+        cnt(supa.from('visit_log').select('*', { count: 'exact', head: true }).eq('kind', 'invite_share').gte('at', new Date(Date.now() - 7 * dayMs).toISOString())),
+        cnt(supa.from('visit_log').select('*', { count: 'exact', head: true }).eq('kind', 'invite_join').gte('at', new Date(Date.now() - 7 * dayMs).toISOString())),
+      ]),
+    ]);
+    const [invShareToday, invJoinToday, invShareWeek, invJoinWeek] = invites;
+    const npdMap = new Map((npd || []).map(r => [Number(r.day), Number(r.n)]));
+    const dmap = new Map();
+    for (const b of (buckets || [])) dmap.set(Number(b.bucket), { people: Number(b.people), games: Number(b.games) });
+
+    const days = [];
+    for (let i = 13; i >= 0; i--) days.push({ label: mskDayLabel(today - i), n: npdMap.get(today - i) || 0 });
+    const maxDay = Math.max(1, ...days.map(d => d.n));
+    const bars = days.map(d =>
+      `<div class="bar"><div class="fill" style="height:${Math.round(100 * d.n / maxDay)}%"></div><small>${d.n}</small><span>${d.label}</span></div>`
+    ).join('');
+
+    const blocks = [];
+    for (let day = today; day > today - 14; day--) {
+      const rec = dmap.get(day);
+      const fresh = npdMap.get(day) || 0;
+      if (!rec && !fresh) continue;
+      blocks.push(`<a class="dayrow" href="/admin/day?key=${ADMIN_KEY}&day=${day}">
+        <span class="d">${mskDayLabel(day)}${day === today ? ' <span style="color:#21c07a;font-size:11px">сегодня</span>' : ''}</span>
+        <span class="m">
+          <span><i>Новых</i><u style="color:#4d8dff">${fresh}</u></span>
+          <span><i>Заходили</i><u>${rec ? rec.people : '—'}</u></span>
+          <span><i>Партий</i><u>${rec ? rec.games : '—'}</u></span>
+        </span>
+        <span class="go">›</span>
+      </a>`);
+    }
+
+    content = `
+<h2>Новые люди по дням (14 дней)</h2>
+<div class="chart">${bars}</div>
+<p class="sect" style="margin-top:20px">🔗 Приглашения по ссылке</p>
+<div class="grid2">
+  ${statCard('📨', 'Позвали сегодня', num(invShareToday), null)}
+  ${statCard('✅', 'Пришли сегодня', num(invJoinToday), null)}
+  ${statCard('📨', 'Позвали за неделю', num(invShareWeek), null)}
+  ${statCard('✅', 'Пришли за неделю', num(invJoinWeek), null)}
+</div>
+<p class="subsect">По дням — нажми на день, чтобы увидеть по часам</p>
+${blocks.join('') || '<p class="note">Подневная история пишется с 19.07 — строки появятся по мере заходов.</p>'}`;
+  } else {
+    // ----- obzor: the dashboard landing tab — live now, a period pick, and lifetime totals -----
+    const period = ['today', 'yesterday', 'week', 'month'].includes(String(req.query.p)) ? String(req.query.p) : 'today';
+    const range = periodRange(period);
+    const [cur, prev, totalPeople, totalGames, installs, regs, humansTotal] = await Promise.all([
+      periodStats(range.from, range.to),
+      periodStats(range.prevFrom, range.prevTo),
+      cnt(supa.from('visitors').select('*', { count: 'exact', head: true })),
+      cnt(supa.from('visit_log').select('*', { count: 'exact', head: true }).eq('kind', 'game')),
+      cnt(supa.from('visitors').select('*', { count: 'exact', head: true }).not('installed_at', 'is', null)),
+      cnt(supa.from('visitors').select('*', { count: 'exact', head: true }).not('user_id', 'is', null)),
+      cnt(supa.from('human_matches').select('*', { count: 'exact', head: true })),
+    ]);
+    const pTab = (id, label) => `<a class="${period === id ? 'on' : ''}" href="/admin?key=${ADMIN_KEY}&view=obzor&p=${id}">${label}</a>`;
+
+    content = `
+<div class="live-strip"><span class="dot"></span><b>${num(realOnline())}</b>&nbsp;реально на сайте&nbsp;·&nbsp;показано «онлайн» ${num(realOnline() + fakeOnline())}</div>
+<div class="tabs">${pTab('today', 'Сегодня')}${pTab('yesterday', 'Вчера')}${pTab('week', '7 дней')}${pTab('month', '30 дней')}</div>
+<div class="grid2">
+  ${statCard('🆕', 'Новых людей', num(cur.newPeople), pct(cur.newPeople, prev.newPeople))}
+  ${statCard('👋', 'Заходили', num(cur.active), pct(cur.active, prev.active))}
+  ${statCard('🎮', 'Партий сыграно', num(cur.games), pct(cur.games, prev.games))}
+  ${statCard('🤝', 'Живых матчей', num(cur.humans), pct(cur.humans, prev.humans))}
+</div>
+<p class="subsect">За всё время</p>
+<div class="totals-row">
+  <span><b>${num(totalPeople)}</b> людей</span>
+  <span><b>${num(totalGames)}</b> партий</span>
+  <span><b>${num(humansTotal)}</b> 🤝 живых</span>
+  <span><b>${num(installs)}</b> 📲 установили</span>
+  <span><b>${num(regs)}</b> ✔ регистраций</span>
+</div>`;
+  }
 
   res.send(adminPage('WallRush — статистика', `
 <h1>🧱 WallRush — статистика</h1>
-<p class="note" style="margin:0 0 4px">Всё время московское. Страница сама обновляется.</p>
-
-<p class="sect">🟢 Прямо сейчас</p>
-<div class="cards">
-  <div class="c good"><b>${num(realOnline())}</b><span>на сайте (реально)</span></div>
-  <div class="c"><b>${num(realOnline() + fakeOnline())}</b><span>показано «онлайн»</span></div>
-</div>
-
-<p class="sect">📅 Сегодня ${trend ? '· к вчера ' + trend : ''}</p>
-<div class="cards">
-  <div class="c hi"><b>${num(newToday)}</b><span>новых людей</span></div>
-  <div class="c"><b>${num(activeToday)}</b><span>заходили</span></div>
-  <div class="c"><b>${num(gamesToday)}</b><span>партий сыграно</span></div>
-  <div class="c"><b>${num(humansToday)}</b><span>🤝 живой vs живой</span></div>
-</div>
-
-<p class="sect">📊 За всё время</p>
-<div class="cards">
-  <div class="c"><b>${num(totalPeople)}</b><span>всего людей</span></div>
-  <div class="c"><b>${num(totalGames)}</b><span>партий всего</span></div>
-  <div class="c"><b>${num(humansTotal)}</b><span>🤝 живых матчей</span></div>
-  <div class="c"><b>${num(installs)}</b><span>📲 установили</span></div>
-  <div class="c"><b>${num(regs)}</b><span>✔ регистраций</span></div>
-  <div class="c"><b>${num(played)}</b><span>🎮 играли хоть раз</span></div>
-</div>
-
-<p class="sect">🔥 Серии дней <span class="note" style="font-weight:400">— живая = играл сегодня или вчера</span></p>
-<div class="cards">
-  <div class="c hi"><b>${num(streakAliveN)}</b><span>живых серий</span></div>
-  <div class="c"><b>${num(streak3)}</b><span>3 дня и больше</span></div>
-  <div class="c"><b>${num(streak7)}</b><span>неделя и больше</span></div>
-  <div class="c"><b>${num(bestStreak)}</b><span>рекорд серии</span></div>
-</div>
-
-<p class="sect">🔗 Приглашения по ссылке</p>
-<div class="cards">
-  <div class="c hi"><b>${num(invShareToday)}</b><span>позвали сегодня</span></div>
-  <div class="c good"><b>${num(invJoinToday)}</b><span>пришли сегодня</span></div>
-  <div class="c"><b>${num(invShareWeek)}</b><span>позвали за неделю</span></div>
-  <div class="c"><b>${num(invJoinWeek)}</b><span>пришли за неделю</span></div>
-</div>
-<p class="note">${invShareWeek
-  ? `За неделю: ${num(invShareWeek)} отправлено · ${num(invJoinWeek)} переходов по ссылкам — ${(invJoinWeek / invShareWeek).toFixed(1)} перехода на приглашение. Одну ссылку могут открыть несколько человек, поэтому переходов бывает больше, чем приглашений.`
-  : 'Пока никто не отправлял приглашений.'}</p>
-
-<p class="sect">🏆 Звания <span class="note" style="font-weight:400">— ${num(ranked)} человек выбрались из Новичка</span></p>
-<div class="cards">
-  ${RANKS.map((r, i) => `<div class="c"><b>${num(rankCounts[i])}</b><span>${r.icon} ${RANK_RU[r.key] || r.key}</span></div>`).join('')}
-</div>
-<p class="note">Считаются живые игроки — гости, сыгравшие хотя бы раз, и владельцы аккаунтов. В таблице лидеров вместе с ними стоят ${num(botTotal)} ботов, здесь они не учтены.</p>
-
-<h2>Новые люди по дням (14 дней)</h2>
-<div class="chart">${bars}</div>
-
-<div class="tabs" style="margin-top:18px">
-  ${viewTab('people', '👥 Люди')}
-  ${viewTab('days', '📅 По дням')}
-  ${viewTab('geo', '🌍 Страны')}
-  ${viewTab('src', '📈 Источники')}
-</div>
-${content}`));
+<p class="note" style="margin:0 0 14px">Всё время московское.</p>
+${content}`, view));
 });
 
 // one day's page: hour-by-hour breakdown (people + games per MSK hour)
@@ -798,7 +863,7 @@ app.get('/admin/day', async (req, res) => {
   <div class="c"><b>${String(peakHour).padStart(2, '0')}:00</b><span>пик посещений</span></div>
 </div>
 <h2>По часам (МСК) — нажми на час, чтобы увидеть людей</h2>
-<div class="wrap"><table><tr><th>Час</th><th>Людей</th><th>Партий</th></tr>${trs}</table></div>`));
+<div class="wrap"><table><tr><th>Час</th><th>Людей</th><th>Партий</th></tr>${trs}</table></div>`, 'days'));
 });
 
 // one hour's page: minute-by-minute breakdown inside a chosen hour
@@ -861,7 +926,7 @@ app.get('/admin/hour', async (req, res) => {
 <div class="wrap"><table><tr><th>Минута</th><th>Людей</th><th>Партий</th></tr>${trs}</table></div>
 <h2>Кто был в этот час (нажми на ник)</h2>
 <p style="font-size:13px;line-height:1.9">${people}</p>
-${hourDevices > shownDevs.length ? `<p class="note">Показаны первые ${shownDevs.length} из ${hourDevices.toLocaleString('ru')} — полный список ищи во вкладке «Люди».</p>` : ''}`));
+${hourDevices > shownDevs.length ? `<p class="note">Показаны первые ${shownDevs.length} из ${hourDevices.toLocaleString('ru')} — полный список ищи во вкладке «Люди».</p>` : ''}`, 'days'));
 });
 
 // one person's page: everything about a single device + day-by-day timeline
@@ -872,7 +937,7 @@ app.get('/admin/v', async (req, res) => {
   const { data: v } = await supa.from('visitors')
     .select('device_id, first_seen, last_seen, visits, games, last_nick, user_id, lang, tz, installed_at, standalone_at')
     .eq('device_id', device).maybeSingle();
-  if (!v) return res.send(adminPage('Не найден', `<a class="back" href="/admin?key=${ADMIN_KEY}">‹ Назад</a><p>Человек не найден.</p>`));
+  if (!v) return res.send(adminPage('Не найден', `<a class="back" href="/admin?key=${ADMIN_KEY}&view=people">‹ Назад</a><p>Человек не найден.</p>`, 'people'));
   const prof = v.user_id ? (await supa.from('profiles').select('nick, wins, losses').eq('id', v.user_id).maybeSingle()).data : null;
   const { data: log } = await supa.from('visit_log')
     .select('kind, at').eq('device_id', device).order('at', { ascending: false }).limit(1000);
@@ -892,7 +957,7 @@ app.get('/admin/v', async (req, res) => {
   const nick = prof ? prof.nick : (v.last_nick || '—');
   const region = v.tz ? v.tz.split('/').pop().replace(/_/g, ' ') : '—';
   res.send(adminPage(`${nick} — WallRush`, `
-<a class="back" href="/admin?key=${ADMIN_KEY}">‹ Назад к списку</a>
+<a class="back" href="/admin?key=${ADMIN_KEY}&view=people">‹ Назад к списку</a>
 <div class="person">
   <b class="nick">${esc(nick)}</b>
   ${prof ? '<b style="color:#21c07a"> ✔ зарегистрирован</b>' : '<span style="color:#8892b0"> · гость</span>'}
@@ -912,7 +977,7 @@ app.get('/admin/v', async (req, res) => {
 <h2>По дням: когда заходил и сколько играл</h2>
 ${dayRows
     ? `<div class="wrap"><table><tr><th>День</th><th>Заходов</th><th>Партий</th></tr>${dayRows}</table></div>`
-    : '<p style="color:#8892b0;font-size:13px">Подробная история пишется с 19.07 — у этого человека записей пока нет. Появятся при следующем его заходе.</p>'}`));
+    : '<p style="color:#8892b0;font-size:13px">Подробная история пишется с 19.07 — у этого человека записей пока нет. Появятся при следующем его заходе.</p>'}`, 'people'));
 });
 
 app.get('/healthz', (req, res) => res.send('ok'));
