@@ -180,11 +180,15 @@ app.post('/api/register', async (req, res) => {
   if (error) {
     const msg = String(error.message || '').toLowerCase();
     if (msg.includes('already') || error.code === 'email_exists') {
-      // the email may exist from an earlier half-finished signup — confirm it so login works
+      // The email may exist from an earlier half-finished signup — confirm it so
+      // login works. This used to fetch a page of a thousand full user records
+      // and scan it in JavaScript for one address: fat rows, every attempt, and
+      // over a gigabyte of egress by itself. find_auth_user answers with the
+      // two fields below, for the one address asked about.
       try {
-        const { data: list } = await supa.auth.admin.listUsers({ page: 1, perPage: 1000 });
-        const u = list?.users?.find(x => (x.email || '').toLowerCase() === email);
-        if (u && !u.email_confirmed_at) {
+        const { data: found } = await supa.rpc('find_auth_user', { p_email: email });
+        const u = found?.[0];
+        if (u && !u.confirmed) {
           await supa.auth.admin.updateUserById(u.id, { email_confirm: true });
         }
         if (u && !(await getProfile(u.id))) userId = u.id; // let them finish with this nick
