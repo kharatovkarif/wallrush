@@ -181,6 +181,7 @@ export default {
   forgot: '¿Olvidaste la contraseña?',
   reset_sent: 'Correo de restablecimiento enviado',
   send_reset: 'Enviar el correo',
+  err_reset_too_often: 'Demasiados intentos. Espera una hora y vuelve a probar',
   confirm_sent: 'Confirma tu correo y luego inicia sesión',
   err_email_bad: 'Formato de correo no válido',
   err_email_typo: 'Revisa la dirección: ¿querías decir {domain}?',

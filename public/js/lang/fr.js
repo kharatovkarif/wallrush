@@ -181,6 +181,7 @@ export default {
   forgot: 'Mot de passe oublié ?',
   reset_sent: 'E-mail de réinitialisation envoyé',
   send_reset: 'Envoyer l’e-mail',
+  err_reset_too_often: 'Trop de demandes. Attends une heure et réessaie',
   confirm_sent: 'Confirme ton adresse par e-mail, puis connecte-toi',
   err_email_bad: 'Format d’e-mail invalide',
   err_email_typo: 'Vérifie l’adresse — voulais-tu dire {domain} ?',

@@ -1,15 +1,15 @@
 // WallRush client app: screens, board UI, online play (WebSocket), AI mode, auth.
-import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=103';
-import { aiMove } from './ai.js?v=103';
-import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=103';
-import { rankOf, nextRank } from './ranks.js?v=103';
-import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=103';
-import { checkNick, nickOk, randomNick } from './nick.js?v=103';
+import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=104';
+import { aiMove } from './ai.js?v=104';
+import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=104';
+import { rankOf, nextRank } from './ranks.js?v=104';
+import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=104';
+import { checkNick, nickOk, randomNick } from './nick.js?v=104';
 import {
   embedded, initPortal, inPortal, portalAd, portalPlaying, portalHappy,
   portalLoaded, portalInviteCode, portalShowInvite, portalHideInvite, portalInstant,
   portalRoom, portalOnJoin, portalInviteLink, portalMuted, portalOnMute, portalUserName,
-} from './portal.js?v=103';
+} from './portal.js?v=104';
 
 /* ================= state ================= */
 const $ = (id) => document.getElementById(id);
@@ -255,7 +255,7 @@ function getAiWorker() {
   if (aiWorker === false) return null;
   if (!aiWorker) {
     try {
-      aiWorker = new Worker('js/ai-worker.js?v=103', { type: 'module' });
+      aiWorker = new Worker('js/ai-worker.js?v=104', { type: 'module' });
       aiWorker.onmessage = (e) => {
         const cb = aiPending.get(e.data.id);
         aiPending.delete(e.data.id);
@@ -2024,7 +2024,14 @@ $('btn-auth-submit').addEventListener('click', async () => {
       // form cannot be used to find out who has an account here. An error means
       // the letter genuinely did not go out, and saying "sent" to that leaves
       // someone waiting on mail that will never arrive.
-      if (error) { authMsg(t('err_generic')); return; }
+      if (error) {
+        // the built-in mail server allows very few letters an hour, and the
+        // refusal that follows is the one people actually meet — telling them
+        // to "try again" is the worst possible answer to being told to wait
+        const busy = error.status === 429 || /rate limit/i.test(error.message || '');
+        authMsg(t(busy ? 'err_reset_too_often' : 'err_generic'));
+        return;
+      }
       authMsg(t('reset_sent'), true);
       return;
     }

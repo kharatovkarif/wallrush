@@ -296,19 +296,36 @@ export async function recordResult(winnerUserId, loserUserId) {
   }
 }
 
-// Ranked by ladder points, not by raw wins: the old order simply put whoever
-// played the most on top, which is what the ladder exists to fix.
+// Every open of the Ranking tab used to pull 400 rows out of Postgres to show
+// 50 of them, thousands of times a day, for a list that barely moves. That was
+// the bulk of the project's egress, and the free plan's 5 GB was nearly spent.
+//
+// Two changes: ask each table for only as many rows as can possibly place —
+// the merged top N cannot contain a row that was not in the top N of its own
+// table — and hold the answer for a spell. A ranking a minute out of date is
+// not a ranking anyone notices.
+const LB_TTL = 60_000;
+let lbCache = { at: 0, size: 0, rows: [] };
+
 export async function leaderboard(limit = 50) {
   if (!dbEnabled) return [];
+  const fresh = Date.now() - lbCache.at < LB_TTL && lbCache.size >= limit;
+  if (fresh) return lbCache.rows.slice(0, limit);
+
   const [{ data: people }, { data: bots }] = await Promise.all([
     // an account caught farming keeps its history but leaves the table
     supa.from('profiles').select('nick, wins, losses, points')
-      .not('flagged', 'is', true).order('points', { ascending: false }).limit(200),
-    supa.from('bot_players').select('nick, wins, losses, points').order('points', { ascending: false }).limit(200),
+      .not('flagged', 'is', true).order('points', { ascending: false }).limit(limit),
+    supa.from('bot_players').select('nick, wins, losses, points').order('points', { ascending: false }).limit(limit),
   ]);
+  // a failed round-trip must not be cached as an empty ranking for a minute
+  if (!people && !bots) return lbCache.rows.slice(0, limit);
+
   const all = [...(people || []), ...(bots || [])].map(r => ({ ...r, points: r.points || 0 }));
   all.sort((a, b) => (b.points - a.points) || (b.wins - a.wins) || (a.losses - b.losses));
-  return all.slice(0, limit);
+  const rows = all.slice(0, limit);
+  lbCache = { at: Date.now(), size: limit, rows };
+  return rows;
 }
 
 // ---- bot players (kept in their own table so real stats stay clean) ----
