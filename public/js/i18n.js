@@ -181,6 +181,7 @@ export const I18N = {
     no_account: 'Нет аккаунта? Регистрация',
     forgot: 'Забыл пароль?',
     reset_sent: 'Письмо для сброса пароля отправлено',
+    send_reset: 'Отправить письмо',
     confirm_sent: 'Проверь почту и подтверди адрес, затем войди',
     err_email_bad: 'Неверный формат почты',
     err_email_typo: 'Проверь адрес — похоже, ты имел в виду {domain}',
@@ -427,6 +428,7 @@ export const I18N = {
     no_account: 'No account? Sign up',
     forgot: 'Forgot password?',
     reset_sent: 'Password reset email sent',
+    send_reset: 'Send the letter',
     confirm_sent: 'Check your email to confirm, then log in',
     err_email_bad: 'Invalid email format',
     err_email_typo: 'Check the address — did you mean {domain}?',
@@ -508,7 +510,7 @@ export const LANGS = [
 export const LANG_CODES = LANGS.map((l) => l.code);
 export const RTL = new Set(['fa']);
 
-const V = '102';
+const V = '103';
 
 // Loads a translation file on demand. Safe to call repeatedly and safe to fail:
 // if the request never lands, makeT keeps falling back to English.

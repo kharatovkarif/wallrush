@@ -1,15 +1,15 @@
 // WallRush client app: screens, board UI, online play (WebSocket), AI mode, auth.
-import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=102';
-import { aiMove } from './ai.js?v=102';
-import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=102';
-import { rankOf, nextRank } from './ranks.js?v=102';
-import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=102';
-import { checkNick, nickOk, randomNick } from './nick.js?v=102';
+import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=103';
+import { aiMove } from './ai.js?v=103';
+import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=103';
+import { rankOf, nextRank } from './ranks.js?v=103';
+import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=103';
+import { checkNick, nickOk, randomNick } from './nick.js?v=103';
 import {
   embedded, initPortal, inPortal, portalAd, portalPlaying, portalHappy,
   portalLoaded, portalInviteCode, portalShowInvite, portalHideInvite, portalInstant,
   portalRoom, portalOnJoin, portalInviteLink, portalMuted, portalOnMute, portalUserName,
-} from './portal.js?v=102';
+} from './portal.js?v=103';
 
 /* ================= state ================= */
 const $ = (id) => document.getElementById(id);
@@ -255,7 +255,7 @@ function getAiWorker() {
   if (aiWorker === false) return null;
   if (!aiWorker) {
     try {
-      aiWorker = new Worker('js/ai-worker.js?v=102', { type: 'module' });
+      aiWorker = new Worker('js/ai-worker.js?v=103', { type: 'module' });
       aiWorker.onmessage = (e) => {
         const cb = aiPending.get(e.data.id);
         aiPending.delete(e.data.id);
@@ -1950,7 +1950,14 @@ function renderRankCard() {
   }
 }
 
-let authMode = 'login'; // 'login' | 'register' | 'nick' | 'reset'
+// 'forgot' asks for the address to send the letter to; 'reset' is the form the
+// letter leads back to, where the new password is typed.
+let authMode = 'login'; // 'login' | 'register' | 'nick' | 'forgot' | 'reset'
+
+// Supabase hands the recovery session back in the URL and its client wipes the
+// URL as soon as it reads it, so the flag has to be taken here, at import time,
+// before createClient runs.
+const CAME_FOR_RECOVERY = /[#?&]type=recovery/.test(location.hash + location.search);
 
 function openAuthForm(mode) {
   authMode = mode;
@@ -1963,13 +1970,17 @@ function openAuthForm(mode) {
   $('auth-form').hidden = false;
   $('auth-msg').hidden = true;
   $('auth-email').hidden = mode === 'nick' || mode === 'reset';
-  $('auth-password').hidden = mode === 'nick';
+  $('auth-password').hidden = mode === 'nick' || mode === 'forgot';
   $('auth-nick').hidden = mode !== 'register' && mode !== 'nick';
   $('btn-forgot').hidden = mode !== 'login';
-  $('btn-auth-toggle').hidden = mode === 'nick' || mode === 'reset';
+  $('btn-auth-toggle').hidden = mode === 'nick' || mode === 'reset' || mode === 'forgot';
   $('btn-auth-submit').textContent =
-    mode === 'login' ? t('do_login') : mode === 'register' ? t('do_register') : t('save');
+    mode === 'login' ? t('do_login')
+    : mode === 'register' ? t('do_register')
+    : mode === 'forgot' ? t('send_reset')
+    : t('save');
   $('btn-auth-toggle').textContent = mode === 'login' ? t('no_account') : t('have_account');
+  if (mode === 'forgot') $('auth-email').placeholder = t('email');
   if (mode === 'reset') $('auth-password').placeholder = t('new_password');
 }
 
@@ -1995,12 +2006,10 @@ $('btn-show-register').addEventListener('click', () => { if (ensureAuthAvailable
 $('btn-auth-toggle').addEventListener('click', () => openAuthForm(authMode === 'login' ? 'register' : 'login'));
 $('btn-auth-cancel').addEventListener('click', closeAuthForm);
 
-$('btn-forgot').addEventListener('click', async () => {
-  const email = $('auth-email').value.trim();
-  if (!email || !supabase) return;
-  await supabase.auth.resetPasswordForEmail(email, { redirectTo: location.origin });
-  authMsg(t('reset_sent'), true);
-});
+// Only switches the form over — the address is asked for on the next screen.
+// It used to read the email box straight away and return in silence when it was
+// empty, which looked like a dead button.
+$('btn-forgot').addEventListener('click', () => openAuthForm('forgot'));
 
 $('btn-auth-submit').addEventListener('click', async () => {
   if (!supabase) return;
@@ -2008,6 +2017,17 @@ $('btn-auth-submit').addEventListener('click', async () => {
   const password = $('auth-password').value;
   const nick = $('auth-nick').value.trim();
   try {
+    if (authMode === 'forgot') {
+      if (!email) { authMsg(t('err_email_bad')); return; }
+      const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: location.origin + '/' });
+      // Supabase answers the same way for an address it has never seen, so the
+      // form cannot be used to find out who has an account here. An error means
+      // the letter genuinely did not go out, and saying "sent" to that leaves
+      // someone waiting on mail that will never arrive.
+      if (error) { authMsg(t('err_generic')); return; }
+      authMsg(t('reset_sent'), true);
+      return;
+    }
     if (authMode === 'register') {
       const nickErr = checkNick(nick);
       if (nickErr) { authMsg(t(nickErr === 'format' ? 'err_nick_bad' : 'err_nick_' + nickErr)); return; }
@@ -2465,7 +2485,16 @@ async function boot() {
         }
       });
       const { data } = await supabase.auth.getSession();
-      if (data.session) { session = data.session; await afterLogin(); }
+      if (data.session) {
+        session = data.session;
+        // kept apart so a stumble here cannot swallow the recovery form below
+        try { await afterLogin(); } catch (e) { console.error('afterLogin failed', e); }
+      }
+      // A recovery link carries a valid session, so getSession() succeeds and
+      // afterLogin() paints the ordinary profile — which is why the letter
+      // landed on the site with no password form in sight. Put the form back
+      // here, after everything else, so nothing paints over it.
+      if (CAME_FOR_RECOVERY) { show('screen-profile'); openAuthForm('reset'); }
     } catch (e) {
       console.error('auth init failed', e);
       config.auth = false;

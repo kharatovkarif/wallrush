@@ -180,6 +180,7 @@ export default {
   no_account: 'Pas de compte ? Inscription',
   forgot: 'Mot de passe oublié ?',
   reset_sent: 'E-mail de réinitialisation envoyé',
+  send_reset: 'Envoyer l’e-mail',
   confirm_sent: 'Confirme ton adresse par e-mail, puis connecte-toi',
   err_email_bad: 'Format d’e-mail invalide',
   err_email_typo: 'Vérifie l’adresse — voulais-tu dire {domain} ?',

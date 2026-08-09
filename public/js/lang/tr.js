@@ -180,6 +180,7 @@ export default {
   no_account: 'Hesabın yok mu? Kayıt ol',
   forgot: 'Şifreni mi unuttun?',
   reset_sent: 'Şifre sıfırlama e-postası gönderildi',
+  send_reset: 'E-postayı gönder',
   confirm_sent: 'E-postanı onayla, sonra giriş yap',
   err_email_bad: 'Geçersiz e-posta biçimi',
   err_email_typo: 'Adresi kontrol et — {domain} mı demek istedin?',

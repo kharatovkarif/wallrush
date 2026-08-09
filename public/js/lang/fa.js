@@ -180,6 +180,7 @@ export default {
   no_account: 'حساب نداری؟ ثبت‌نام کن',
   forgot: 'رمز عبور را فراموش کردی؟',
   reset_sent: 'ایمیل بازیابی رمز عبور ارسال شد',
+  send_reset: 'ارسال ایمیل',
   confirm_sent: 'ایمیلت را تأیید کن و بعد وارد شو',
   err_email_bad: 'قالب ایمیل نادرست است',
   err_email_typo: 'آدرس را بررسی کن — منظورت {domain} بود؟',
