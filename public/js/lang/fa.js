@@ -182,6 +182,7 @@ export default {
   reset_sent: 'ایمیل بازیابی رمز عبور ارسال شد',
   confirm_sent: 'ایمیلت را تأیید کن و بعد وارد شو',
   err_email_bad: 'قالب ایمیل نادرست است',
+  err_email_typo: 'آدرس را بررسی کن — منظورت {domain} بود؟',
   err_email_taken: 'این ایمیل قبلاً ثبت شده — روی «ورود» بزن',
   err_password_short: 'رمز عبور: حداقل ۶ کاراکتر',
   logout: 'خروج',

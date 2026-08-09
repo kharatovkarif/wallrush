@@ -106,6 +106,55 @@ app.post('/api/profile', async (req, res) => {
   res.json({ profile: await getProfile(user.id) });
 });
 
+// Signups are confirmed without the address ever being checked, so a mistyped
+// domain becomes a real account whose password-reset mail bounces forever.
+// Supabase warns on the bounce rate and can cut off sending, so the obvious
+// slips get caught here.
+//
+// Deliberately narrow: a false positive locks a person out of signing up over
+// an address that works. Only two things are treated as typos — a domain one
+// edit away from a big provider, and a hand-written list of the classics that
+// sit further away. Regional domains (hotmail.fr, yahoo.co.uk) are three or
+// more edits from their .com and never match.
+const MAIL_HOSTS = [
+  'gmail.com', 'googlemail.com', 'yahoo.com', 'outlook.com', 'hotmail.com',
+  'icloud.com', 'live.com', 'aol.com', 'proton.me', 'protonmail.com',
+  'mail.ru', 'yandex.ru', 'bk.ru', 'list.ru', 'inbox.ru', 'rambler.ru',
+];
+const MAIL_TYPOS = {
+  'gmial.com': 'gmail.com', 'gmali.com': 'gmail.com', 'gamil.com': 'gmail.com',
+  'gmaill.com': 'gmail.com', 'ggmail.com': 'gmail.com', 'gmail.comm': 'gmail.com',
+  'gmail.ru': 'gmail.com', 'gmail.co.com': 'gmail.com',
+  'hotmial.com': 'hotmail.com', 'hotmall.com': 'hotmail.com',
+  'yahooo.com': 'yahoo.com', 'yaho.com': 'yahoo.com',
+  'outlok.com': 'outlook.com', 'outloock.com': 'outlook.com',
+  'iclod.com': 'icloud.com', 'icloud.co': 'icloud.com',
+  'mai.ru': 'mail.ru', 'maill.ru': 'mail.ru', 'yandex.com': 'yandex.ru',
+};
+function editDistance(a, b) {
+  if (Math.abs(a.length - b.length) > 1) return 2; // only "is it 0 or 1" matters
+  let row = Array.from({ length: b.length + 1 }, (_, i) => i);
+  for (let i = 1; i <= a.length; i++) {
+    const next = [i];
+    for (let j = 1; j <= b.length; j++) {
+      next[j] = a[i - 1] === b[j - 1]
+        ? row[j - 1]
+        : 1 + Math.min(row[j - 1], row[j], next[j - 1]);
+    }
+    row = next;
+  }
+  return row[b.length];
+}
+function mailTypo(email) {
+  const host = email.split('@')[1] || '';
+  if (!host || MAIL_HOSTS.includes(host)) return '';
+  if (MAIL_TYPOS[host]) return MAIL_TYPOS[host];
+  for (const good of MAIL_HOSTS) {
+    if (editDistance(host, good) === 1) return good;
+  }
+  return '';
+}
+
 // Server-side signup: creates the account already confirmed, so the game
 // never depends on the "Confirm email" toggle in Supabase.
 app.post('/api/register', async (req, res) => {
@@ -114,6 +163,8 @@ app.post('/api/register', async (req, res) => {
   const password = String(req.body?.password || '');
   const nick = String(req.body?.nick || '').trim();
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).json({ error: 'email_bad' });
+  const typo = mailTypo(email);
+  if (typo) return res.status(400).json({ error: 'email_typo', suggest: typo });
   if (password.length < 6) return res.status(400).json({ error: 'password_short' });
   const badNick = checkNick(nick);
   if (badNick) return res.status(400).json({ error: badNick === 'format' ? 'nick_bad' : 'nick_' + badNick });

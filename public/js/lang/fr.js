@@ -182,6 +182,7 @@ export default {
   reset_sent: 'E-mail de réinitialisation envoyé',
   confirm_sent: 'Confirme ton adresse par e-mail, puis connecte-toi',
   err_email_bad: 'Format d’e-mail invalide',
+  err_email_typo: 'Vérifie l’adresse — voulais-tu dire {domain} ?',
   err_email_taken: 'Cet e-mail est déjà inscrit — appuie sur « Connexion »',
   err_password_short: 'Mot de passe : 6 caractères minimum',
   logout: 'Se déconnecter',

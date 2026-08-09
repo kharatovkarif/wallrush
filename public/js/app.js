@@ -1,15 +1,15 @@
 // WallRush client app: screens, board UI, online play (WebSocket), AI mode, auth.
-import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=101';
-import { aiMove } from './ai.js?v=101';
-import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=101';
-import { rankOf, nextRank } from './ranks.js?v=101';
-import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=101';
-import { checkNick, nickOk, randomNick } from './nick.js?v=101';
+import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=102';
+import { aiMove } from './ai.js?v=102';
+import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=102';
+import { rankOf, nextRank } from './ranks.js?v=102';
+import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=102';
+import { checkNick, nickOk, randomNick } from './nick.js?v=102';
 import {
   embedded, initPortal, inPortal, portalAd, portalPlaying, portalHappy,
   portalLoaded, portalInviteCode, portalShowInvite, portalHideInvite, portalInstant,
   portalRoom, portalOnJoin, portalInviteLink, portalMuted, portalOnMute, portalUserName,
-} from './portal.js?v=101';
+} from './portal.js?v=102';
 
 /* ================= state ================= */
 const $ = (id) => document.getElementById(id);
@@ -255,7 +255,7 @@ function getAiWorker() {
   if (aiWorker === false) return null;
   if (!aiWorker) {
     try {
-      aiWorker = new Worker('js/ai-worker.js?v=101', { type: 'module' });
+      aiWorker = new Worker('js/ai-worker.js?v=102', { type: 'module' });
       aiWorker.onmessage = (e) => {
         const cb = aiPending.get(e.data.id);
         aiPending.delete(e.data.id);
@@ -2022,6 +2022,9 @@ $('btn-auth-submit').addEventListener('click', async () => {
       if (data.error) {
         const map = {
           email_bad: t('err_email_bad'), email_taken: t('err_email_taken'),
+          // the server names the domain it thinks was meant — say it out loud,
+          // an unexplained rejection of a working-looking address reads as a bug
+          email_typo: t('err_email_typo').replace('{domain}', data.suggest || ''),
           password_short: t('err_password_short'),
           nick_bad: t('err_nick_bad'), nick_taken: t('err_nick_taken'),
           nick_rude: t('err_nick_rude'), nick_reserved: t('err_nick_reserved'),

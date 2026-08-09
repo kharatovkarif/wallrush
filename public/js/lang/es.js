@@ -182,6 +182,7 @@ export default {
   reset_sent: 'Correo de restablecimiento enviado',
   confirm_sent: 'Confirma tu correo y luego inicia sesión',
   err_email_bad: 'Formato de correo no válido',
+  err_email_typo: 'Revisa la dirección: ¿querías decir {domain}?',
   err_email_taken: 'Ese correo ya está registrado — pulsa «Iniciar sesión»',
   err_password_short: 'Contraseña: mínimo 6 caracteres',
   logout: 'Cerrar sesión',

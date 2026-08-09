@@ -183,6 +183,7 @@ export const I18N = {
     reset_sent: 'Письмо для сброса пароля отправлено',
     confirm_sent: 'Проверь почту и подтверди адрес, затем войди',
     err_email_bad: 'Неверный формат почты',
+    err_email_typo: 'Проверь адрес — похоже, ты имел в виду {domain}',
     err_email_taken: 'Эта почта уже зарегистрирована — нажми «Войти»',
     err_password_short: 'Пароль: минимум 6 символов',
     logout: 'Выйти',
@@ -428,6 +429,7 @@ export const I18N = {
     reset_sent: 'Password reset email sent',
     confirm_sent: 'Check your email to confirm, then log in',
     err_email_bad: 'Invalid email format',
+    err_email_typo: 'Check the address — did you mean {domain}?',
     err_email_taken: 'This email is already registered — tap "Log in"',
     err_password_short: 'Password: at least 6 characters',
     logout: 'Log out',
@@ -506,7 +508,7 @@ export const LANGS = [
 export const LANG_CODES = LANGS.map((l) => l.code);
 export const RTL = new Set(['fa']);
 
-const V = '101';
+const V = '102';
 
 // Loads a translation file on demand. Safe to call repeatedly and safe to fail:
 // if the request never lands, makeT keeps falling back to English.

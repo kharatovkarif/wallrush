@@ -182,6 +182,7 @@ export default {
   reset_sent: 'Şifre sıfırlama e-postası gönderildi',
   confirm_sent: 'E-postanı onayla, sonra giriş yap',
   err_email_bad: 'Geçersiz e-posta biçimi',
+  err_email_typo: 'Adresi kontrol et — {domain} mı demek istedin?',
   err_email_taken: 'Bu e-posta zaten kayıtlı — «Giriş yap»a bas',
   err_password_short: 'Şifre: en az 6 karakter',
   logout: 'Çıkış yap',
