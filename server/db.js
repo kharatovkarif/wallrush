@@ -312,11 +312,19 @@ export async function leaderboard(limit = 50) {
   const fresh = Date.now() - lbCache.at < LB_TTL && lbCache.size >= limit;
   if (fresh) return lbCache.rows.slice(0, limit);
 
+  // Ordered on all three keys, the same ones the merge below uses. Points alone
+  // would leave ties to the database's whim, and asking for exactly `limit`
+  // rows means a tie broken differently there than here drops somebody off the
+  // last line who belonged on it. With the orders matching, the row each table
+  // withholds is one the merge would have discarded anyway.
+  const top = (q) => q.order('points', { ascending: false })
+    .order('wins', { ascending: false })
+    .order('losses', { ascending: true })
+    .limit(limit);
   const [{ data: people }, { data: bots }] = await Promise.all([
     // an account caught farming keeps its history but leaves the table
-    supa.from('profiles').select('nick, wins, losses, points')
-      .not('flagged', 'is', true).order('points', { ascending: false }).limit(limit),
-    supa.from('bot_players').select('nick, wins, losses, points').order('points', { ascending: false }).limit(limit),
+    top(supa.from('profiles').select('nick, wins, losses, points').not('flagged', 'is', true)),
+    top(supa.from('bot_players').select('nick, wins, losses, points')),
   ]);
   // a failed round-trip must not be cached as an empty ranking for a minute
   if (!people && !bots) return lbCache.rows.slice(0, limit);
