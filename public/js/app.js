@@ -1,15 +1,15 @@
 // WallRush client app: screens, board UI, online play (WebSocket), AI mode, auth.
-import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=106';
-import { aiMove } from './ai.js?v=106';
-import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=106';
-import { rankOf, nextRank } from './ranks.js?v=106';
-import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=106';
-import { checkNick, nickOk, randomNick } from './nick.js?v=106';
+import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=107';
+import { aiMove } from './ai.js?v=107';
+import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=107';
+import { rankOf, nextRank } from './ranks.js?v=107';
+import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=107';
+import { checkNick, nickOk, randomNick } from './nick.js?v=107';
 import {
   embedded, initPortal, inPortal, portalAd, portalPlaying, portalHappy,
   portalLoaded, portalInviteCode, portalShowInvite, portalHideInvite, portalInstant,
   portalRoom, portalOnJoin, portalInviteLink, portalMuted, portalOnMute, portalUserName,
-} from './portal.js?v=106';
+} from './portal.js?v=107';
 
 /* ================= state ================= */
 const $ = (id) => document.getElementById(id);
@@ -255,7 +255,7 @@ function getAiWorker() {
   if (aiWorker === false) return null;
   if (!aiWorker) {
     try {
-      aiWorker = new Worker('js/ai-worker.js?v=106', { type: 'module' });
+      aiWorker = new Worker('js/ai-worker.js?v=107', { type: 'module' });
       aiWorker.onmessage = (e) => {
         const cb = aiPending.get(e.data.id);
         aiPending.delete(e.data.id);
@@ -1514,7 +1514,10 @@ if ($('wallet-copy')) {
 
 $('btn-open-ads').addEventListener('click', () => show('screen-ads'));
 
-const ADS_EMAIL = 'kharatovkarif@gmail.com';
+// An address on the game's own domain rather than a personal mailbox: this is
+// the one line a possible advertiser judges the place by. Cloudflare Email
+// Routing forwards it straight into the same inbox as before.
+const ADS_EMAIL = 'ads@wallrush.online';
 $('ads-email-copy').addEventListener('click', async () => {
   try { await navigator.clipboard.writeText(ADS_EMAIL); } catch { return; }
   const b = $('ads-email-copy');
