@@ -1,15 +1,15 @@
 // WallRush client app: screens, board UI, online play (WebSocket), AI mode, auth.
-import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=108';
-import { aiMove } from './ai.js?v=108';
-import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=108';
-import { rankOf, nextRank } from './ranks.js?v=108';
-import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=108';
-import { checkNick, nickOk, randomNick } from './nick.js?v=108';
+import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=109';
+import { aiMove } from './ai.js?v=109';
+import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=109';
+import { rankOf, nextRank } from './ranks.js?v=109';
+import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=109';
+import { checkNick, nickOk, randomNick } from './nick.js?v=109';
 import {
   embedded, initPortal, inPortal, portalAd, portalPlaying, portalHappy,
   portalLoaded, portalInviteCode, portalShowInvite, portalHideInvite, portalInstant,
   portalRoom, portalOnJoin, portalInviteLink, portalMuted, portalOnMute, portalUserName,
-} from './portal.js?v=108';
+} from './portal.js?v=109';
 
 /* ================= state ================= */
 const $ = (id) => document.getElementById(id);
@@ -255,7 +255,7 @@ function getAiWorker() {
   if (aiWorker === false) return null;
   if (!aiWorker) {
     try {
-      aiWorker = new Worker('js/ai-worker.js?v=108', { type: 'module' });
+      aiWorker = new Worker('js/ai-worker.js?v=109', { type: 'module' });
       aiWorker.onmessage = (e) => {
         const cb = aiPending.get(e.data.id);
         aiPending.delete(e.data.id);
@@ -1387,7 +1387,8 @@ const AD_PROVIDER = {
     return true;
   },
 };
-const AD_WAIT_MS = 7000;   // nothing on screen by then means no ad is coming
+const AD_WAIT_MS = 7000;      // nothing on screen by then means no ad is coming
+const AD_SDK_WAIT_MS = 45000; // but once a network is working, it gets room to ask its questions
 
 let adTimer = 0;
 
@@ -1473,7 +1474,7 @@ function openSupportVideo() {
   // finished downloading does nothing at all — so the ask waits for the script.
   Promise.resolve(preloadAd()).then((loaded) => {
     if ($('overlay-ad').hidden) return;   // they closed the window while it loaded
-    if (loaded) AD_PROVIDER.show(adRewarded);
+    if (loaded && AD_PROVIDER.show(adRewarded)) deadline = Date.now() + AD_SDK_WAIT_MS;
   });
 
   clearTimeout(adEscape);
@@ -1481,7 +1482,13 @@ function openSupportVideo() {
 
   // Poll rather than trust a single timeout: the moment an ad appears the note
   // gets out of its way, and if none ever does we say so and close.
-  const started = Date.now();
+  //
+  // The deadline moves once the SDK is in charge. Seven seconds is right for
+  // "nothing is coming", and wrong the moment a network puts its own screen up
+  // first — AppLixir asks for consent before it will play anything, and the
+  // first real test declared no ad while that question was still on screen,
+  // waiting to be read. Reading takes longer than seven seconds.
+  let deadline = Date.now() + AD_WAIT_MS;
   clearTimeout(adTimer);
   (function check() {
     if (adRendered()) {
@@ -1489,7 +1496,7 @@ function openSupportVideo() {
       watchAdClosed();
       return;
     }
-    if (Date.now() - started > AD_WAIT_MS) {
+    if (Date.now() > deadline) {
       note.textContent = t('ad_none');
       adTimer = setTimeout(closeAdOverlay, 2500);
       return;
