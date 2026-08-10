@@ -1,15 +1,15 @@
 // WallRush client app: screens, board UI, online play (WebSocket), AI mode, auth.
-import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=112';
-import { aiMove } from './ai.js?v=112';
-import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=112';
-import { rankOf, nextRank } from './ranks.js?v=112';
-import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=112';
-import { checkNick, nickOk, randomNick } from './nick.js?v=112';
+import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=113';
+import { aiMove } from './ai.js?v=113';
+import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=113';
+import { rankOf, nextRank } from './ranks.js?v=113';
+import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=113';
+import { checkNick, nickOk, randomNick } from './nick.js?v=113';
 import {
   embedded, initPortal, inPortal, portalAd, portalPlaying, portalHappy,
   portalLoaded, portalInviteCode, portalShowInvite, portalHideInvite, portalInstant,
   portalRoom, portalOnJoin, portalInviteLink, portalMuted, portalOnMute, portalUserName,
-} from './portal.js?v=112';
+} from './portal.js?v=113';
 
 /* ================= state ================= */
 const $ = (id) => document.getElementById(id);
@@ -255,7 +255,7 @@ function getAiWorker() {
   if (aiWorker === false) return null;
   if (!aiWorker) {
     try {
-      aiWorker = new Worker('js/ai-worker.js?v=112', { type: 'module' });
+      aiWorker = new Worker('js/ai-worker.js?v=113', { type: 'module' });
       aiWorker.onmessage = (e) => {
         const cb = aiPending.get(e.data.id);
         aiPending.delete(e.data.id);
@@ -1381,9 +1381,14 @@ const AD_PROVIDER = {
   selfContained: true,
   show(onReward) {
     if (typeof initializeAndOpenPlayer !== 'function') return false;
+    // Their player is drawn inside whatever element it is handed, so that
+    // element has to be on screen. Handed the slot inside our window — which
+    // no longer opens — the ad played out of sight: sound and nothing to look
+    // at. ad-host is nothing but a visible place for it to land.
+    $('ad-host').hidden = false;
     initializeAndOpenPlayer({
       apiKey: 'f12d997b-c4fa-4682-be49-e656c6121b56',
-      injectionElementId: 'ad-video-slot',
+      injectionElementId: 'ad-host',
       adStatusCallbackFn: (status) => {
         console.info('[ad] status:', status);
         // Any word at all means the network is alive and working, so the
@@ -1457,15 +1462,33 @@ function adRendered() {
 // whenever the network had nothing to give and said so by saying nothing.
 function adOnScreen() {
   if (adRendered()) return true;
+  // ad-host is full-screen by design, so it must be judged by what is inside
+  // it, never by itself — otherwise merely opening it would read as an ad.
+  const host = $('ad-host');
+  if (host && !host.hidden && host.children.length > 0) return true;
   if ([...document.querySelectorAll('iframe')].some((f) => {
     const r = f.getBoundingClientRect();
     return r.width > 200 && r.height > 150;
   })) return true;
   return [...document.body.children].some((el) => {
-    if (el.id === 'app' || el.tagName === 'SCRIPT' || el.tagName === 'STYLE') return false;
+    if (el.id === 'app' || el.id === 'ad-host') return false;
+    if (el.tagName === 'SCRIPT' || el.tagName === 'STYLE') return false;
     const r = el.getBoundingClientRect();
     return r.height > innerHeight * 0.5 && r.width > innerWidth * 0.5;
   });
+}
+
+// A full-screen sheet left lying over the game would swallow every tap, so it
+// goes the moment the network's player has packed up and left it empty.
+let adHostWatch = 0;
+function releaseAdHost() {
+  clearInterval(adHostWatch);
+  const host = $('ad-host');
+  if (!host) return;
+  adHostWatch = setInterval(() => {
+    if (host.hidden) { clearInterval(adHostWatch); return; }
+    if (host.children.length === 0) { host.hidden = true; clearInterval(adHostWatch); }
+  }, 400);
 }
 
 // Where the network's "they earned it" lands. Support says thank you; the
@@ -1478,6 +1501,11 @@ let adAsk = 0;   // bumped on every ask and every answer, so a stale watch stops
 function adRewarded(ok) {
   adAsk++;
   clearTimeout(adSilence);
+  // A refusal means nothing was ever drawn, so the sheet goes at once. A reward
+  // can arrive with the player still winding down, so there it waits for the
+  // player to leave rather than pulling the floor out from under it.
+  if (!ok) { clearInterval(adHostWatch); $('ad-host').hidden = true; }
+  else releaseAdHost();
   const waiting = adRewardHandler;
   adRewardHandler = null;
   if (waiting) waiting(ok);

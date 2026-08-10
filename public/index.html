@@ -72,7 +72,7 @@
   <link rel="apple-touch-icon" href="icons/icon-192.png">
   <!-- Opens the connection to the ad host early. Costs one handshake and no
        download, and takes that handshake off the wait once Support is tapped. -->
-  <link rel="stylesheet" href="css/style.css?v=112">
+  <link rel="stylesheet" href="css/style.css?v=113">
   <!-- Are we inside somebody else's page? Every game portal forbids running
        your own ads inside theirs, and the ad scripts below start the moment
        the parser reaches them — long before any module could stop one. So the
@@ -526,6 +526,14 @@
       </div>
     </div>
 
+    <!-- A home of its own for a network that draws its own full-screen player.
+         It used to be handed the slot above, inside the window — and once that
+         window stopped opening, the player was being drawn inside something
+         hidden: the ad played, the sound came out, and there was nothing to
+         look at. This has no window around it and nothing to show of its own;
+         it exists only to be a visible place to put somebody else's player. -->
+    <div id="ad-host" hidden></div>
+
     <!-- ============ STREAK MILESTONE (full-screen celebration) ============ -->
     <!-- Sits above the result screen: the day someone's week of coming back
          pays off should not slip by as one more line of text. -->
@@ -792,7 +800,7 @@
     <div id="toast" hidden></div>
   </div>
 
-  <script src="vendor/supabase.js?v=112" defer></script>
-  <script type="module" src="js/app.js?v=112"></script>
+  <script src="vendor/supabase.js?v=113" defer></script>
+  <script type="module" src="js/app.js?v=113"></script>
 </body>
 </html>
