@@ -1,15 +1,15 @@
 // WallRush client app: screens, board UI, online play (WebSocket), AI mode, auth.
-import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=113';
-import { aiMove } from './ai.js?v=113';
-import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=113';
-import { rankOf, nextRank } from './ranks.js?v=113';
-import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=113';
-import { checkNick, nickOk, randomNick } from './nick.js?v=113';
+import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=114';
+import { aiMove } from './ai.js?v=114';
+import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=114';
+import { rankOf, nextRank } from './ranks.js?v=114';
+import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=114';
+import { checkNick, nickOk, randomNick } from './nick.js?v=114';
 import {
   embedded, initPortal, inPortal, portalAd, portalPlaying, portalHappy,
   portalLoaded, portalInviteCode, portalShowInvite, portalHideInvite, portalInstant,
   portalRoom, portalOnJoin, portalInviteLink, portalMuted, portalOnMute, portalUserName,
-} from './portal.js?v=113';
+} from './portal.js?v=114';
 
 /* ================= state ================= */
 const $ = (id) => document.getElementById(id);
@@ -255,7 +255,7 @@ function getAiWorker() {
   if (aiWorker === false) return null;
   if (!aiWorker) {
     try {
-      aiWorker = new Worker('js/ai-worker.js?v=113', { type: 'module' });
+      aiWorker = new Worker('js/ai-worker.js?v=114', { type: 'module' });
       aiWorker.onmessage = (e) => {
         const cb = aiPending.get(e.data.id);
         aiPending.delete(e.data.id);
@@ -1533,7 +1533,10 @@ function openSupportVideo() {
   // A network that draws its own screen gets the screen to itself. Everything
   // below builds our window, which such a network makes into an empty frame.
   if (AD_PROVIDER.selfContained) {
-    toast(t('ad_loading'));   // the SDK still has to arrive; say something meanwhile
+    // Nothing is said while it loads. "Loading the video" was the only thing
+    // standing between the tap and the ad, and it made a two-second wait feel
+    // like a stall — it was read as the button being broken. Tap, ad. Or tap,
+    // and one line saying there is none.
     Promise.resolve(preloadAd()).then((loaded) => {
       if (!loaded || !AD_PROVIDER.show(adRewarded)) { adRewarded(false); return; }
       // A network with nothing to give — capped, no fill, a country it does not
