@@ -1,15 +1,15 @@
 // WallRush client app: screens, board UI, online play (WebSocket), AI mode, auth.
-import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=107';
-import { aiMove } from './ai.js?v=107';
-import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=107';
-import { rankOf, nextRank } from './ranks.js?v=107';
-import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=107';
-import { checkNick, nickOk, randomNick } from './nick.js?v=107';
+import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=108';
+import { aiMove } from './ai.js?v=108';
+import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=108';
+import { rankOf, nextRank } from './ranks.js?v=108';
+import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=108';
+import { checkNick, nickOk, randomNick } from './nick.js?v=108';
 import {
   embedded, initPortal, inPortal, portalAd, portalPlaying, portalHappy,
   portalLoaded, portalInviteCode, portalShowInvite, portalHideInvite, portalInstant,
   portalRoom, portalOnJoin, portalInviteLink, portalMuted, portalOnMute, portalUserName,
-} from './portal.js?v=107';
+} from './portal.js?v=108';
 
 /* ================= state ================= */
 const $ = (id) => document.getElementById(id);
@@ -255,7 +255,7 @@ function getAiWorker() {
   if (aiWorker === false) return null;
   if (!aiWorker) {
     try {
-      aiWorker = new Worker('js/ai-worker.js?v=107', { type: 'module' });
+      aiWorker = new Worker('js/ai-worker.js?v=108', { type: 'module' });
       aiWorker.onmessage = (e) => {
         const cb = aiPending.get(e.data.id);
         aiPending.delete(e.data.id);
@@ -1353,39 +1353,63 @@ $('btn-rematch').addEventListener('click', () => {
    popunder that relabelled the button while no ad ever appeared.
 
    Which network serves the video is the only part that keeps changing, so it
-   is the only part written down here. Everything below is network-agnostic on
-   purpose: the overlay looks for a video of any size anywhere on the page
-   rather than trusting a network to fill our slot, because none of them do.
+   is the only part written down here. Everything below stays network-agnostic:
+   the overlay watches for a video of any size anywhere on the page rather than
+   trusting a network to fill our slot, because none of them reliably do. That
+   watch is what actually closes the window, with or without a callback.
 
-   To bring a network back, fill this in with the tag from its dashboard —
-   `src` and whatever attributes it asks for — and nothing else needs touching:
+   Now AppLixir. Their SDK does not serve from a tag on its own — it waits to be
+   asked, so `show` says how to ask. Set AD_PROVIDER to null and Support and the
+   streak restore both keep working: the window says there is no ad and the
+   streak comes back anyway, which is the path everyone the ad never reached has
+   always taken.
 
-     const AD_PROVIDER = {
-       src: 'https://example-network.com/tag.min.js',
-       attrs: { 'data-zone': '000000', 'data-cfasync': 'false' },
-     };
-
-   Left null, Support and the streak restore both still work: the window opens,
-   says no ad is available and closes, and the streak comes back regardless —
-   that path already existed for everyone the ad never reached anyway. */
-const AD_PROVIDER = null;
+   The status names below are from their published events and could not be
+   checked from here — their CDN is unreachable from this machine, so nothing
+   about this integration has been seen running. Every status the SDK reports is
+   therefore logged verbatim, so the first real play tells us what it truly
+   sends and this list can stop guessing. Nothing depends on getting them right:
+   a reward that never fires still leaves the streak granted. */
+const AD_PROVIDER = {
+  src: 'https://cdn.applixir.com/applixir.app.v6.1.0.js',
+  show(onReward) {
+    if (typeof initializeAndOpenPlayer !== 'function') return false;
+    initializeAndOpenPlayer({
+      apiKey: 'f12d997b-c4fa-4682-be49-e656c6121b56',
+      injectionElementId: 'ad-video-slot',
+      adStatusCallbackFn: (status) => {
+        console.info('[ad] status:', status);
+        const s = String(status || '').toLowerCase();
+        if (s.includes('reward') || s.includes('watched') || s === 'ad-complete') onReward(true);
+      },
+      adErrorCallbackFn: (err) => { console.warn('[ad] error:', err); onReward(false); },
+    });
+    return true;
+  },
+};
 const AD_WAIT_MS = 7000;   // nothing on screen by then means no ad is coming
 
-let adScriptAdded = false;
 let adTimer = 0;
 
-// Loaded once the support dialog is open rather than on the tap itself: the
+// Fetched once the support dialog is open rather than on the tap itself: the
 // download used to happen while the player stared at an empty box. Called
-// again later, it does nothing — the script is already here.
+// again later it returns the same promise — the script is already here.
+let adReady = null;
 function preloadAd() {
-  if (!AD_PROVIDER || adScriptAdded || embedded) return;   // never our own network inside a portal
-  adScriptAdded = true;
-  const s = document.createElement('script');
-  s.async = true;
-  s.src = AD_PROVIDER.src;
-  for (const [k, v] of Object.entries(AD_PROVIDER.attrs || {})) s.setAttribute(k, v);
-  s.onerror = () => { adScriptAdded = false; };   // let a later attempt try again
-  document.head.appendChild(s);
+  if (!AD_PROVIDER || embedded) return null;   // never our own network inside a portal
+  if (adReady) return adReady;
+  adReady = new Promise((resolve) => {
+    const s = document.createElement('script');
+    s.async = true;
+    s.src = AD_PROVIDER.src;
+    s.onload = () => resolve(true);
+    // A blocker, a dead CDN, a country the network does not reach: all arrive
+    // here. Forget the promise so a later attempt gets a fresh try rather than
+    // a cached no.
+    s.onerror = () => { adReady = null; resolve(false); };
+    document.head.appendChild(s);
+  });
+  return adReady;
 }
 
 let adEscape = 0;
@@ -1412,6 +1436,18 @@ function adRendered() {
   });
 }
 
+// Where the network's "they earned it" lands. Support says thank you; the
+// streak restore hands the streak back the moment it arrives instead of sitting
+// out its timeout. Whoever is waiting claims the callback, so a stale handler
+// from an earlier window cannot fire into a later one.
+let adRewardHandler = null;
+function adRewarded(ok) {
+  const waiting = adRewardHandler;
+  adRewardHandler = null;
+  if (waiting) waiting(ok);
+  else if (ok) toast(t('support_thanks'));
+}
+
 // The ad brings its own close button, so this window must not add a second
 // one. Ours stays out of sight and only appears if the ad is somehow still
 // here long after any ad should be — a way out that nobody normally sees.
@@ -1433,7 +1469,12 @@ function openSupportVideo() {
   note.hidden = false;
   own.hidden = true;
   $('overlay-ad').hidden = false;
-  preloadAd();
+  // The SDK has to be asked before it plays anything, and asking before it has
+  // finished downloading does nothing at all — so the ask waits for the script.
+  Promise.resolve(preloadAd()).then((loaded) => {
+    if ($('overlay-ad').hidden) return;   // they closed the window while it loaded
+    if (loaded) AD_PROVIDER.show(adRewarded);
+  });
 
   clearTimeout(adEscape);
   adEscape = setTimeout(() => { own.hidden = false; }, AD_ESCAPE_MS);
@@ -1885,10 +1926,17 @@ function startRestore() {
   // No network, nothing to watch: give the streak back now rather than hold it
   // behind an eight-second wait for an ad that cannot arrive.
   if (!AD_PROVIDER) { claimStreak(); return; }
+  // Two ways home, because the streak must come back either way. The network
+  // saying "they earned it" is the quick one; the watch below is the one that
+  // works when no such word ever comes, which is most of this audience.
+  let claimed = false;
+  const once = () => { if (!claimed) { claimed = true; claimStreak(); } };
+  adRewardHandler = once;
   openSupportVideo();
   const started = Date.now();
   (function waitForAd() {
-    if (adRendered() || Date.now() - started > AD_WAIT_MS + 1500) { claimStreak(); return; }
+    if (claimed) return;
+    if (adRendered() || Date.now() - started > AD_WAIT_MS + 1500) { once(); return; }
     setTimeout(waitForAd, 300);
   })();
 }
