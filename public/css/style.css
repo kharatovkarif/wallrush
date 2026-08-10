@@ -61,9 +61,13 @@ body {
 
 #app { max-width: 520px; margin: 0 auto; min-height: 100dvh; position: relative; }
 
-/* The Monetag in-page banner is injected as a direct <body> child (outside #app).
-   While a match is on screen (<html class="in-game">) hide it so ads never
-   cover or interrupt the game — banner shows in menus only. */
+/* Ad networks inject their banners as a direct <body> child, outside #app,
+   wherever they please. While a match is on screen (<html class="in-game">)
+   hide whatever turns up there, so an ad can never cover the board or swallow
+   a tap mid-move. Ads belong in the menus only.
+
+   Written against the body child rather than any one network's class name on
+   purpose: the networks come and go, this rule should outlive them. */
 html.in-game > body > *:not(#app):not(script):not(style) { display: none !important; }
 
 /* Menu banner slot (HilltopAds 300x100): centered under the home content. */

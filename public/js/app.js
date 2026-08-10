@@ -1,15 +1,15 @@
 // WallRush client app: screens, board UI, online play (WebSocket), AI mode, auth.
-import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=104';
-import { aiMove } from './ai.js?v=104';
-import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=104';
-import { rankOf, nextRank } from './ranks.js?v=104';
-import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=104';
-import { checkNick, nickOk, randomNick } from './nick.js?v=104';
+import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=105';
+import { aiMove } from './ai.js?v=105';
+import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=105';
+import { rankOf, nextRank } from './ranks.js?v=105';
+import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=105';
+import { checkNick, nickOk, randomNick } from './nick.js?v=105';
 import {
   embedded, initPortal, inPortal, portalAd, portalPlaying, portalHappy,
   portalLoaded, portalInviteCode, portalShowInvite, portalHideInvite, portalInstant,
   portalRoom, portalOnJoin, portalInviteLink, portalMuted, portalOnMute, portalUserName,
-} from './portal.js?v=104';
+} from './portal.js?v=105';
 
 /* ================= state ================= */
 const $ = (id) => document.getElementById(id);
@@ -255,7 +255,7 @@ function getAiWorker() {
   if (aiWorker === false) return null;
   if (!aiWorker) {
     try {
-      aiWorker = new Worker('js/ai-worker.js?v=104', { type: 'module' });
+      aiWorker = new Worker('js/ai-worker.js?v=105', { type: 'module' });
       aiWorker.onmessage = (e) => {
         const cb = aiPending.get(e.data.id);
         aiPending.delete(e.data.id);
@@ -357,7 +357,7 @@ function show(screenId) {
   const nav = $('bottom-nav');
   const playing = screenId === 'screen-game' || screenId === 'screen-waiting';
   nav.classList.toggle('hidden', playing);
-  // Ads (Monetag in-page banner) only in menus, never during a match
+  // Ads live in the menus only, never over a live board
   document.documentElement.classList.toggle('in-game', playing);
   document.querySelectorAll('.nav-btn').forEach(b =>
     b.classList.toggle('active', b.dataset.screen === screenId));
@@ -1348,27 +1348,43 @@ $('btn-rematch').addEventListener('click', () => {
    The result screen is the most valuable place in the game, and measured over
    a day the invite there brought 388 new players while this ad earned cents.
 
-   Before this it was a direct link opened with window.open — and before that a
-   RichAds popunder that delivered nothing at all, relabelling the button while
-   no ad ever appeared. */
-const AD_SCRIPT = 'https://js.onclckmn.com/static/onclicka.js';
-const AD_PID = '449804';
+   Before this it was OnClicka, which stopped delivering anything — and before
+   that a direct link opened with window.open, and before that a RichAds
+   popunder that relabelled the button while no ad ever appeared.
+
+   Which network serves the video is the only part that keeps changing, so it
+   is the only part written down here. Everything below is network-agnostic on
+   purpose: the overlay looks for a video of any size anywhere on the page
+   rather than trusting a network to fill our slot, because none of them do.
+
+   To bring a network back, fill this in with the tag from its dashboard —
+   `src` and whatever attributes it asks for — and nothing else needs touching:
+
+     const AD_PROVIDER = {
+       src: 'https://example-network.com/tag.min.js',
+       attrs: { 'data-zone': '000000', 'data-cfasync': 'false' },
+     };
+
+   Left null, Support and the streak restore both still work: the window opens,
+   says no ad is available and closes, and the streak comes back regardless —
+   that path already existed for everyone the ad never reached anyway. */
+const AD_PROVIDER = null;
 const AD_WAIT_MS = 7000;   // nothing on screen by then means no ad is coming
 
 let adScriptAdded = false;
 let adTimer = 0;
 
-// Loaded once the result screen is up rather than on the tap itself: the
+// Loaded once the support dialog is open rather than on the tap itself: the
 // download used to happen while the player stared at an empty box. Called
-// again on later matches, it does nothing — the script is already here.
+// again later, it does nothing — the script is already here.
 function preloadAd() {
-  if (adScriptAdded || embedded) return;   // never our own network inside a portal
+  if (!AD_PROVIDER || adScriptAdded || embedded) return;   // never our own network inside a portal
   adScriptAdded = true;
   const s = document.createElement('script');
   s.async = true;
-  s.src = AD_SCRIPT;
-  s.dataset.admpid = AD_PID;
-  s.onerror = () => { adScriptAdded = false; };   // let a later match try again
+  s.src = AD_PROVIDER.src;
+  for (const [k, v] of Object.entries(AD_PROVIDER.attrs || {})) s.setAttribute(k, v);
+  s.onerror = () => { adScriptAdded = false; };   // let a later attempt try again
   document.head.appendChild(s);
 }
 
@@ -1408,6 +1424,9 @@ function openSupportVideo() {
   // A button that does nothing at all is worse than one that says no: an ad
   // that never arrives gets the same answer here as it does on our own site.
   if (embedded) { portalAd('rewarded').then((ok) => toast(t(ok ? 'support_thanks' : 'ad_none'))); return; }
+  // With no network configured there is nothing to wait for, so say so at once
+  // instead of making the player watch an empty box time out.
+  if (!AD_PROVIDER) { toast(t('ad_none')); return; }
   const note = $('ad-note');
   const own = $('ad-close');
   note.textContent = t('ad_loading');
@@ -1855,6 +1874,9 @@ function startRestore() {
   // In the portal the ad is theirs and tells us when it is over, so there is
   // nothing to watch for and no reason to make the player wait out a timeout.
   if (embedded) { portalAd('rewarded').then(claimStreak); return; }
+  // No network, nothing to watch: give the streak back now rather than hold it
+  // behind an eight-second wait for an ad that cannot arrive.
+  if (!AD_PROVIDER) { claimStreak(); return; }
   openSupportVideo();
   const started = Date.now();
   (function waitForAd() {
