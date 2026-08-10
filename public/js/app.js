@@ -1,15 +1,15 @@
 // WallRush client app: screens, board UI, online play (WebSocket), AI mode, auth.
-import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=110';
-import { aiMove } from './ai.js?v=110';
-import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=110';
-import { rankOf, nextRank } from './ranks.js?v=110';
-import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=110';
-import { checkNick, nickOk, randomNick } from './nick.js?v=110';
+import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=111';
+import { aiMove } from './ai.js?v=111';
+import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=111';
+import { rankOf, nextRank } from './ranks.js?v=111';
+import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=111';
+import { checkNick, nickOk, randomNick } from './nick.js?v=111';
 import {
   embedded, initPortal, inPortal, portalAd, portalPlaying, portalHappy,
   portalLoaded, portalInviteCode, portalShowInvite, portalHideInvite, portalInstant,
   portalRoom, portalOnJoin, portalInviteLink, portalMuted, portalOnMute, portalUserName,
-} from './portal.js?v=110';
+} from './portal.js?v=111';
 
 /* ================= state ================= */
 const $ = (id) => document.getElementById(id);
@@ -255,7 +255,7 @@ function getAiWorker() {
   if (aiWorker === false) return null;
   if (!aiWorker) {
     try {
-      aiWorker = new Worker('js/ai-worker.js?v=110', { type: 'module' });
+      aiWorker = new Worker('js/ai-worker.js?v=111', { type: 'module' });
       aiWorker.onmessage = (e) => {
         const cb = aiPending.get(e.data.id);
         aiPending.delete(e.data.id);
@@ -1386,6 +1386,10 @@ const AD_PROVIDER = {
       injectionElementId: 'ad-video-slot',
       adStatusCallbackFn: (status) => {
         console.info('[ad] status:', status);
+        // Any word at all means the network is alive and working, so the
+        // silence timer stops here — otherwise a status this list does not
+        // recognise would end with "there is no ad" after a played one.
+        clearTimeout(adSilence);
         const s = String(status || '').toLowerCase();
         if (s.includes('reward') || s.includes('watched') || s === 'ad-complete') onReward(true);
       },
@@ -1449,11 +1453,16 @@ function adRendered() {
 // out its timeout. Whoever is waiting claims the callback, so a stale handler
 // from an earlier window cannot fire into a later one.
 let adRewardHandler = null;
+let adSilence = 0;
 function adRewarded(ok) {
+  clearTimeout(adSilence);
   const waiting = adRewardHandler;
   adRewardHandler = null;
   if (waiting) waiting(ok);
-  else if (ok) toast(t('support_thanks'));
+  // "No" has to be said out loud too. A refusal used to land here and stop,
+  // leaving "loading the video" as the last word on screen and nothing after
+  // it — which reads exactly like a broken button.
+  else toast(t(ok ? 'support_thanks' : 'ad_none'));
 }
 
 // The ad brings its own close button, so this window must not add a second
@@ -1476,7 +1485,14 @@ function openSupportVideo() {
   if (AD_PROVIDER.selfContained) {
     toast(t('ad_loading'));   // the SDK still has to arrive; say something meanwhile
     Promise.resolve(preloadAd()).then((loaded) => {
-      if (!loaded || !AD_PROVIDER.show(adRewarded)) { adRewardHandler = null; toast(t('ad_none')); }
+      if (!loaded || !AD_PROVIDER.show(adRewarded)) { adRewarded(false); return; }
+      // Their player is out of our sight, so silence is the one thing we cannot
+      // read. A network with nothing to serve — capped, no fill, a country it
+      // does not reach — can simply say nothing at all, and then "loading the
+      // video" stays the last word forever. Long enough to sit through a whole
+      // ad before deciding nothing came.
+      clearTimeout(adSilence);
+      adSilence = setTimeout(() => adRewarded(false), 40000);
     });
     return;
   }
