@@ -1,15 +1,15 @@
 // WallRush client app: screens, board UI, online play (WebSocket), AI mode, auth.
-import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=105';
-import { aiMove } from './ai.js?v=105';
-import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=105';
-import { rankOf, nextRank } from './ranks.js?v=105';
-import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=105';
-import { checkNick, nickOk, randomNick } from './nick.js?v=105';
+import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=106';
+import { aiMove } from './ai.js?v=106';
+import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=106';
+import { rankOf, nextRank } from './ranks.js?v=106';
+import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=106';
+import { checkNick, nickOk, randomNick } from './nick.js?v=106';
 import {
   embedded, initPortal, inPortal, portalAd, portalPlaying, portalHappy,
   portalLoaded, portalInviteCode, portalShowInvite, portalHideInvite, portalInstant,
   portalRoom, portalOnJoin, portalInviteLink, portalMuted, portalOnMute, portalUserName,
-} from './portal.js?v=105';
+} from './portal.js?v=106';
 
 /* ================= state ================= */
 const $ = (id) => document.getElementById(id);
@@ -255,7 +255,7 @@ function getAiWorker() {
   if (aiWorker === false) return null;
   if (!aiWorker) {
     try {
-      aiWorker = new Worker('js/ai-worker.js?v=105', { type: 'module' });
+      aiWorker = new Worker('js/ai-worker.js?v=106', { type: 'module' });
       aiWorker.onmessage = (e) => {
         const cb = aiPending.get(e.data.id);
         aiPending.delete(e.data.id);
@@ -1490,22 +1490,27 @@ $('support-watch').addEventListener('click', () => {
   $('overlay-support').hidden = true;   // the video replaces the dialog
   openSupportVideo();
 });
-$('wallet-copy').addEventListener('click', async () => {
-  const addr = $('wallet-addr').textContent.trim();
-  try {
-    await navigator.clipboard.writeText(addr);
-  } catch {
-    // older browsers / no clipboard permission — select it so it can be copied by hand
-    const r = document.createRange();
-    r.selectNodeContents($('wallet-addr'));
-    const sel = getSelection();
-    sel.removeAllRanges();
-    sel.addRange(r);
-  }
-  const b = $('wallet-copy');
-  b.textContent = t('copied');
-  setTimeout(() => { b.textContent = t('copy'); }, 2000);
-});
+// Kept whole, guarded, because the wallet is only away for as long as the ad
+// networks are looking. Put the markup back and this wakes up with it; without
+// the guard, its absence would throw on boot and take the whole app down.
+if ($('wallet-copy')) {
+  $('wallet-copy').addEventListener('click', async () => {
+    const addr = $('wallet-addr').textContent.trim();
+    try {
+      await navigator.clipboard.writeText(addr);
+    } catch {
+      // older browsers / no clipboard permission — select it so it can be copied by hand
+      const r = document.createRange();
+      r.selectNodeContents($('wallet-addr'));
+      const sel = getSelection();
+      sel.removeAllRanges();
+      sel.addRange(r);
+    }
+    const b = $('wallet-copy');
+    b.textContent = t('copied');
+    setTimeout(() => { b.textContent = t('copy'); }, 2000);
+  });
+}
 
 $('btn-open-ads').addEventListener('click', () => show('screen-ads'));
 

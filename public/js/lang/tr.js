@@ -70,7 +70,7 @@ export default {
   copy: 'Kopyala',
   copied: 'Kopyalandı ✓',
   support_title: 'WallRush’a destek ol',
-  support_intro: 'Oyun ücretsiz ve öyle kalacak. Yardım etmenin iki yolu var, ikisi de isteğe bağlı.',
+  support_intro: 'Oyun ücretsiz ve öyle kalacak. Kısa bir video yeterli, tamamen isteğe bağlı.',
   support_watch_title: 'Reklam izle',
   support_watch: 'Videoyu izle',
   support_watch_sub: 'Ücretsiz. Kısa bir video tam burada — 5 saniye sonra kapatabilirsin.',

@@ -70,7 +70,7 @@ export default {
   copy: 'Copier',
   copied: 'Copié ✓',
   support_title: 'Soutenir WallRush',
-  support_intro: 'Le jeu est gratuit et le restera. Deux façons d’aider, toutes deux facultatives.',
+  support_intro: 'Le jeu est gratuit et le restera. Une courte vidéo suffit, et c’est facultatif.',
   support_watch_title: 'Regarder une publicité',
   support_watch: 'Regarder la vidéo',
   support_watch_sub: 'Gratuit. Une courte vidéo ici même — fermable au bout de 5 secondes.',

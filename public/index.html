@@ -72,7 +72,7 @@
   <link rel="apple-touch-icon" href="icons/icon-192.png">
   <!-- Opens the connection to the ad host early. Costs one handshake and no
        download, and takes that handshake off the wait once Support is tapped. -->
-  <link rel="stylesheet" href="css/style.css?v=105">
+  <link rel="stylesheet" href="css/style.css?v=106">
   <!-- Are we inside somebody else's page? Every game portal forbids running
        your own ads inside theirs, and the ad scripts below start the moment
        the parser reaches them — long before any module could stop one. So the
@@ -241,24 +241,17 @@
         <h2 data-i18n="support_title"></h2>
         <p class="hint" data-i18n="support_intro"></p>
 
-        <!-- two ways to help, each in its own card so neither reads as the
-             fine print of the other -->
+        <!-- A second card offering to send money directly used to sit here. It
+             is away while the ad networks review this site: they read the page
+             by hand, one of them declines anything that looks like a coin site,
+             and that card had earned nothing across the game's whole life — all
+             risk, no return. Its wording and styles stay in the language files
+             and the stylesheet, ready for the day it comes back. Git remembers
+             the markup. -->
         <div class="opt-card">
           <div class="opt-head"><span class="opt-ico">📺</span><b data-i18n="support_watch_title"></b></div>
           <p class="opt-sub" data-i18n="support_watch_sub"></p>
           <button class="btn-big" id="support-watch" data-i18n="support_watch"></button>
-        </div>
-
-        <div class="opt-or"><span data-i18n="or_word"></span></div>
-
-        <div class="opt-card">
-          <div class="opt-head"><span class="opt-ico">💸</span><b data-i18n="support_donate_title"></b></div>
-          <p class="opt-sub" data-i18n="support_donate_sub"></p>
-          <div class="wallet">
-            <span class="wallet-net">USDT · TRC20</span>
-            <code id="wallet-addr">TJohpPCR4LJPm9EZiKqoSLWaH7bZhX7AiP</code>
-            <button id="wallet-copy" data-i18n="copy"></button>
-          </div>
         </div>
 
         <p class="opt-foot" data-i18n="support_where"></p>
@@ -799,7 +792,7 @@
     <div id="toast" hidden></div>
   </div>
 
-  <script src="vendor/supabase.js?v=105" defer></script>
-  <script type="module" src="js/app.js?v=105"></script>
+  <script src="vendor/supabase.js?v=106" defer></script>
+  <script type="module" src="js/app.js?v=106"></script>
 </body>
 </html>

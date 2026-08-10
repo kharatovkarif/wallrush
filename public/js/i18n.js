@@ -72,7 +72,7 @@ export const I18N = {
     copy: 'Копировать',
     copied: 'Скопировано ✓',
     support_title: 'Поддержать WallRush',
-    support_intro: 'Игра бесплатная и такой останется. Помочь можно двумя способами — оба добровольные.',
+    support_intro: 'Игра бесплатная и такой останется. Помочь можно одним коротким роликом — по желанию.',
     support_watch_title: 'Посмотреть рекламу',
     support_watch: 'Посмотреть ролик',
     support_watch_sub: 'Бесплатно. Короткий ролик прямо здесь — через 5 секунд можно закрыть.',
@@ -320,7 +320,7 @@ export const I18N = {
     copy: 'Copy',
     copied: 'Copied ✓',
     support_title: 'Support WallRush',
-    support_intro: 'The game is free and staying that way. There are two ways to help, both optional.',
+    support_intro: 'The game is free and staying that way. One short video is all it takes — entirely optional.',
     support_watch_title: 'Watch an ad',
     support_watch: 'Watch a video',
     support_watch_sub: 'Free. A short video right here — closeable after 5 seconds.',
@@ -512,7 +512,7 @@ export const LANGS = [
 export const LANG_CODES = LANGS.map((l) => l.code);
 export const RTL = new Set(['fa']);
 
-const V = '105';
+const V = '106';
 
 // Loads a translation file on demand. Safe to call repeatedly and safe to fail:
 // if the request never lands, makeT keeps falling back to English.
