@@ -1,15 +1,15 @@
 // WallRush client app: screens, board UI, online play (WebSocket), AI mode, auth.
-import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=109';
-import { aiMove } from './ai.js?v=109';
-import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=109';
-import { rankOf, nextRank } from './ranks.js?v=109';
-import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=109';
-import { checkNick, nickOk, randomNick } from './nick.js?v=109';
+import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=110';
+import { aiMove } from './ai.js?v=110';
+import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=110';
+import { rankOf, nextRank } from './ranks.js?v=110';
+import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=110';
+import { checkNick, nickOk, randomNick } from './nick.js?v=110';
 import {
   embedded, initPortal, inPortal, portalAd, portalPlaying, portalHappy,
   portalLoaded, portalInviteCode, portalShowInvite, portalHideInvite, portalInstant,
   portalRoom, portalOnJoin, portalInviteLink, portalMuted, portalOnMute, portalUserName,
-} from './portal.js?v=109';
+} from './portal.js?v=110';
 
 /* ================= state ================= */
 const $ = (id) => document.getElementById(id);
@@ -255,7 +255,7 @@ function getAiWorker() {
   if (aiWorker === false) return null;
   if (!aiWorker) {
     try {
-      aiWorker = new Worker('js/ai-worker.js?v=109', { type: 'module' });
+      aiWorker = new Worker('js/ai-worker.js?v=110', { type: 'module' });
       aiWorker.onmessage = (e) => {
         const cb = aiPending.get(e.data.id);
         aiPending.delete(e.data.id);
@@ -1372,6 +1372,13 @@ $('btn-rematch').addEventListener('click', () => {
    a reward that never fires still leaves the streak granted. */
 const AD_PROVIDER = {
   src: 'https://cdn.applixir.com/applixir.app.v6.1.0.js',
+  // Their player takes the whole screen and brings its own close button, so
+  // ours must stay away entirely. Opening it as well left a white card reading
+  // "advertisement" with nothing inside standing behind their ad — and still
+  // standing after their ad had gone, because our window watches for a video
+  // inside our own slot to know when it is over, and their player never puts
+  // one there. A network that does fill the slot leaves this false.
+  selfContained: true,
   show(onReward) {
     if (typeof initializeAndOpenPlayer !== 'function') return false;
     initializeAndOpenPlayer({
@@ -1464,6 +1471,15 @@ function openSupportVideo() {
   // With no network configured there is nothing to wait for, so say so at once
   // instead of making the player watch an empty box time out.
   if (!AD_PROVIDER) { toast(t('ad_none')); return; }
+  // A network that draws its own screen gets the screen to itself. Everything
+  // below builds our window, which such a network makes into an empty frame.
+  if (AD_PROVIDER.selfContained) {
+    toast(t('ad_loading'));   // the SDK still has to arrive; say something meanwhile
+    Promise.resolve(preloadAd()).then((loaded) => {
+      if (!loaded || !AD_PROVIDER.show(adRewarded)) { adRewardHandler = null; toast(t('ad_none')); }
+    });
+    return;
+  }
   const note = $('ad-note');
   const own = $('ad-close');
   note.textContent = t('ad_loading');
