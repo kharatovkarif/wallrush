@@ -1,15 +1,15 @@
 // WallRush client app: screens, board UI, online play (WebSocket), AI mode, auth.
-import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=111';
-import { aiMove } from './ai.js?v=111';
-import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=111';
-import { rankOf, nextRank } from './ranks.js?v=111';
-import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=111';
-import { checkNick, nickOk, randomNick } from './nick.js?v=111';
+import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=112';
+import { aiMove } from './ai.js?v=112';
+import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=112';
+import { rankOf, nextRank } from './ranks.js?v=112';
+import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=112';
+import { checkNick, nickOk, randomNick } from './nick.js?v=112';
 import {
   embedded, initPortal, inPortal, portalAd, portalPlaying, portalHappy,
   portalLoaded, portalInviteCode, portalShowInvite, portalHideInvite, portalInstant,
   portalRoom, portalOnJoin, portalInviteLink, portalMuted, portalOnMute, portalUserName,
-} from './portal.js?v=111';
+} from './portal.js?v=112';
 
 /* ================= state ================= */
 const $ = (id) => document.getElementById(id);
@@ -255,7 +255,7 @@ function getAiWorker() {
   if (aiWorker === false) return null;
   if (!aiWorker) {
     try {
-      aiWorker = new Worker('js/ai-worker.js?v=111', { type: 'module' });
+      aiWorker = new Worker('js/ai-worker.js?v=112', { type: 'module' });
       aiWorker.onmessage = (e) => {
         const cb = aiPending.get(e.data.id);
         aiPending.delete(e.data.id);
@@ -1400,6 +1400,7 @@ const AD_PROVIDER = {
 };
 const AD_WAIT_MS = 7000;      // nothing on screen by then means no ad is coming
 const AD_SDK_WAIT_MS = 45000; // but once a network is working, it gets room to ask its questions
+const AD_APPEAR_MS = 6000;    // an ad that is coming has shown itself by now
 
 let adTimer = 0;
 
@@ -1448,13 +1449,34 @@ function adRendered() {
   });
 }
 
+// The same question for a network that draws its own screen. Its player is
+// still inside this page — it just does not use our slot — so it can be seen:
+// a video, a large frame, or something big enough to have taken over the
+// display that is not the game. Watching for it beats waiting on a clock,
+// which is what made a tap sit under "loading the video" for forty seconds
+// whenever the network had nothing to give and said so by saying nothing.
+function adOnScreen() {
+  if (adRendered()) return true;
+  if ([...document.querySelectorAll('iframe')].some((f) => {
+    const r = f.getBoundingClientRect();
+    return r.width > 200 && r.height > 150;
+  })) return true;
+  return [...document.body.children].some((el) => {
+    if (el.id === 'app' || el.tagName === 'SCRIPT' || el.tagName === 'STYLE') return false;
+    const r = el.getBoundingClientRect();
+    return r.height > innerHeight * 0.5 && r.width > innerWidth * 0.5;
+  });
+}
+
 // Where the network's "they earned it" lands. Support says thank you; the
 // streak restore hands the streak back the moment it arrives instead of sitting
 // out its timeout. Whoever is waiting claims the callback, so a stale handler
 // from an earlier window cannot fire into a later one.
 let adRewardHandler = null;
 let adSilence = 0;
+let adAsk = 0;   // bumped on every ask and every answer, so a stale watch stops
 function adRewarded(ok) {
+  adAsk++;
   clearTimeout(adSilence);
   const waiting = adRewardHandler;
   adRewardHandler = null;
@@ -1486,13 +1508,24 @@ function openSupportVideo() {
     toast(t('ad_loading'));   // the SDK still has to arrive; say something meanwhile
     Promise.resolve(preloadAd()).then((loaded) => {
       if (!loaded || !AD_PROVIDER.show(adRewarded)) { adRewarded(false); return; }
-      // Their player is out of our sight, so silence is the one thing we cannot
-      // read. A network with nothing to serve — capped, no fill, a country it
-      // does not reach — can simply say nothing at all, and then "loading the
-      // video" stays the last word forever. Long enough to sit through a whole
-      // ad before deciding nothing came.
-      clearTimeout(adSilence);
-      adSilence = setTimeout(() => adRewarded(false), 40000);
+      // A network with nothing to give — capped, no fill, a country it does not
+      // reach — often answers by saying nothing at all. So rather than wait on
+      // a clock, watch for the player: an ad that is coming puts something on
+      // the screen within a few seconds, and one that is not never will.
+      const asked = Date.now();
+      const mine = ++adAsk;
+      (function watch() {
+        if (mine !== adAsk) return;   // answered already, or a newer tap took over
+        if (adOnScreen()) {
+          // It is here. Their callbacks own it from now on; this is only a
+          // last resort for a player that appears and then says nothing ever.
+          clearTimeout(adSilence);
+          adSilence = setTimeout(() => adRewarded(false), 90000);
+          return;
+        }
+        if (Date.now() - asked > AD_APPEAR_MS) { adRewarded(false); return; }
+        setTimeout(watch, 300);
+      })();
     });
     return;
   }
