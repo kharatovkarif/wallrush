@@ -1,15 +1,15 @@
 // WallRush client app: screens, board UI, online play (WebSocket), AI mode, auth.
-import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=114';
-import { aiMove } from './ai.js?v=114';
-import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=114';
-import { rankOf, nextRank } from './ranks.js?v=114';
-import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=114';
-import { checkNick, nickOk, randomNick } from './nick.js?v=114';
+import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=115';
+import { aiMove } from './ai.js?v=115';
+import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=115';
+import { rankOf, nextRank } from './ranks.js?v=115';
+import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=115';
+import { checkNick, nickOk, randomNick } from './nick.js?v=115';
 import {
   embedded, initPortal, inPortal, portalAd, portalPlaying, portalHappy,
   portalLoaded, portalInviteCode, portalShowInvite, portalHideInvite, portalInstant,
   portalRoom, portalOnJoin, portalInviteLink, portalMuted, portalOnMute, portalUserName,
-} from './portal.js?v=114';
+} from './portal.js?v=115';
 
 /* ================= state ================= */
 const $ = (id) => document.getElementById(id);
@@ -255,7 +255,7 @@ function getAiWorker() {
   if (aiWorker === false) return null;
   if (!aiWorker) {
     try {
-      aiWorker = new Worker('js/ai-worker.js?v=114', { type: 'module' });
+      aiWorker = new Worker('js/ai-worker.js?v=115', { type: 'module' });
       aiWorker.onmessage = (e) => {
         const cb = aiPending.get(e.data.id);
         aiPending.delete(e.data.id);
@@ -1372,29 +1372,13 @@ $('btn-rematch').addEventListener('click', () => {
    a reward that never fires still leaves the streak granted. */
 const AD_PROVIDER = {
   src: 'https://cdn.applixir.com/applixir.app.v6.1.0.js',
-  // Their player takes the whole screen and brings its own close button, so
-  // ours must stay away entirely. Opening it as well left a white card reading
-  // "advertisement" with nothing inside standing behind their ad — and still
-  // standing after their ad had gone, because our window watches for a video
-  // inside our own slot to know when it is over, and their player never puts
-  // one there. A network that does fill the slot leaves this false.
-  selfContained: true,
   show(onReward) {
     if (typeof initializeAndOpenPlayer !== 'function') return false;
-    // Their player is drawn inside whatever element it is handed, so that
-    // element has to be on screen. Handed the slot inside our window — which
-    // no longer opens — the ad played out of sight: sound and nothing to look
-    // at. ad-host is nothing but a visible place for it to land.
-    $('ad-host').hidden = false;
     initializeAndOpenPlayer({
       apiKey: 'f12d997b-c4fa-4682-be49-e656c6121b56',
-      injectionElementId: 'ad-host',
+      injectionElementId: 'ad-video-slot',
       adStatusCallbackFn: (status) => {
         console.info('[ad] status:', status);
-        // Any word at all means the network is alive and working, so the
-        // silence timer stops here — otherwise a status this list does not
-        // recognise would end with "there is no ad" after a played one.
-        clearTimeout(adSilence);
         const s = String(status || '').toLowerCase();
         if (s.includes('reward') || s.includes('watched') || s === 'ad-complete') onReward(true);
       },
@@ -1405,7 +1389,6 @@ const AD_PROVIDER = {
 };
 const AD_WAIT_MS = 7000;      // nothing on screen by then means no ad is coming
 const AD_SDK_WAIT_MS = 45000; // but once a network is working, it gets room to ask its questions
-const AD_APPEAR_MS = 6000;    // an ad that is coming has shown itself by now
 
 let adTimer = 0;
 
@@ -1454,65 +1437,16 @@ function adRendered() {
   });
 }
 
-// The same question for a network that draws its own screen. Its player is
-// still inside this page — it just does not use our slot — so it can be seen:
-// a video, a large frame, or something big enough to have taken over the
-// display that is not the game. Watching for it beats waiting on a clock,
-// which is what made a tap sit under "loading the video" for forty seconds
-// whenever the network had nothing to give and said so by saying nothing.
-function adOnScreen() {
-  if (adRendered()) return true;
-  // ad-host is full-screen by design, so it must be judged by what is inside
-  // it, never by itself — otherwise merely opening it would read as an ad.
-  const host = $('ad-host');
-  if (host && !host.hidden && host.children.length > 0) return true;
-  if ([...document.querySelectorAll('iframe')].some((f) => {
-    const r = f.getBoundingClientRect();
-    return r.width > 200 && r.height > 150;
-  })) return true;
-  return [...document.body.children].some((el) => {
-    if (el.id === 'app' || el.id === 'ad-host') return false;
-    if (el.tagName === 'SCRIPT' || el.tagName === 'STYLE') return false;
-    const r = el.getBoundingClientRect();
-    return r.height > innerHeight * 0.5 && r.width > innerWidth * 0.5;
-  });
-}
-
-// A full-screen sheet left lying over the game would swallow every tap, so it
-// goes the moment the network's player has packed up and left it empty.
-let adHostWatch = 0;
-function releaseAdHost() {
-  clearInterval(adHostWatch);
-  const host = $('ad-host');
-  if (!host) return;
-  adHostWatch = setInterval(() => {
-    if (host.hidden) { clearInterval(adHostWatch); return; }
-    if (host.children.length === 0) { host.hidden = true; clearInterval(adHostWatch); }
-  }, 400);
-}
-
 // Where the network's "they earned it" lands. Support says thank you; the
 // streak restore hands the streak back the moment it arrives instead of sitting
 // out its timeout. Whoever is waiting claims the callback, so a stale handler
 // from an earlier window cannot fire into a later one.
 let adRewardHandler = null;
-let adSilence = 0;
-let adAsk = 0;   // bumped on every ask and every answer, so a stale watch stops
 function adRewarded(ok) {
-  adAsk++;
-  clearTimeout(adSilence);
-  // A refusal means nothing was ever drawn, so the sheet goes at once. A reward
-  // can arrive with the player still winding down, so there it waits for the
-  // player to leave rather than pulling the floor out from under it.
-  if (!ok) { clearInterval(adHostWatch); $('ad-host').hidden = true; }
-  else releaseAdHost();
   const waiting = adRewardHandler;
   adRewardHandler = null;
   if (waiting) waiting(ok);
-  // "No" has to be said out loud too. A refusal used to land here and stop,
-  // leaving "loading the video" as the last word on screen and nothing after
-  // it — which reads exactly like a broken button.
-  else toast(t(ok ? 'support_thanks' : 'ad_none'));
+  else if (ok) toast(t('support_thanks'));
 }
 
 // The ad brings its own close button, so this window must not add a second
@@ -1530,36 +1464,6 @@ function openSupportVideo() {
   // With no network configured there is nothing to wait for, so say so at once
   // instead of making the player watch an empty box time out.
   if (!AD_PROVIDER) { toast(t('ad_none')); return; }
-  // A network that draws its own screen gets the screen to itself. Everything
-  // below builds our window, which such a network makes into an empty frame.
-  if (AD_PROVIDER.selfContained) {
-    // Nothing is said while it loads. "Loading the video" was the only thing
-    // standing between the tap and the ad, and it made a two-second wait feel
-    // like a stall — it was read as the button being broken. Tap, ad. Or tap,
-    // and one line saying there is none.
-    Promise.resolve(preloadAd()).then((loaded) => {
-      if (!loaded || !AD_PROVIDER.show(adRewarded)) { adRewarded(false); return; }
-      // A network with nothing to give — capped, no fill, a country it does not
-      // reach — often answers by saying nothing at all. So rather than wait on
-      // a clock, watch for the player: an ad that is coming puts something on
-      // the screen within a few seconds, and one that is not never will.
-      const asked = Date.now();
-      const mine = ++adAsk;
-      (function watch() {
-        if (mine !== adAsk) return;   // answered already, or a newer tap took over
-        if (adOnScreen()) {
-          // It is here. Their callbacks own it from now on; this is only a
-          // last resort for a player that appears and then says nothing ever.
-          clearTimeout(adSilence);
-          adSilence = setTimeout(() => adRewarded(false), 90000);
-          return;
-        }
-        if (Date.now() - asked > AD_APPEAR_MS) { adRewarded(false); return; }
-        setTimeout(watch, 300);
-      })();
-    });
-    return;
-  }
   const note = $('ad-note');
   const own = $('ad-close');
   note.textContent = t('ad_loading');

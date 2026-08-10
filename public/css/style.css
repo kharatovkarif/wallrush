@@ -781,14 +781,6 @@ a.btn-big { text-decoration: none; display: block; }
   border: none; background: transparent; font-size: 20px; line-height: 1;
   padding: 2px 6px; cursor: pointer; color: inherit; opacity: .6;
 }
-/* Nothing of its own: no background, no border, no padding. The network's
-   player positions itself, and anything drawn here besides it would show
-   through as a frame around somebody else's ad. Hidden it must also stop
-   catching taps, which `hidden` alone does not guarantee once a stylesheet
-   has set display on the element. */
-#ad-host { position: fixed; inset: 0; z-index: 120; }
-#ad-host[hidden] { display: none; }
-
 #ad-video-slot { min-height: 230px; width: 100%; display: flex; align-items: center; justify-content: center; }
 #ad-video-slot video, #ad-video-slot iframe { width: 100%; max-width: 100%; }
 .ad-note { text-align: center; font-size: 13px; opacity: .6; margin: 10px 0 2px; }
