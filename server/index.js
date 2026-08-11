@@ -449,7 +449,15 @@ const ADMIN_CSS = `
   .badge-reg { color: #21c07a; font-size: 12px; }
   .pc-go { color: #6d7796; font-size: 18px; flex: none; }
   .search-box { width: 100%; padding: 11px 14px; border-radius: 12px; border: 1px solid #232842; background: #191d2e; color: #e8ecf8; font-size: 14px; margin-bottom: 10px; }
-  .subsect { font-size: 13px; font-weight: 700; color: #cfd6ee; margin: 20px 0 8px; }`;
+  .subsect { font-size: 13px; font-weight: 700; color: #cfd6ee; margin: 20px 0 8px; }
+  .refresh-bar { display: flex; align-items: center; justify-content: center; flex-wrap: wrap;
+                 gap: 10px 14px; margin: 20px 0 6px; font-size: 12px; color: #5b6480; }
+  .rb-btn { background: #191d2e; border: 1px solid #232842; border-radius: 11px; color: #cfd6ee;
+            font: inherit; font-size: 13px; padding: 9px 16px; cursor: pointer; }
+  .rb-btn:active { background: #2f6df6; border-color: #2f6df6; color: #fff; }
+  .rb-auto { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
+  .rb-auto input { width: 15px; height: 15px; accent-color: #2f6df6; }
+  .rb-time { flex-basis: 100%; text-align: center; }`;
 
 const nowMskHms = () => {
   const d = new Date(Date.now() + 3 * 3600e3);
@@ -470,16 +478,61 @@ const bottomNav = (active) => `<nav class="adm-nav">${NAV_ITEMS.map(([id, ic, la
   `<a class="an-btn ${active === id ? 'on' : ''}" href="/admin?key=${ADMIN_KEY}&view=${id}"><span class="an-ic">${ic}</span>${label}</a>`
 ).join('')}</nav>`;
 
+// The page used to carry <meta http-equiv="refresh" content="60">, which
+// reloaded it out from under whoever was reading — mid-scroll, mid-tap, every
+// minute, on every section. Refreshing is now a button. Auto-refresh is still
+// available for leaving the dashboard up on a screen, but it is off unless
+// asked for, it holds its place on the page, and it stops while the tab is in
+// the background.
 const adminPage = (title, body, active = 'obzor') => `<!DOCTYPE html><html lang="ru"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#12141f">
-<meta http-equiv="refresh" content="60">
 <meta http-equiv="Cache-Control" content="no-store">
 <title>${title}</title><style>${ADMIN_CSS}</style></head><body>
 <div class="adm-body">${body}
-<p style="text-align:center;color:#5b6480;font-size:12px;margin:18px 0 6px">🕐 обновлено в ${nowMskHms()} МСК · страница сама обновляется раз в минуту</p>
+<div class="refresh-bar">
+  <button type="button" class="rb-btn" onclick="admReload()">↻ Обновить</button>
+  <label class="rb-auto"><input type="checkbox" id="admAuto"> каждую минуту</label>
+  <span class="rb-time">данные на ${nowMskHms()} МСК</span>
+</div>
 </div>
 ${bottomNav(active)}
+<script>
+(function () {
+  var KEY = 'adm-auto', POS = 'adm-scroll';
+  var box = document.getElementById('admAuto');
+  // come back to where you were reading, not to the top
+  var saved = sessionStorage.getItem(POS);
+  if (saved) {
+    sessionStorage.removeItem(POS);
+    if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
+    var y = parseInt(saved, 10) || 0;
+    window.scrollTo(0, y);
+    // emoji and late layout can change the page height under us
+    requestAnimationFrame(function () { window.scrollTo(0, y); });
+  }
+  window.admReload = function () {
+    sessionStorage.setItem(POS, String(window.scrollY));
+    location.reload();
+  };
+  box.checked = localStorage.getItem(KEY) === '1';
+  box.addEventListener('change', function () {
+    localStorage.setItem(KEY, box.checked ? '1' : '0');
+    schedule();
+  });
+  var timer = null;
+  function schedule() {
+    clearTimeout(timer);
+    if (!box.checked) return;
+    timer = setTimeout(function () {
+      // don't reload a tab nobody is looking at
+      if (document.visibilityState === 'visible') admReload(); else schedule();
+    }, 60000);
+  }
+  document.addEventListener('visibilitychange', schedule);
+  schedule();
+})();
+</script>
 </body></html>`;
 
 // ---- period ranges for the Обзор dashboard: today / yesterday / 7d / 30d.
