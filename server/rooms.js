@@ -64,7 +64,33 @@ function clockPayload(room) {
     turnStarted: room.turnStarted,
     serverNow: Date.now(),
     noTime: Boolean(room.noTime), // no bank — only the 30s per-move rule
+    paused: Boolean(room.paused), // waiting for a disconnected opponent
   };
+}
+
+// The clock must not run down the player who stayed. The reconnect window and
+// the per-move limit are both thirty seconds, so waiting out an opponent's
+// disconnect cost exactly one move — and with any of that move already spent,
+// the one who waited lost on time before the other's window had even closed.
+// Losing points for being the one who stayed is the wrong way round.
+//
+// Time already spent on this turn is charged to the bank first, so dropping
+// the connection cannot win a move back for free. The turn then restarts, so
+// whoever is on move gets a whole one once both are present again.
+function pauseClock(room) {
+  if (room.status !== 'playing' || room.paused) return;
+  clearTimeout(room.moveTimer);
+  const p = room.state.turn;
+  room.bank[p] = Math.max(0, room.bank[p] - (Date.now() - room.turnStarted));
+  room.turnStarted = Date.now();   // a move made while paused is charged from here
+  room.paused = true;
+}
+
+function resumeClock(room) {
+  if (room.status !== 'playing' || !room.paused) return;
+  room.paused = false;
+  room.turnStarted = Date.now();
+  armMoveTimer(room);
 }
 
 function stateMsg(room) {
@@ -347,6 +373,7 @@ async function handleHello(client, msg) {
           room.players[idx] = client;
           clearTimeout(old.graceTimer);
           if (room.status === 'playing') {
+            resumeClock(room);   // both are here again, so time counts again
             send(client, {
               t: 'game_start',
               you: idx,
@@ -357,7 +384,9 @@ async function handleHello(client, msg) {
               ranked: isRanked(room),
               resumed: true,
             });
-            send(room.players[1 - idx], { t: 'opp_reconnected' });
+            // the one who waited needs the restarted clock too, or their screen
+            // keeps counting down a turn the server has already given back
+            send(room.players[1 - idx], { t: 'opp_reconnected', clocks: clockPayload(room) });
           }
         }
       }
@@ -545,7 +574,8 @@ export function attachWs(wss) {
       const idx = room.players.indexOf(client);
       if (room.status === 'playing' && idx !== -1) {
         // give them GRACE_MS to reconnect (token survives in byToken)
-        send(room.players[1 - idx], { t: 'opp_disconnected', grace: GRACE_MS });
+        pauseClock(room);
+        send(room.players[1 - idx], { t: 'opp_disconnected', grace: GRACE_MS, clocks: clockPayload(room) });
         client.graceTimer = setTimeout(() => {
           byToken.delete(client.token);
           if (room.status === 'playing') finish(room, 1 - idx, 'opponent_left');

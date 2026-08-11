@@ -1,15 +1,15 @@
 // WallRush client app: screens, board UI, online play (WebSocket), AI mode, auth.
-import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=115';
-import { aiMove } from './ai.js?v=115';
-import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=115';
-import { rankOf, nextRank } from './ranks.js?v=115';
-import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=115';
-import { checkNick, nickOk, randomNick } from './nick.js?v=115';
+import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=116';
+import { aiMove } from './ai.js?v=116';
+import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=116';
+import { rankOf, nextRank } from './ranks.js?v=116';
+import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=116';
+import { checkNick, nickOk, randomNick } from './nick.js?v=116';
 import {
   embedded, initPortal, inPortal, portalAd, portalPlaying, portalHappy,
   portalLoaded, portalInviteCode, portalShowInvite, portalHideInvite, portalInstant,
   portalRoom, portalOnJoin, portalInviteLink, portalMuted, portalOnMute, portalUserName,
-} from './portal.js?v=115';
+} from './portal.js?v=116';
 
 /* ================= state ================= */
 const $ = (id) => document.getElementById(id);
@@ -255,7 +255,7 @@ function getAiWorker() {
   if (aiWorker === false) return null;
   if (!aiWorker) {
     try {
-      aiWorker = new Worker('js/ai-worker.js?v=115', { type: 'module' });
+      aiWorker = new Worker('js/ai-worker.js?v=116', { type: 'module' });
       aiWorker.onmessage = (e) => {
         const cb = aiPending.get(e.data.id);
         aiPending.delete(e.data.id);
@@ -520,9 +520,12 @@ function handleWsMessage(msg) {
       $('btn-rematch').style.display = 'none';
       break;
     case 'opp_disconnected':
+      // the clock stops while they are away, and the screen has to show that
+      if (msg.clocks && game) game.clocks = { ...msg.clocks, recvAt: Date.now() };
       toast(t('opp_disconnected'));
       break;
     case 'opp_reconnected':
+      if (msg.clocks && game) game.clocks = { ...msg.clocks, recvAt: Date.now() };
       toast(t('opp_reconnected'));
       break;
     case 'error':
@@ -961,7 +964,10 @@ setInterval(() => {
   }
   const ck = game.clocks;
   if (!ck) return;
-  const elapsed = Date.now() - ck.recvAt;
+  // Frozen while an opponent is away: the server has stopped charging the turn,
+  // so a screen that kept counting down would be showing a defeat that is not
+  // going to happen.
+  const elapsed = ck.paused ? 0 : Date.now() - ck.recvAt;
   const me = game.myIndex;
   const bank = [...ck.bank];
   const active = ck.turn;
