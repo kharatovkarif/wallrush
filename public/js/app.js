@@ -1,15 +1,15 @@
 // WallRush client app: screens, board UI, online play (WebSocket), AI mode, auth.
-import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=117';
-import { aiMove } from './ai.js?v=117';
-import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=117';
-import { rankOf, nextRank } from './ranks.js?v=117';
-import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=117';
-import { checkNick, nickOk, randomNick } from './nick.js?v=117';
+import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=118';
+import { aiMove } from './ai.js?v=118';
+import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=118';
+import { rankOf, nextRank } from './ranks.js?v=118';
+import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=118';
+import { checkNick, nickOk, randomNick } from './nick.js?v=118';
 import {
   embedded, initPortal, inPortal, portalAd, portalPlaying, portalHappy,
   portalLoaded, portalInviteCode, portalShowInvite, portalHideInvite, portalInstant,
   portalRoom, portalOnJoin, portalInviteLink, portalMuted, portalOnMute, portalUserName,
-} from './portal.js?v=117';
+} from './portal.js?v=118';
 
 /* ================= state ================= */
 const $ = (id) => document.getElementById(id);
@@ -255,7 +255,7 @@ function getAiWorker() {
   if (aiWorker === false) return null;
   if (!aiWorker) {
     try {
-      aiWorker = new Worker('js/ai-worker.js?v=117', { type: 'module' });
+      aiWorker = new Worker('js/ai-worker.js?v=118', { type: 'module' });
       aiWorker.onmessage = (e) => {
         const cb = aiPending.get(e.data.id);
         aiPending.delete(e.data.id);
