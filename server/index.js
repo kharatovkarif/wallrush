@@ -435,7 +435,7 @@ const ADMIN_CSS = `
   .c2-ic { font-size: 14px; opacity: .9; flex: none; }
   .c2-label { font-size: 11.5px; color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .c2-val { font-size: 27px; font-weight: 800; margin: 5px 0 0; line-height: 1.1; letter-spacing: -.5px; }
-  .c2-foot { display: flex; align-items: baseline; gap: 7px; margin-top: 9px; flex-wrap: wrap; }
+  .c2-foot { display: flex; flex-direction: column; align-items: flex-start; gap: 5px; margin-top: 9px; }
   .c2-was { font-size: 10.5px; color: var(--faint); white-space: nowrap; }
   .delta { display: inline-flex; align-items: center; gap: 3px; font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 999px; }
   .delta.up { color: var(--up); background: rgba(33, 192, 122, .15); }
@@ -862,17 +862,21 @@ async function periodStats(from, to) {
 const pct = (cur, prev) => prev ? Math.round(100 * (cur - prev) / prev) : null;
 // The previous value is printed next to the arrow on purpose: a percentage
 // nobody can check is a percentage nobody should trust.
-const deltaHtml = (p, was) => {
+const deltaHtml = (p, was, vs) => {
   if (was === undefined) return '';                       // card with nothing to compare to
   if (p === null) return `<div class="c2-foot"><span class="delta flat">нет данных за тот период</span></div>`;
   const cls = p > 0 ? 'up' : p < 0 ? 'down' : 'flat';
   const arrow = p > 0 ? '▲' : p < 0 ? '▼' : '=';
+  // Name the period the number belongs to. It used to just say "было 29 449",
+  // which reads as yesterday's total — while the Дни page showed 32 097 for
+  // the same day, because that one counts the whole 24 hours and this one
+  // stops at the same time of day as now.
   return `<div class="c2-foot"><span class="delta ${cls}">${arrow} ${Math.abs(p)}%</span>` +
-    `<span class="c2-was">было ${was}</span></div>`;
+    `<span class="c2-was">${vs ? esc(vs) + ' — ' : 'было '}${was}</span></div>`;
 };
-const statCard = (icon, label, value, p, was) =>
+const statCard = (icon, label, value, p, was, vs) =>
   `<div class="card2"><div class="c2-top"><span class="c2-ic">${icon}</span><span class="c2-label">${esc(label)}</span></div>` +
-  `<div class="c2-val">${value}</div>${deltaHtml(p, was)}</div>`;
+  `<div class="c2-val">${value}</div>${deltaHtml(p, was, vs)}</div>`;
 
 // display name for a visitor row: 📲 = installed the game as an app
 // installed but hasn't launched from the icon for a week while still visiting
@@ -1242,12 +1246,14 @@ ${blocks.join('') || '<p class="note">Подневная история пише
 <div class="tabs">${pTab('today', 'Сегодня')}${pTab('yesterday', 'Вчера')}${pTab('week', '7 дней')}${pTab('month', '30 дней')}</div>
 <p class="cmp-note">${short
       ? `📅 ${esc(range.label)} · сравнивать не с чем — статистика ведётся с ${dataStart ? mskDdMm(dataStart) : '—'}`
-      : `📅 ${esc(range.label)} · проценты — против того же отрезка: <b>${esc(range.vs)}</b>`}</p>
+      : period === 'today'
+        ? `📅 День ещё идёт — прожито до <b>${nowMskHm()}</b>. Поэтому сравниваем со <b>вчера к ${nowMskHm()}</b>, а не с целыми вчерашними сутками. В разделе «Дни» у вчера стоит цифра за все 24 часа — она будет больше, и это нормально.`
+        : `📅 ${esc(range.label)} · проценты — против того же отрезка: <b>${esc(range.vs)}</b>`}</p>
 <div class="grid2">
-  ${statCard('🆕', 'Новых людей', num(cur.newPeople), cmp(cur.newPeople, prev.newPeople), was(prev.newPeople))}
-  ${statCard('👋', 'Заходили', num(cur.active), cmp(cur.active, prev.active), was(prev.active))}
-  ${statCard('🎮', 'Партий сыграно', num(cur.games), cmp(cur.games, prev.games), was(prev.games))}
-  ${statCard('🤝', 'Живых матчей', num(cur.humans), cmp(cur.humans, prev.humans), was(prev.humans))}
+  ${statCard('🆕', 'Новых людей', num(cur.newPeople), cmp(cur.newPeople, prev.newPeople), was(prev.newPeople), range.vs)}
+  ${statCard('👋', 'Заходили', num(cur.active), cmp(cur.active, prev.active), was(prev.active), range.vs)}
+  ${statCard('🎮', 'Партий сыграно', num(cur.games), cmp(cur.games, prev.games), was(prev.games), range.vs)}
+  ${statCard('🤝', 'Живых матчей', num(cur.humans), cmp(cur.humans, prev.humans), was(prev.humans), range.vs)}
 </div>
 <p class="subsect">За всё время</p>
 <div class="totals-grid">
