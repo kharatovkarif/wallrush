@@ -339,6 +339,11 @@ const mskDayLabel = (dayIdx) => {
   const d = new Date(dayIdx * dayMs - 3 * 3600e3 + 12 * 3600e3);
   return `${String(d.getUTCDate()).padStart(2, '0')}.${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
 };
+// '2026-07-19' -> '19.07'
+const mskDdMm = (ymd) => {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(ymd || ''));
+  return m ? `${m[3]}.${m[2]}` : '—';
+};
 
 const ADMIN_CSS = `
   * { box-sizing: border-box; }
@@ -401,21 +406,37 @@ const ADMIN_CSS = `
   .an-btn.on { color: #6d9bf8; }
   .an-btn.on .an-ic { filter: none; }
   .live-strip {
-    display: flex; align-items: center; gap: 8px; background: #191d2e; border: 1px solid #232842;
-    border-radius: 13px; padding: 11px 14px; margin-bottom: 12px; font-size: 13.5px;
+    display: flex; align-items: center; gap: 9px; background: #191d2e; border: 1px solid #232842;
+    border-radius: 13px; padding: 11px 14px; margin-bottom: 12px; flex-wrap: wrap;
   }
   .live-strip .dot { width: 8px; height: 8px; border-radius: 50%; background: #21c07a; flex: none; animation: lpulse 2s infinite; }
+  .live-strip .ls-main { font-size: 13.5px; }
+  .live-strip .ls-main b { font-size: 17px; margin-right: 3px; }
+  .live-strip .ls-sub { font-size: 11.5px; color: #6d7796; flex-basis: 100%; margin: -4px 0 0 17px; }
   @keyframes lpulse { 50% { opacity: .35; } }
+  .cmp-note { font-size: 11.5px; line-height: 1.5; color: #7c86a6; background: #15182a; border: 1px solid #232842;
+              border-radius: 11px; padding: 8px 12px; margin: 0 0 10px; }
+  .cmp-note b { color: #aab3d0; }
   .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-  .card2 { background: #191d2e; border: 1px solid #232842; border-radius: 16px; padding: 14px 15px; position: relative; }
-  .c2-ic { font-size: 18px; opacity: .85; }
-  .c2-label { font-size: 12px; color: #8892b0; margin-top: 8px; line-height: 1.3; }
-  .c2-val { font-size: 25px; font-weight: 800; margin-top: 2px; line-height: 1.15; }
-  .delta { display: inline-flex; align-items: center; gap: 3px; font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 999px; margin-top: 8px; }
+  .card2 { background: #191d2e; border: 1px solid #232842; border-radius: 16px; padding: 13px 14px 12px;
+           display: flex; flex-direction: column; min-width: 0; }
+  .c2-top { display: flex; align-items: center; gap: 6px; min-width: 0; }
+  .c2-ic { font-size: 14px; opacity: .9; flex: none; }
+  .c2-label { font-size: 11.5px; color: #8892b0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .c2-val { font-size: 27px; font-weight: 800; margin: 5px 0 0; line-height: 1.1; letter-spacing: -.5px; }
+  .c2-foot { display: flex; align-items: baseline; gap: 7px; margin-top: 9px; flex-wrap: wrap; }
+  .c2-was { font-size: 10.5px; color: #5b6480; white-space: nowrap; }
+  .delta { display: inline-flex; align-items: center; gap: 3px; font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 999px; }
   .delta.up { color: #21c07a; background: rgba(33, 192, 122, .14); }
   .delta.down { color: #e35d6a; background: rgba(227, 61, 82, .14); }
-  .totals-row { display: flex; flex-wrap: wrap; gap: 8px 18px; background: #191d2e; border: 1px solid #232842; border-radius: 13px; padding: 12px 14px; font-size: 13px; }
-  .totals-row b { font-size: 15px; margin-right: 4px; }
+  .delta.flat { color: #8892b0; background: #232842; font-weight: 600; }
+  /* six tracks so 3-up then 2-up fills the block exactly — no orphan cell */
+  .totals-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 1px;
+                 background: #232842; border: 1px solid #232842; border-radius: 13px; overflow: hidden; }
+  .totals-grid > div { background: #191d2e; padding: 11px 12px; }
+  .totals-grid .t2 { grid-column: span 2; } .totals-grid .t3 { grid-column: span 3; }
+  .totals-grid b { display: block; font-size: 17px; font-weight: 800; line-height: 1.2; }
+  .totals-grid i { display: block; font-style: normal; font-size: 10.5px; color: #8892b0; margin-top: 3px; }
   .pcard { display: flex; align-items: center; gap: 12px; background: #191d2e; border: 1px solid #232842; border-radius: 15px; padding: 11px 13px; margin-bottom: 8px; }
   .pcard:active { background: #1f2438; }
   .pc-avatar { width: 38px; height: 38px; border-radius: 50%; flex: none; background: linear-gradient(135deg, #5b8cff, #2f6df6); display: grid; place-items: center; font-weight: 700; color: #fff; }
@@ -435,6 +456,7 @@ const nowMskHms = () => {
   const p = (n) => String(n).padStart(2, '0');
   return `${p(d.getUTCHours())}:${p(d.getUTCMinutes())}:${p(d.getUTCSeconds())}`;
 };
+const nowMskHm = () => nowMskHms().slice(0, 5);
 // The five sections the owner actually checks, reached from a fixed bottom
 // bar instead of scrolling past everything else to get to one of them.
 const NAV_ITEMS = [
@@ -460,54 +482,65 @@ const adminPage = (title, body, active = 'obzor') => `<!DOCTYPE html><html lang=
 ${bottomNav(active)}
 </body></html>`;
 
-// ---- period ranges for the Обзор dashboard: today / yesterday / 7d / 30d,
-// each paired with an equal-length previous window so a % change means something.
+// ---- period ranges for the Обзор dashboard: today / yesterday / 7d / 30d.
+//
+// The rule that makes a percentage mean anything: the two windows must cover
+// the same amount of clock. "Today" is only a few hours old, so it is compared
+// against yesterday CUT AT THE SAME TIME OF DAY, not against all 24 hours of
+// it — that mistake made every morning look like a collapse. The multi-day
+// windows use whole finished days and leave today out, because half a day
+// dropped into a 7-day total drags it down for no real reason.
+const mskMidnightIso = (dayIndex) => new Date(dayIndex * dayMs - 3 * 3600e3).toISOString();
 function periodRange(p) {
-  const today = mskDayStart(Date.now());
+  const now = Date.now();            // read once, so "now" and "now − 24h" line up exactly
+  const today = mskDayStart(now);
+  const nowIso = new Date(now).toISOString();
   if (p === 'yesterday') {
     return {
-      from: new Date((today - 1) * dayMs - 3 * 3600e3).toISOString(),
-      to: new Date(today * dayMs - 3 * 3600e3).toISOString(),
-      prevFrom: new Date((today - 2) * dayMs - 3 * 3600e3).toISOString(),
-      prevTo: new Date((today - 1) * dayMs - 3 * 3600e3).toISOString(),
-      label: 'вчера',
+      from: mskMidnightIso(today - 1), to: mskMidnightIso(today),
+      prevFrom: mskMidnightIso(today - 2), prevTo: mskMidnightIso(today - 1),
+      label: 'вчера', vs: 'позавчера',
     };
   }
   if (p === 'week' || p === 'month') {
     const days = p === 'week' ? 7 : 30;
-    const to = new Date().toISOString();
-    const from = new Date(Date.now() - days * dayMs).toISOString();
     return {
-      from, to,
-      prevFrom: new Date(Date.now() - 2 * days * dayMs).toISOString(),
-      prevTo: from,
-      label: p === 'week' ? '7 дней' : '30 дней',
+      from: mskMidnightIso(today - days), to: mskMidnightIso(today),
+      prevFrom: mskMidnightIso(today - 2 * days), prevTo: mskMidnightIso(today - days),
+      label: `${days} полных дней (без сегодня)`, vs: `прошлые ${days} дней`,
     };
   }
   return {
-    from: new Date(mskDayStart(Date.now()) * dayMs - 3 * 3600e3).toISOString(),
-    to: new Date().toISOString(),
-    prevFrom: new Date((today - 1) * dayMs - 3 * 3600e3).toISOString(),
-    prevTo: new Date(today * dayMs - 3 * 3600e3).toISOString(),
-    label: 'сегодня',
+    from: mskMidnightIso(today), to: nowIso,
+    // yesterday, same midnight-to-now slice of the day
+    prevFrom: mskMidnightIso(today - 1), prevTo: new Date(now - dayMs).toISOString(),
+    label: 'сегодня', vs: `вчера к ${nowMskHm()}`,
   };
 }
-const rangeQ = (q, col, from, to) => to ? q.gte(col, from).lt(col, to) : q.gte(col, from);
 async function periodStats(from, to) {
-  const c = async (q) => (await q).count || 0;
-  const [newPeople, active, games, humans] = await Promise.all([
-    c(rangeQ(supa.from('visitors').select('*', { count: 'exact', head: true }), 'first_seen', from, to)),
-    c(rangeQ(supa.from('visitors').select('*', { count: 'exact', head: true }), 'last_seen', from, to)),
-    c(rangeQ(supa.from('visit_log').select('*', { count: 'exact', head: true }).eq('kind', 'game'), 'at', from, to)),
-    c(rangeQ(supa.from('human_matches').select('*', { count: 'exact', head: true }), 'at', from, to)),
-  ]);
-  return { newPeople, active, games, humans };
+  const { data } = await supa.rpc('admin_period_stats', { from_ts: from, to_ts: to });
+  const r = data?.[0] || {};
+  return {
+    newPeople: Number(r.new_people || 0), active: Number(r.active || 0),
+    games: Number(r.games || 0), humans: Number(r.humans || 0),
+  };
 }
-const pct = (cur, prev) => prev ? Math.round(100 * (cur - prev) / prev) : (cur ? 100 : null);
-const deltaHtml = (p) => p === null ? '' :
-  `<div class="delta ${p >= 0 ? 'up' : 'down'}">${p >= 0 ? '▲' : '▼'} ${Math.abs(p)}%</div>`;
-const statCard = (icon, label, value, p) =>
-  `<div class="card2"><div class="c2-ic">${icon}</div><div class="c2-val">${value}</div><div class="c2-label">${esc(label)}</div>${deltaHtml(p)}</div>`;
+// null = refuse to print a number (nothing to compare against) rather than
+// invent "+100%" out of a previous window that was empty.
+const pct = (cur, prev) => prev ? Math.round(100 * (cur - prev) / prev) : null;
+// The previous value is printed next to the arrow on purpose: a percentage
+// nobody can check is a percentage nobody should trust.
+const deltaHtml = (p, was) => {
+  if (was === undefined) return '';                       // card with nothing to compare to
+  if (p === null) return `<div class="c2-foot"><span class="delta flat">нет данных за тот период</span></div>`;
+  const cls = p > 0 ? 'up' : p < 0 ? 'down' : 'flat';
+  const arrow = p > 0 ? '▲' : p < 0 ? '▼' : '=';
+  return `<div class="c2-foot"><span class="delta ${cls}">${arrow} ${Math.abs(p)}%</span>` +
+    `<span class="c2-was">было ${was}</span></div>`;
+};
+const statCard = (icon, label, value, p, was) =>
+  `<div class="card2"><div class="c2-top"><span class="c2-ic">${icon}</span><span class="c2-label">${esc(label)}</span></div>` +
+  `<div class="c2-val">${value}</div>${deltaHtml(p, was)}</div>`;
 
 // display name for a visitor row: 📲 = installed the game as an app
 // installed but hasn't launched from the icon for a week while still visiting
@@ -837,33 +870,48 @@ ${blocks.join('') || '<p class="note">Подневная история пише
     // ----- obzor: the dashboard landing tab — live now, a period pick, and lifetime totals -----
     const period = ['today', 'yesterday', 'week', 'month'].includes(String(req.query.p)) ? String(req.query.p) : 'today';
     const range = periodRange(period);
-    const [cur, prev, totalPeople, totalGames, installs, regs, humansTotal] = await Promise.all([
+    const [cur, prev, dataStart, totalPeople, totalGames, installs, regs, humansTotal] = await Promise.all([
       periodStats(range.from, range.to),
       periodStats(range.prevFrom, range.prevTo),
+      supa.rpc('admin_data_start').then(r => r.data || null),
       cnt(supa.from('visitors').select('*', { count: 'exact', head: true })),
       cnt(supa.from('visit_log').select('*', { count: 'exact', head: true }).eq('kind', 'game')),
       cnt(supa.from('visitors').select('*', { count: 'exact', head: true }).not('installed_at', 'is', null)),
       cnt(supa.from('visitors').select('*', { count: 'exact', head: true }).not('user_id', 'is', null)),
       cnt(supa.from('human_matches').select('*', { count: 'exact', head: true })),
     ]);
+    // A window that reaches back further than the statistics themselves cannot
+    // be compared to anything, so say so instead of printing a made-up number.
+    // When there is nothing to compare against, the note below the tabs says so
+    // once; the cards just drop their footer rather than repeating it four times.
+    const short = dataStart && new Date(range.prevFrom) < new Date(`${dataStart}T00:00:00+03:00`);
+    const cmp = (c, p) => short ? null : pct(c, p);
+    const was = (p) => short ? undefined : num(p);
     const pTab = (id, label) => `<a class="${period === id ? 'on' : ''}" href="/admin?key=${ADMIN_KEY}&view=obzor&p=${id}">${label}</a>`;
 
     content = `
-<div class="live-strip"><span class="dot"></span><b>${num(realOnline())}</b>&nbsp;реально на сайте&nbsp;·&nbsp;показано «онлайн» ${num(realOnline() + fakeOnline())}</div>
+<div class="live-strip">
+  <span class="dot"></span>
+  <span class="ls-main"><b>${num(realOnline())}</b> реально на сайте</span>
+  <span class="ls-sub">на витрине «онлайн ${num(realOnline() + fakeOnline())}»</span>
+</div>
 <div class="tabs">${pTab('today', 'Сегодня')}${pTab('yesterday', 'Вчера')}${pTab('week', '7 дней')}${pTab('month', '30 дней')}</div>
+<p class="cmp-note">${short
+      ? `📅 ${esc(range.label)} · сравнивать не с чем — статистика ведётся с ${dataStart ? mskDdMm(dataStart) : '—'}`
+      : `📅 ${esc(range.label)} · проценты — против того же отрезка: <b>${esc(range.vs)}</b>`}</p>
 <div class="grid2">
-  ${statCard('🆕', 'Новых людей', num(cur.newPeople), pct(cur.newPeople, prev.newPeople))}
-  ${statCard('👋', 'Заходили', num(cur.active), pct(cur.active, prev.active))}
-  ${statCard('🎮', 'Партий сыграно', num(cur.games), pct(cur.games, prev.games))}
-  ${statCard('🤝', 'Живых матчей', num(cur.humans), pct(cur.humans, prev.humans))}
+  ${statCard('🆕', 'Новых людей', num(cur.newPeople), cmp(cur.newPeople, prev.newPeople), was(prev.newPeople))}
+  ${statCard('👋', 'Заходили', num(cur.active), cmp(cur.active, prev.active), was(prev.active))}
+  ${statCard('🎮', 'Партий сыграно', num(cur.games), cmp(cur.games, prev.games), was(prev.games))}
+  ${statCard('🤝', 'Живых матчей', num(cur.humans), cmp(cur.humans, prev.humans), was(prev.humans))}
 </div>
 <p class="subsect">За всё время</p>
-<div class="totals-row">
-  <span><b>${num(totalPeople)}</b> людей</span>
-  <span><b>${num(totalGames)}</b> партий</span>
-  <span><b>${num(humansTotal)}</b> 🤝 живых</span>
-  <span><b>${num(installs)}</b> 📲 установили</span>
-  <span><b>${num(regs)}</b> ✔ регистраций</span>
+<div class="totals-grid">
+  <div class="t2"><b>${num(totalPeople)}</b><i>людей</i></div>
+  <div class="t2"><b>${num(totalGames)}</b><i>партий</i></div>
+  <div class="t2"><b>${num(humansTotal)}</b><i>🤝 живых</i></div>
+  <div class="t3"><b>${num(installs)}</b><i>📲 установили</i></div>
+  <div class="t3"><b>${num(regs)}</b><i>✔ регистраций</i></div>
 </div>`;
   }
 
