@@ -493,29 +493,6 @@ const ADMIN_CSS = `
   }
   #admProg.on { opacity: 1; }
 
-  /* ---------- 14-day chart you can drag your finger across ---------- */
-  .tchart { position: relative; margin: 4px 0 2px; touch-action: pan-y; user-select: none; -webkit-user-select: none; }
-  .tchart { padding-top: 46px; }
-  .tchart svg { display: block; width: 100%; height: 170px; overflow: visible; }
-  .tc-line { fill: none; stroke: #7ba7ff; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
-  .tc-grid { stroke: var(--line); stroke-width: 1; }
-  .tc-ax { fill: var(--faint); font-size: 9.5px; }
-  .tc-cross { stroke: #cfd6ee; stroke-width: 1; opacity: 0; }
-  .tc-dot { fill: #fff; stroke: var(--accent); stroke-width: 3; opacity: 0; }
-  .tchart.live .tc-cross, .tchart.live .tc-dot { opacity: 1; }
-  /* the bubble sits in its own strip above the plot, so it never covers the
-     line you are trying to read */
-  .tc-tip {
-    position: absolute; top: 0; pointer-events: none; opacity: 0; transform: translateX(-50%);
-    background: #232842; border: 1px solid #34395a; border-radius: 10px; padding: 5px 10px;
-    font-size: 11.5px; white-space: nowrap; line-height: 1.35;
-    box-shadow: 0 8px 20px -8px #000; transition: opacity .14s;
-  }
-  .tchart.live .tc-tip { opacity: 1; }
-  .tc-tip b { font-size: 14px; font-weight: 800; margin-left: 5px; }
-  .tc-tip i { font-style: normal; color: var(--dim); }
-  .tc-tip u { display: block; text-decoration: none; color: var(--faint); font-size: 10.5px; }
-  .tc-hint { font-size: 11px; color: var(--faint); text-align: center; margin: 4px 0 0; }
   @media (prefers-reduced-motion: reduce) {
     .adm-body { animation: none; }
     .card2, .dayrow, .geo, .pcard, .tabs a, .rb-btn, .an-btn, .c { transition: none; }
@@ -581,165 +558,6 @@ window.admReload = function () {
   location.reload();
 };
 
-/* ---------- numbers count up when they come into view ---------- */
-function countUp(root) {
-  var els = root.querySelectorAll('.c2-val, .totals-grid b');
-  if (!window.IntersectionObserver) return;
-  var io = new IntersectionObserver(function (entries) {
-    entries.forEach(function (e) {
-      if (!e.isIntersecting) return;
-      io.unobserve(e.target);
-      run(e.target);
-    });
-  }, { threshold: .25 });
-  for (var i = 0; i < els.length; i++) {
-    var target = parseInt(els[i].textContent.replace(/[^0-9]/g, ''), 10);
-    if (!target || target < 2) continue;
-    els[i].dataset.to = target;
-    io.observe(els[i]);
-  }
-  function run(el) {
-    var to = parseInt(el.dataset.to, 10), t0 = 0;
-    var dur = 620;
-    function step(ts) {
-      if (!t0) t0 = ts;
-      var k = Math.min(1, (ts - t0) / dur);
-      k = 1 - Math.pow(1 - k, 3);                       // ease out, lands softly
-      el.textContent = Math.round(to * k).toLocaleString('ru');
-      if (k < 1) requestAnimationFrame(step);
-    }
-    requestAnimationFrame(step);
-  }
-}
-
-/* ---------- the 14-day chart, drawn to the real pixel width so the
-     finger lands exactly where the eye says it should ---------- */
-function chart(root) {
-  var box = root.querySelector('.tchart');
-  if (!box) return;
-  var data;
-  try { data = JSON.parse(box.getAttribute('data-series') || '[]'); } catch (e) { return; }
-  if (!data.length) return;
-  var NS = 'http://www.w3.org/2000/svg';
-  var tip = document.createElement('div');
-  tip.className = 'tc-tip';
-  var svg, pts, dot, cross, W, H = 170, PADL = 30, PADR = 8, PADT = 14, PADB = 20;
-
-  function draw() {
-    W = box.clientWidth || 340;
-    box.textContent = '';
-    svg = document.createElementNS(NS, 'svg');
-    svg.setAttribute('width', W); svg.setAttribute('height', H);
-    var max = 1;
-    for (var i = 0; i < data.length; i++) max = Math.max(max, data[i][1]);
-    // round the scale top to a step a human would pick (1/2/2.5/5 x 10^n).
-    // ceil(max/4)*4 gave gridlines like 605 and 1815, which both printed "2k".
-    var raw = max / 4, mag = Math.pow(10, Math.floor(Math.log(raw) / Math.LN10));
-    var norm = raw / mag;
-    var step = mag * (norm <= 1 ? 1 : norm <= 2 ? 2 : norm <= 2.5 ? 2.5 : norm <= 5 ? 5 : 10);
-    step = Math.max(1, step);   // these are counts of people, never fractions
-    var nice = step * 4;
-    var axLabel = function (v) {
-      if (v >= 1000) { var k = v / 1000; return (k === Math.round(k) ? k : k.toFixed(1)) + 'k'; }
-      return String(Math.round(v));
-    };
-    var x = function (i) { return PADL + (W - PADL - PADR) * (data.length < 2 ? .5 : i / (data.length - 1)); };
-    var yv = function (v) { return PADT + (H - PADT - PADB) * (1 - v / nice); };
-
-    for (var g = 0; g <= 4; g++) {
-      var gv = nice * g / 4, gy = yv(gv);
-      var ln = document.createElementNS(NS, 'line');
-      ln.setAttribute('class', 'tc-grid');
-      ln.setAttribute('x1', PADL); ln.setAttribute('x2', W - PADR);
-      ln.setAttribute('y1', gy); ln.setAttribute('y2', gy);
-      svg.appendChild(ln);
-      var tx = document.createElementNS(NS, 'text');
-      tx.setAttribute('class', 'tc-ax'); tx.setAttribute('x', 0); tx.setAttribute('y', gy + 3);
-      tx.textContent = axLabel(gv);
-      svg.appendChild(tx);
-    }
-    pts = [];
-    var d = '', a = '';
-    for (var j = 0; j < data.length; j++) {
-      var px = x(j), py = yv(data[j][1]);
-      pts.push([px, py]);
-      d += (j ? 'L' : 'M') + px.toFixed(1) + ' ' + py.toFixed(1);
-    }
-    a = d + 'L' + x(data.length - 1).toFixed(1) + ' ' + yv(0) + 'L' + x(0).toFixed(1) + ' ' + yv(0) + 'Z';
-    var grad = document.createElementNS(NS, 'linearGradient');
-    grad.setAttribute('id', 'tcFill'); grad.setAttribute('x1', '0'); grad.setAttribute('y1', '0');
-    grad.setAttribute('x2', '0'); grad.setAttribute('y2', '1');
-    grad.innerHTML = '<stop offset="0" stop-color="#2f6df6" stop-opacity=".38"/>' +
-                     '<stop offset="1" stop-color="#2f6df6" stop-opacity="0"/>';
-    svg.appendChild(grad);
-    var area = document.createElementNS(NS, 'path');
-    area.setAttribute('d', a); area.setAttribute('fill', 'url(#tcFill)');
-    svg.appendChild(area);
-    var line = document.createElementNS(NS, 'path');
-    line.setAttribute('d', d); line.setAttribute('class', 'tc-line');
-    svg.appendChild(line);
-    // the line draws itself in, left to right
-    try {
-      var len = line.getTotalLength();
-      line.style.strokeDasharray = len; line.style.strokeDashoffset = len;
-      line.style.transition = 'stroke-dashoffset .9s ease-out';
-      requestAnimationFrame(function () { line.style.strokeDashoffset = 0; });
-    } catch (e) {}
-
-    for (var k2 = 0; k2 < data.length; k2++) {
-      if (data.length > 7 && k2 % 2) continue;
-      var lb = document.createElementNS(NS, 'text');
-      lb.setAttribute('class', 'tc-ax'); lb.setAttribute('text-anchor', 'middle');
-      lb.setAttribute('x', x(k2)); lb.setAttribute('y', H - 4);
-      lb.textContent = data[k2][0];
-      svg.appendChild(lb);
-    }
-    cross = document.createElementNS(NS, 'line');
-    cross.setAttribute('class', 'tc-cross');
-    cross.setAttribute('y1', PADT - 6); cross.setAttribute('y2', H - PADB);
-    svg.appendChild(cross);
-    dot = document.createElementNS(NS, 'circle');
-    dot.setAttribute('class', 'tc-dot'); dot.setAttribute('r', 4.5);
-    svg.appendChild(dot);
-    box.appendChild(svg);
-    box.appendChild(tip);
-  }
-
-  function at(clientX) {
-    var r = svg.getBoundingClientRect();
-    var px = clientX - r.left, best = 0, bd = 1e9;
-    for (var i = 0; i < pts.length; i++) {
-      var d2 = Math.abs(pts[i][0] - px);
-      if (d2 < bd) { bd = d2; best = i; }
-    }
-    return best;
-  }
-  function show(i) {
-    box.classList.add('live');
-    cross.setAttribute('x1', pts[i][0]); cross.setAttribute('x2', pts[i][0]);
-    dot.setAttribute('cx', pts[i][0]); dot.setAttribute('cy', pts[i][1]);
-    var row = data[i];
-    tip.innerHTML = '<i>' + row[0] + '</i><b>' + Number(row[1]).toLocaleString('ru') + '</b>' +
-      (row[2] === undefined ? '' : '<u>' + row[2] + '</u>');
-    // keep the bubble inside the card
-    var half = tip.offsetWidth / 2 + 6;
-    tip.style.left = Math.max(half, Math.min(W - half, pts[i][0])) + 'px';
-  }
-  function hide() { box.classList.remove('live'); }
-
-  draw();
-  box.addEventListener('pointerdown', function (e) { show(at(e.clientX)); box.setPointerCapture(e.pointerId); });
-  box.addEventListener('pointermove', function (e) { if (box.classList.contains('live')) show(at(e.clientX)); });
-  box.addEventListener('pointerup', hide);
-  box.addEventListener('pointercancel', hide);
-  box.addEventListener('pointerleave', hide);
-  var rt = null;
-  window.addEventListener('resize', function () {
-    clearTimeout(rt);
-    rt = setTimeout(function () { if (document.body.contains(box)) draw(); }, 150);
-  });
-}
-
 /* ---------- auto-refresh switch (lives inside the swapped section) ---------- */
 function wireRefresh(root) {
   var box = root.querySelector('#admAuto');
@@ -761,7 +579,7 @@ function schedule() {
 }
 document.addEventListener('visibilitychange', schedule);
 
-function enhance(root) { wireRefresh(root); countUp(root); chart(root); }
+function enhance(root) { wireRefresh(root); }
 
 /* ---------- section switching without the white blink ---------- */
 var busy = false;
@@ -1168,18 +986,12 @@ ${rowsHtml || '<p class="note">Пока нет данных за этот пер
     const dmap = new Map();
     for (const b of (buckets || [])) dmap.set(Number(b.bucket), { people: Number(b.people), games: Number(b.games) });
 
-    // [label, new people, the rest of the day in the bubble]
-    const series = [];
-    for (let i = 13; i >= 0; i--) {
-      const d = today - i;
-      const rec = dmap.get(d);
-      series.push([
-        mskDayLabel(d), npdMap.get(d) || 0,
-        `${rec ? num(rec.people) : '—'} заходили · ${rec ? num(rec.games) : '—'} партий`,
-      ]);
-    }
-    const bars = `<div class="tchart" data-series='${esc(JSON.stringify(series))}'></div>
-<p class="tc-hint">Веди пальцем по графику</p>`;
+    const days = [];
+    for (let i = 13; i >= 0; i--) days.push({ label: mskDayLabel(today - i), n: npdMap.get(today - i) || 0 });
+    const maxDay = Math.max(1, ...days.map(d => d.n));
+    const bars = days.map(d =>
+      `<div class="bar"><div class="fill" style="height:${Math.round(100 * d.n / maxDay)}%"></div><small>${d.n}</small><span>${d.label}</span></div>`
+    ).join('');
 
     const blocks = [];
     for (let day = today; day > today - 14; day--) {
@@ -1199,7 +1011,7 @@ ${rowsHtml || '<p class="note">Пока нет данных за этот пер
 
     content = `
 <h2>Новые люди по дням (14 дней)</h2>
-${bars}
+<div class="chart">${bars}</div>
 <p class="sect" style="margin-top:20px">🔗 Приглашения по ссылке</p>
 <div class="grid2">
   ${statCard('📨', 'Позвали сегодня', num(invShareToday), null)}
