@@ -278,6 +278,10 @@ function doMove(bot) {
   if (!room || room.status !== 'playing') return;
   const idx = room.players.indexOf(bot);
   if (idx === -1 || room.state.turn !== idx) return;
+  // The human is disconnected and the room is on hold. Moving now would send
+  // a state they cannot receive, and they would come back to a board that had
+  // changed without them. Wait and re-check.
+  if (room.paused) { bot.thinkTimer = setTimeout(() => doMove(bot), 1000); return; }
   const state = JSON.parse(JSON.stringify(room.state));
 
   // hopeless and out of walls? some personalities just resign

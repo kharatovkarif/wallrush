@@ -435,7 +435,10 @@ function handleMove(client, msg) {
     return;
   }
   room.turnStarted = Date.now();
-  armMoveTimer(room);
+  // While the room is paused nobody is waiting on the other side, so the
+  // 30s move limit must not start running against a player who is not there
+  // to see the move. resumeClock() arms it when they are back.
+  if (!room.paused) armMoveTimer(room);
   for (const pl of room.players) send(pl, stateMsg(room));
 }
 
@@ -550,6 +553,27 @@ export function attachWs(wss) {
           }
           case 'leave_room': leaveRoom(client); break;
           case 'move': handleMove(client, msg); break;
+          // A client that thinks it has fallen behind asks for the position.
+          // A single dropped state message used to leave the board frozen on
+          // the opponent's turn: no legal moves on screen, while the server
+          // had already handed the turn over and was counting down 30s.
+          case 'sync': {
+            const room = rooms.get(client.roomId);
+            if (!room || room.status !== 'playing') break;
+            const idx = room.players.indexOf(client);
+            if (idx === -1) break;
+            send(client, {
+              t: 'game_start',
+              you: idx,
+              state: room.state,
+              clocks: clockPayload(room),
+              opp: { nick: room.players[1 - idx].nick, points: room.players[1 - idx].points || 0 },
+              me: { points: client.points || 0, veteran: Boolean(client.veteran) },
+              ranked: isRanked(room),
+              resumed: true,
+            });
+            break;
+          }
           case 'rematch': handleRematch(client, msg); break;
           case 'emoji': handleEmoji(client, msg); break;
           case 'resign': {
@@ -588,12 +612,14 @@ export function attachWs(wss) {
     });
   });
 
-  // heartbeat: drop dead connections
+  // Heartbeat: drop dead connections. This has to be well under MOVE_MS —
+  // at 30s a socket could die and the player be timed out for a move they
+  // never saw before the server even noticed they were gone.
   setInterval(() => {
     for (const [ws, client] of clients) {
       if (!client.alive) { ws.terminate(); continue; }
       client.alive = false;
       try { ws.ping(); } catch { /* ignore */ }
     }
-  }, 30_000);
+  }, 8_000);
 }

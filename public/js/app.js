@@ -405,26 +405,59 @@ function wsSend(msg) {
   if (ws && ws.readyState === 1) ws.send(JSON.stringify(msg));
 }
 
+/* A socket can look open while nothing is getting through — a phone changing
+   network, a tunnel that died quietly. A single lost state message left the
+   board frozen showing the opponent to move: no legal moves on screen, so no
+   way to play, while the server had already handed the turn over and was
+   counting down the thirty seconds. The player then lost a game they were
+   never able to take a turn in.
+
+   So during a game: if nothing has arrived for a few seconds, ask the server
+   what the position is. Same on coming back to the tab. */
+let lastMsgAt = 0;
+let syncTimer = null;
+
+function inLiveGame() { return game?.mode === 'online' && !game.over; }
+
+function requestSync() {
+  if (!inLiveGame()) return;
+  if (ws && ws.readyState === 1) wsSend({ t: 'sync' });
+  else if (ws && ws.readyState > 1) connectWs();   // socket is gone, rebuild it
+}
+
+function watchdogTick() {
+  if (inLiveGame() && Date.now() - lastMsgAt > 6000) requestSync();
+}
+
 function connectWs() {
   const proto = location.protocol === 'https:' ? 'wss' : 'ws';
   ws = new WebSocket(`${proto}://${location.host}/ws`);
   ws.onopen = () => {
     reconnectDelay = 500;
     wsReady = true;
+    lastMsgAt = Date.now();
     wsSend({ t: 'hello', nick: myNick(), token: wsToken, device: deviceId, tz: new Date().getTimezoneOffset(), jwt: session?.access_token });
     if (currentScreen === 'screen-rooms') wsSend({ t: 'lobby_sub' });
   };
   ws.onmessage = (ev) => {
+    lastMsgAt = Date.now();
     let msg;
     try { msg = JSON.parse(ev.data); } catch { return; }
     handleWsMessage(msg);
   };
   ws.onclose = () => {
     wsReady = false;
-    if (game?.mode === 'online' && !game.over) toast(t('conn_lost'));
+    if (inLiveGame()) toast(t('conn_lost'));
     setTimeout(connectWs, reconnectDelay);
     reconnectDelay = Math.min(8000, reconnectDelay * 2);
   };
+  if (!syncTimer) {
+    syncTimer = setInterval(watchdogTick, 3000);
+    // back from the lock screen or another app: check the board immediately
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') requestSync();
+    });
+  }
 }
 
 function handleWsMessage(msg) {
