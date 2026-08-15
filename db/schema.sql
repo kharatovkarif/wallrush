@@ -123,3 +123,19 @@ create or replace function public.admin_data_start() returns date
 language sql security definer set search_path = public stable as $$
   select min(day) from public.visitor_days $$;
 revoke all on function public.admin_data_start() from anon, authenticated;
+
+-- Per-day people and games from the permanent rollup. visit_log now keeps only
+-- 7 days of raw events (at ~90k games/day, 60 days of them filled the whole
+-- 500 MB database), so the Дни section reads its history from here instead.
+create or replace function public.admin_days(from_day date, to_day date)
+returns table (bucket integer, people bigint, games bigint)
+language sql security definer set search_path = public stable as $$
+  select (vd.day - date '1970-01-01')::integer as bucket,
+         count(distinct vd.device_id)::bigint  as people,
+         coalesce(sum(vd.games), 0)::bigint    as games
+  from public.visitor_days vd
+  where vd.day >= from_day and vd.day <= to_day
+  group by 1
+  order by 1
+$$;
+revoke all on function public.admin_days(date, date) from anon, authenticated;

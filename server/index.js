@@ -254,8 +254,16 @@ app.post('/api/visit', async (req, res) => {
     }
     // per-event log: powers the per-person timeline on the admin page
     await supa.from('visit_log').insert({ device_id: device, kind: game ? 'game' : 'visit' });
-    if (Math.random() < 0.01) { // occasional cleanup: keep 60 days
-      await supa.from('visit_log').delete().lt('at', new Date(Date.now() - 60 * 86400e3).toISOString());
+    // Keep 7 days of raw events. At ~90k games a day, 60 days of them filled
+    // the whole 500 MB database — it reached 97% and was hours from going
+    // read-only, which would have stopped new players and points being saved.
+    // The per-day totals live in visitor_days for good, so trimming the log
+    // costs only the hour-by-hour detail of older days. Invites are small and
+    // worth keeping whole.
+    if (Math.random() < 0.01) {
+      await supa.from('visit_log').delete()
+        .in('kind', ['game', 'visit'])
+        .lt('at', new Date(Date.now() - 7 * 86400e3).toISOString());
     }
   } catch (e) {
     console.error('visit log failed:', e.message);
@@ -1158,8 +1166,11 @@ ${rowsHtml || '<p class="note">Пока нет данных за этот пер
   } else if (view === 'days') {
     // ----- days: each day a block with its own numbers, plus a 14-day chart -----
     const fromTs = new Date((today - 13) * dayMs - 3 * 3600e3).toISOString();
+    const dayStr = (d) => new Date(d * dayMs).toISOString().slice(0, 10);
     const [{ data: buckets }, { data: npd }, invites] = await Promise.all([
-      supa.rpc('admin_buckets', { from_ts: fromTs, to_ts: new Date().toISOString(), bucket_secs: 86400, offset_secs: 10800 }),
+      // per-day totals come from the permanent rollup, not the raw log — the log
+      // only keeps the last 7 days now, the rollup keeps every day for good
+      supa.rpc('admin_days', { from_day: dayStr(today - 13), to_day: dayStr(today) }),
       supa.rpc('new_per_day', { from_ts: fromTs }),
       Promise.all([
         cnt(supa.from('visit_log').select('*', { count: 'exact', head: true }).eq('kind', 'invite_share').gte('at', todayStartIso)),
@@ -1285,11 +1296,13 @@ app.get('/admin/day', async (req, res) => {
   });
   // day totals and new-people count come from DB aggregates — counting fetched
   // rows here silently truncated the numbers (11 355 visitors showed as ~500)
+  const dayIso = new Date(day * dayMs).toISOString().slice(0, 10);
   const [{ data: dayBk }, { data: npdDay }] = await Promise.all([
-    supa.rpc('admin_buckets', { from_ts: startIso, to_ts: endIso, bucket_secs: 86400, offset_secs: 10800 }),
+    supa.rpc('admin_days', { from_day: dayIso, to_day: dayIso }),
     supa.rpc('new_per_day', { from_ts: startIso }),
   ]);
   const dayDevices = Number(dayBk?.[0]?.people || 0);
+  const dayGamesTotal = Number(dayBk?.[0]?.games || 0);
   const fresh = Number((npdDay || []).find(r => Number(r.day) === day)?.n || 0);
 
   const hours = Array.from({ length: 24 }, () => ({ people: 0, games: 0 }));
@@ -1312,10 +1325,13 @@ app.get('/admin/day', async (req, res) => {
 <div class="cards">
   <div class="c hi"><b>${n(fresh)}</b><span>новых людей</span></div>
   <div class="c"><b>${n(dayDevices)}</b><span>заходили</span></div>
-  <div class="c"><b>${n(dayGames)}</b><span>партий</span></div>
+  <div class="c"><b>${n(dayGamesTotal || dayGames)}</b><span>партий</span></div>
   <div class="c"><b>${String(peakHour).padStart(2, '0')}:00</b><span>пик посещений</span></div>
 </div>
 <h2>По часам (МСК) — нажми на час, чтобы увидеть людей</h2>
+${day < mskDayStart(Date.now()) - 7
+    ? '<p class="note">Разбивка по часам хранится 7 дней, для этого дня её уже нет. Итоги дня выше — они сохраняются навсегда.</p>'
+    : ''}
 <div class="wrap"><table><tr><th>Час</th><th>Людей</th><th>Партий</th></tr>${trs}</table></div>`, 'days'));
 });
 
