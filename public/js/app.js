@@ -1251,6 +1251,18 @@ function startOnlineGame(msg) {
   // a second match on the same day must not replay the same celebration
   streakEvent = null;
   celebratedDay = 0;
+  // A resumed game_start is the SAME match continuing — a reconnect, or the
+  // client asking for the position after a dropped message. Rebuilding the
+  // snapshot list here threw away everything played before that moment, so
+  // the post-game replay started from wherever the resync happened instead
+  // of from move one. Keep what we already have.
+  const kept = msg.resumed && game && game.mode === 'online' && !game.over && game.history?.length
+    ? game.history : null;
+  if (kept) {
+    const last = kept[kept.length - 1];
+    // moves made while we were away never reached us; record where we came back
+    if (JSON.stringify(last) !== JSON.stringify(msg.state)) kept.push(cloneState(msg.state));
+  }
   game = {
     mode: 'online',
     state: msg.state,
@@ -1261,7 +1273,7 @@ function startOnlineGame(msg) {
     clocks: { ...msg.clocks, recvAt: Date.now() },
     over: false,
     award: null,
-    history: [cloneState(msg.state)], // for the post-game replay
+    history: kept || [cloneState(msg.state)], // for the post-game replay
   };
   stopReplay();
   $('overlay-gameover').hidden = true;
