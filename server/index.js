@@ -742,12 +742,14 @@ function chart(root) {
   box.addEventListener('pointerup', hide);
   box.addEventListener('pointercancel', hide);
   box.addEventListener('pointerleave', hide);
-  var rt = null;
-  window.addEventListener('resize', function () {
-    clearTimeout(rt);
-    rt = setTimeout(function () { if (document.body.contains(box)) draw(); }, 150);
-  });
+  // one resize handler for the page, not a new one per section swap
+  chartRedraw = function () { if (document.body.contains(box)) draw(); };
 }
+var chartRedraw = null, chartResizeTimer = null;
+window.addEventListener('resize', function () {
+  clearTimeout(chartResizeTimer);
+  chartResizeTimer = setTimeout(function () { if (chartRedraw) chartRedraw(); }, 150);
+});
 
 /* ---------- auto-refresh switch (lives inside the swapped section) ---------- */
 function wireRefresh(root) {

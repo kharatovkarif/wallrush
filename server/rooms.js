@@ -558,6 +558,11 @@ export function attachWs(wss) {
           // the opponent's turn: no legal moves on screen, while the server
           // had already handed the turn over and was counting down 30s.
           case 'sync': {
+            // the watchdog asks at most every few seconds; anything faster is
+            // a broken or hostile client, so make it cheap to ignore
+            const nowMs = Date.now();
+            if (nowMs - (client.lastSync || 0) < 1500) break;
+            client.lastSync = nowMs;
             const room = rooms.get(client.roomId);
             if (!room || room.status !== 'playing') break;
             const idx = room.players.indexOf(client);

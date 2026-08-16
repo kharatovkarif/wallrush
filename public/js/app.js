@@ -421,8 +421,9 @@ function inLiveGame() { return game?.mode === 'online' && !game.over; }
 
 function requestSync() {
   if (!inLiveGame()) return;
+  // Only ask on a live socket. A closed one is already being rebuilt by
+  // ws.onclose — reconnecting from here as well produced two sockets at once.
   if (ws && ws.readyState === 1) wsSend({ t: 'sync' });
-  else if (ws && ws.readyState > 1) connectWs();   // socket is gone, rebuild it
 }
 
 function watchdogTick() {
@@ -1248,9 +1249,9 @@ for (const lvl of ['easy', 'normal', 'hard', 'hardcore']) {
 /* ================= online game ================= */
 function startOnlineGame(msg) {
   if (msg.me) { myPoints = msg.me.points || 0; myVeteran = Boolean(msg.me.veteran); }
-  // a second match on the same day must not replay the same celebration
-  streakEvent = null;
-  celebratedDay = 0;
+  // a second match on the same day must not replay the same celebration —
+  // but a reconnect into the SAME match is not a second match
+  if (!msg.resumed) { streakEvent = null; celebratedDay = 0; }
   // A resumed game_start is the SAME match continuing — a reconnect, or the
   // client asking for the position after a dropped message. Rebuilding the
   // snapshot list here threw away everything played before that moment, so
@@ -1280,12 +1281,18 @@ function startOnlineGame(msg) {
   $('btn-rematch').style.display = '';
   $('rematch-status').hidden = true;
   cancelWallPreview();
-  logVisit(true);
+  // Only a real start counts as a game played. This runs on every resumed
+  // game_start too — a reconnect, or the client asking for the position after
+  // a tab switch — and each one was recording another game against the player
+  // and another row in the event log, inflating both the player's count and
+  // the site's "games played". Nor should coming back to the tab buzz the
+  // phone as if a new match had just begun.
+  if (!msg.resumed) logVisit(true);
   show('screen-game');
   buildBoard();
   renderGame();
   portalPlaying(true);   // a portal keeps its own ads out of a live match
-  vibrate([20, 40, 20]);
+  if (!msg.resumed) vibrate([20, 40, 20]);
 }
 
 /* ================= game over / rematch ================= */
