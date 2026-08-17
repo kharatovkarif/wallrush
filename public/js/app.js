@@ -427,7 +427,7 @@ function requestSync() {
 }
 
 function watchdogTick() {
-  if (inLiveGame() && Date.now() - lastMsgAt > 6000) requestSync();
+  if (inLiveGame() && Date.now() - lastMsgAt > 10000) requestSync();
 }
 
 function connectWs() {
@@ -1001,7 +1001,12 @@ setInterval(() => {
   // Frozen while an opponent is away: the server has stopped charging the turn,
   // so a screen that kept counting down would be showing a defeat that is not
   // going to happen.
-  const elapsed = ck.paused ? 0 : Date.now() - ck.recvAt;
+  // Measured from when the SERVER started this turn, not from when this packet
+  // happened to arrive. Anchoring it to arrival meant any clock update sent
+  // mid-turn — which is exactly what a re-sync does — snapped the countdown
+  // back to a full 30 seconds in front of the player.
+  const sentAfter = Math.max(0, (ck.serverNow || 0) - (ck.turnStarted || 0));
+  const elapsed = ck.paused ? 0 : sentAfter + (Date.now() - ck.recvAt);
   const me = game.myIndex;
   const bank = [...ck.bank];
   const active = ck.turn;
@@ -1249,6 +1254,15 @@ for (const lvl of ['easy', 'normal', 'hard', 'hardcore']) {
 /* ================= online game ================= */
 function startOnlineGame(msg) {
   if (msg.me) { myPoints = msg.me.points || 0; myVeteran = Boolean(msg.me.veteran); }
+  // A resumed start that carries the position we already have tells us nothing
+  // new. The client asks for the position whenever the line goes quiet, and
+  // rebuilding the whole screen each time looked like the page reloading
+  // itself mid-game. Take the clocks and leave the board alone.
+  if (msg.resumed && game && game.mode === 'online' && !game.over && game.state &&
+      JSON.stringify(game.state) === JSON.stringify(msg.state)) {
+    game.clocks = { ...msg.clocks, recvAt: Date.now() };
+    return;
+  }
   // a second match on the same day must not replay the same celebration —
   // but a reconnect into the SAME match is not a second match
   if (!msg.resumed) { streakEvent = null; celebratedDay = 0; }
