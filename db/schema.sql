@@ -139,3 +139,50 @@ language sql security definer set search_path = public stable as $$
   order by 1
 $$;
 revoke all on function public.admin_days(date, date) from anon, authenticated;
+
+-- visits per day as well as games, so one person's day-by-day history survives
+-- the 7-day trim of the raw log the same way their games already do.
+alter table public.visitor_days add column if not exists visits integer not null default 0;
+
+create or replace function public.visit_log_rollup() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  begin
+    insert into public.visitor_days (day, device_id, games, visits)
+    values ((new.at at time zone 'Europe/Moscow')::date, new.device_id,
+            case when new.kind = 'game'  then 1 else 0 end,
+            case when new.kind = 'visit' then 1 else 0 end)
+    on conflict (day, device_id) do update
+      set games  = visitor_days.games  + case when new.kind = 'game'  then 1 else 0 end,
+          visits = visitor_days.visits + case when new.kind = 'visit' then 1 else 0 end;
+  exception when others then
+    null;   -- statistics must never be able to take the site down
+  end;
+  return new;
+end $$;
+
+-- Lifetime figures that do not depend on the raw log. "Games for all time" was
+-- counted straight out of visit_log, which now keeps only 7 days: it read
+-- 244,777 when the real figure was 1,639,335.
+create or replace function public.admin_totals()
+returns table (people bigint, games bigint, humans bigint, installs bigint, regs bigint)
+language sql security definer set search_path = public stable as $$
+  select (select count(*) from public.visitors),
+         (select coalesce(sum(games), 0) from public.visitor_days),
+         (select count(*) from public.human_matches),
+         (select count(*) from public.visitors where installed_at is not null),
+         (select count(*) from public.visitors where user_id is not null)
+$$;
+revoke all on function public.admin_totals() from anon, authenticated;
+
+-- One person's day-by-day history, from the permanent rollup.
+create or replace function public.admin_person_days(dev text)
+returns table (day date, visits integer, games integer)
+language sql security definer set search_path = public stable as $$
+  select vd.day, vd.visits, vd.games
+  from public.visitor_days vd
+  where vd.device_id = dev
+  order by vd.day desc
+  limit 400
+$$;
+revoke all on function public.admin_person_days(text) from anon, authenticated;

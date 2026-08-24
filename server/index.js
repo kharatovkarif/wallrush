@@ -559,6 +559,7 @@ const adminPage = (title, body, active = 'obzor') => `<!DOCTYPE html><html lang=
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#12141f">
 <meta http-equiv="Cache-Control" content="no-store">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%237c4dff'/%3E%3Crect x='6' y='9' width='9' height='6' rx='2' fill='white'/%3E%3Crect x='17' y='9' width='9' height='6' rx='2' fill='white'/%3E%3Crect x='6' y='17' width='20' height='6' rx='2' fill='white'/%3E%3C/svg%3E">
 <title>${title}</title><style>${ADMIN_CSS}</style></head><body>
 <div id="admProg"></div>
 <div class="adm-body">${body}
@@ -1034,7 +1035,7 @@ app.get('/admin', async (req, res) => {
           <b>${esc(visName(v, byId))}${prof ? ' <span class="badge-reg">✔</span>' : ''}</b>
           <small>${esc(countryOf(v.tz))} · заходил ${mskFmt(v.last_seen)}</small>
         </div>
-        <div class="pc-right"><b${v.games > 0 ? '' : ' style="color:#c0392b"'}>${v.games}</b><small>партий</small></div>
+        <div class="pc-right"><b${v.games > 0 ? '' : ' style="color:var(--down)"'}>${num(v.games)}</b><small>партий</small></div>
         <span class="pc-go">›</span>
       </a>`;
     }).join('') || '<p class="note">Никого не нашлось</p>';
@@ -1109,7 +1110,7 @@ ${pager}`;
       return `<div class="geo">
         <div class="top"><span class="name">${esc(c.name)}</span><span class="pct">${p.toFixed(1)}%</span></div>
         <div class="track"><i style="width:${Math.max(1, p).toFixed(1)}%"></i></div>
-        <div class="num">${num(c.people)} чел. · ${num(c.games)} партий</div>
+        <div class="num">${num(c.people)} чел. · ${num(c.games)} партий за всё время</div>
       </div>`;
     }).join('');
     const rest = list.slice(30).reduce((s, c) => s + c.people, 0);
@@ -1205,11 +1206,11 @@ ${rowsHtml || '<p class="note">Пока нет данных за этот пер
       const fresh = npdMap.get(day) || 0;
       if (!rec && !fresh) continue;
       blocks.push(`<a class="dayrow" href="/admin/day?key=${ADMIN_KEY}&day=${day}">
-        <span class="d">${mskDayLabel(day)}${day === today ? ' <span style="color:#21c07a;font-size:11px">сегодня</span>' : ''}</span>
+        <span class="d">${mskDayLabel(day)}${day === today ? ' <span style="color:var(--up);font-size:11px">сегодня</span>' : ''}</span>
         <span class="m">
-          <span><i>Новых</i><u style="color:#4d8dff">${fresh}</u></span>
-          <span><i>Заходили</i><u>${rec ? rec.people : '—'}</u></span>
-          <span><i>Партий</i><u>${rec ? rec.games : '—'}</u></span>
+          <span><i>Новых</i><u style="color:var(--accent)">${num(fresh)}</u></span>
+          <span><i>Заходили</i><u>${rec ? num(rec.people) : '—'}</u></span>
+          <span><i>Партий</i><u>${rec ? num(rec.games) : '—'}</u></span>
         </span>
         <span class="go">›</span>
       </a>`);
@@ -1231,16 +1232,20 @@ ${blocks.join('') || '<p class="note">Подневная история пише
     // ----- obzor: the dashboard landing tab — live now, a period pick, and lifetime totals -----
     const period = ['today', 'yesterday', 'week', 'month'].includes(String(req.query.p)) ? String(req.query.p) : 'today';
     const range = periodRange(period);
-    const [cur, prev, dataStart, totalPeople, totalGames, installs, regs, humansTotal] = await Promise.all([
+    // Lifetime totals come from the permanent rollup in one call. "Games for
+    // all time" used to be counted straight out of visit_log, which keeps only
+    // the last 7 days — it read 244,777 when the real figure was 1,639,335.
+    const [cur, prev, dataStart, tot] = await Promise.all([
       periodStats(range.from, range.to),
       periodStats(range.prevFrom, range.prevTo),
       supa.rpc('admin_data_start').then(r => r.data || null),
-      cnt(supa.from('visitors').select('*', { count: 'exact', head: true })),
-      cnt(supa.from('visit_log').select('*', { count: 'exact', head: true }).eq('kind', 'game')),
-      cnt(supa.from('visitors').select('*', { count: 'exact', head: true }).not('installed_at', 'is', null)),
-      cnt(supa.from('visitors').select('*', { count: 'exact', head: true }).not('user_id', 'is', null)),
-      cnt(supa.from('human_matches').select('*', { count: 'exact', head: true })),
+      supa.rpc('admin_totals').then(r => r.data?.[0] || {}),
     ]);
+    const totalPeople = Number(tot.people || 0);
+    const totalGames = Number(tot.games || 0);
+    const humansTotal = Number(tot.humans || 0);
+    const installs = Number(tot.installs || 0);
+    const regs = Number(tot.regs || 0);
     // A window that reaches back further than the statistics themselves cannot
     // be compared to anything, so say so instead of printing a made-up number.
     // When there is nothing to compare against, the note below the tabs says so
@@ -1398,6 +1403,8 @@ app.get('/admin/hour', async (req, res) => {
   </div>
 </div>
 <h2>По минутам</h2>
+${day < mskDayStart(Date.now()) - 7
+    ? '<p class="note">Поминутная разбивка хранится 7 дней — за этот день её уже нет.</p>' : ''}
 <div class="wrap"><table><tr><th>Минута</th><th>Людей</th><th>Партий</th></tr>${trs}</table></div>
 <h2>Кто был в этот час (нажми на ник)</h2>
 <p style="font-size:13px;line-height:1.9">${people}</p>
@@ -1414,19 +1421,13 @@ app.get('/admin/v', async (req, res) => {
     .eq('device_id', device).maybeSingle();
   if (!v) return res.send(adminPage('Не найден', `<a class="back" href="/admin?key=${ADMIN_KEY}&view=people">‹ Назад</a><p>Человек не найден.</p>`, 'people'));
   const prof = v.user_id ? (await supa.from('profiles').select('nick, wins, losses').eq('id', v.user_id).maybeSingle()).data : null;
-  const { data: log } = await supa.from('visit_log')
-    .select('kind, at').eq('device_id', device).order('at', { ascending: false }).limit(1000);
-
-  // group events by MSK day
-  const byDay = new Map();
-  for (const e of (log || [])) {
-    const day = mskDayStart(new Date(e.at).getTime());
-    const rec = byDay.get(day) || { visits: 0, games: 0, last: e.at };
-    if (e.kind === 'game') rec.games++; else rec.visits++;
-    byDay.set(day, rec);
-  }
-  const dayRows = [...byDay.entries()].sort((a, b) => b[0] - a[0]).map(([day, r]) =>
-    `<tr><td>${mskDayLabel(day)}</td><td>${r.visits}</td><td>${r.games > 0 ? `<b>${r.games}</b>` : '<span style="color:#c0392b">0</span>'}</td></tr>`
+  // From the permanent rollup, not the raw log — the log keeps 7 days, so this
+  // table used to stop a week back while the totals above it covered the whole
+  // history, and the two openly disagreed.
+  const { data: pdays } = await supa.rpc('admin_person_days', { dev: device });
+  const dayRows = (pdays || []).map(r =>
+    `<tr><td>${mskDdMm(r.day)}</td><td>${r.visits > 0 ? r.visits : '—'}</td>` +
+    `<td>${r.games > 0 ? `<b>${r.games}</b>` : '<span style="color:var(--down)">0</span>'}</td></tr>`
   ).join('');
 
   const nick = prof ? prof.nick : (v.last_nick || '—');
@@ -1435,7 +1436,7 @@ app.get('/admin/v', async (req, res) => {
 <a class="back" href="/admin?key=${ADMIN_KEY}&view=people">‹ Назад к списку</a>
 <div class="person">
   <b class="nick">${esc(nick)}</b>
-  ${prof ? '<b style="color:#21c07a"> ✔ зарегистрирован</b>' : '<span style="color:#8892b0"> · гость</span>'}
+  ${prof ? '<b style="color:var(--up)"> ✔ зарегистрирован</b>' : '<span style="color:var(--dim)"> · гость</span>'}
   <div class="kv">
     <span>Первый заход</span><b>${mskFmt(v.first_seen)} (МСК)</b>
     <span>Последний раз</span><b>${mskFmt(v.last_seen)}</b>
@@ -1451,8 +1452,9 @@ app.get('/admin/v', async (req, res) => {
 </div>
 <h2>По дням: когда заходил и сколько играл</h2>
 ${dayRows
-    ? `<div class="wrap"><table><tr><th>День</th><th>Заходов</th><th>Партий</th></tr>${dayRows}</table></div>`
-    : '<p style="color:#8892b0;font-size:13px">Подробная история пишется с 19.07 — у этого человека записей пока нет. Появятся при следующем его заходе.</p>'}`, 'people'));
+    ? `<div class="wrap"><table><tr><th>День</th><th>Заходов</th><th>Партий</th></tr>${dayRows}</table></div>
+       <p class="note">Партии считаются с 19.07. «Заходов» стали считать отдельно с 17.08 — за более ранние дни там прочерк.</p>`
+    : '<p class="note">Подробная история пишется с 19.07 — у этого человека записей пока нет. Появятся при следующем его заходе.</p>'}`, 'people'));
 });
 
 app.get('/healthz', (req, res) => res.send('ok'));
