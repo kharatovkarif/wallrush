@@ -164,6 +164,8 @@ export default {
   push_ask_body: 'Un court message le soir si la flamme est sur le point de s’éteindre. Une fois par jour au maximum, et seulement si tu n’as pas encore joué.',
   push_ask_yes: '🔔 Me rappeler',
   push_ask_no: 'Non merci',
+  push_ask_streak: '— c\u2019est ta série. Elle s\u2019éteint si tu ne joues pas aujourd\u2019hui.',
+  push_ios_hint: '🔔 Envie de rappels de série ? Ajoute le jeu à l\u2019écran d\u2019accueil : Partager ⬆️ → Sur l\u2019écran d\u2019accueil.',
   push_on: 'Notifications activées 🔔',
   push_off: 'Notifications désactivées',
   push_blocked: 'Le navigateur a refusé — active-les dans les réglages du site',

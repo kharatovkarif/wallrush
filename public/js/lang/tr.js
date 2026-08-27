@@ -164,6 +164,8 @@ export default {
   push_ask_body: 'Alev sönmek üzereyse akşam kısa bir mesaj göndeririz. Günde en fazla bir kez ve yalnızca o gün oynamadıysan.',
   push_ask_yes: '🔔 Hatırlat',
   push_ask_no: 'Gerek yok',
+  push_ask_streak: '— bu senin serin. Bugün oynamazsan söner.',
+  push_ios_hint: '🔔 Seri hatırlatması ister misin? Oyunu ana ekrana ekle: Paylaş ⬆️ → Ana Ekrana Ekle.',
   push_on: 'Bildirimler açık 🔔',
   push_off: 'Bildirimler kapalı',
   push_blocked: 'Tarayıcı izin vermedi — site ayarlarından bildirimleri aç',

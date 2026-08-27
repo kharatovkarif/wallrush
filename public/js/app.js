@@ -98,6 +98,7 @@ if (!deviceId) {
   deviceId = (crypto.randomUUID ? crypto.randomUUID() : 'd' + Date.now() + '-' + Math.random().toString(36).slice(2, 10));
   localStorage.setItem('wr_device', deviceId);
 }
+const isIOS = () => /iphone|ipad|ipod/i.test(navigator.userAgent);
 // running as an installed app? (home-screen icon opens in standalone mode)
 function runsInstalled() {
   try {
@@ -1354,7 +1355,7 @@ function onGameOver(iWon, reason) {
     $('btn-rematch').style.display = '';
     $('rematch-status').hidden = true;
     $('overlay-gameover').hidden = false;
-    maybeAskPush();
+    maybeAskPush(iWon);
     maybePortalAd();
   }, 600);
   vibrate(iWon ? [40, 60, 40, 60, 80] : 60);
@@ -2373,8 +2374,7 @@ $('install-banner-close').addEventListener('click', () => {
 let iosDismissed = false;
 function maybeShowIosInstall() {
   const ua = navigator.userAgent;
-  const isIOS = /iphone|ipad|ipod/i.test(ua);
-  const iosSafari = isIOS && /safari/i.test(ua) && !/crios|fxios|edgios|yabrowser|opios/i.test(ua);
+  const iosSafari = isIOS() && /safari/i.test(ua) && !/crios|fxios|edgios|yabrowser|opios/i.test(ua);
   if (iosSafari && !runsInstalled() && !iosDismissed) {
     $('install-banner-go').hidden = true;          // no auto-install button on iOS
     const el = $('install-banner-text');
@@ -2436,22 +2436,59 @@ async function subscribePush() {
 
    The flag is written the moment the window opens, not when it is answered,
    so reloading the page cannot bring it back. One time and no more. */
-async function maybeAskPush() {
-  if (!pushSupported() || !config?.vapid) return;
+async function maybeAskPush(iWon) {
+  if (!pushSupported() || !config?.vapid) { maybeHintInstallForPush(); return; }
   if (localStorage.getItem('wr_push')) return;          // already subscribed
-  if (localStorage.getItem('wr_push_asked')) return;    // asked before, do not nag
+  if (localStorage.getItem('wr_push_answered')) return; // they gave an answer, respect it
   if (Notification.permission === 'denied') return;     // nothing we can do
   const played = Number(localStorage.getItem('wr_games') || 0) + 1;
   localStorage.setItem('wr_games', String(played));
   if (played < PUSH_AFTER_GAMES) return;
-  localStorage.setItem('wr_push_asked', '1');
+
+  // Ask on a win, not on a loss. "Shall we remind you about your streak?" put
+  // to someone who has just lost reads as the site being pleased about it.
+  if (!iWon) return;
+  // And only when there is a flame to protect, so the promise is about them.
+  if (myStreak < 1) return;
+
+  // Two chances, not one. The flag used to be written the moment the window
+  // opened, so a prompt that landed on top of the result screen and got waved
+  // away took the only attempt with it.
+  const shows = Number(localStorage.getItem('wr_push_shows') || 0) + 1;
+  if (shows > 2) return;
+  localStorage.setItem('wr_push_shows', String(shows));
+
   // Permission already given on another visit: nothing to ask, just finish up.
   if (Notification.permission === 'granted') { subscribePush().then(renderPushRow); return; }
-  $('overlay-push').hidden = false;
+
+  // Let them have the win first — the trophy, the points, the confetti. The
+  // question used to open in the same instant as the result and covered it.
+  setTimeout(() => {
+    if (localStorage.getItem('wr_push') || $('overlay-gameover').hidden) return;
+    $('push-ask-days').textContent = '🔥 ' + daysPhrase(myStreak);
+    $('overlay-push').hidden = false;
+  }, 2300);
 }
 
-$('btn-push-no').addEventListener('click', () => { $('overlay-push').hidden = true; });
+/* iPhone in a browser tab cannot receive push at all — the site has to be on
+   the home screen first. Those people were silently skipped and never told
+   why, so they had no way to ask for reminders even if they wanted them. */
+function maybeHintInstallForPush() {
+  if (!isIOS() || runsInstalled()) return;
+  if (localStorage.getItem('wr_push_ios_hint')) return;
+  const played = Number(localStorage.getItem('wr_games') || 0) + 1;
+  localStorage.setItem('wr_games', String(played));
+  if (played < PUSH_AFTER_GAMES || myStreak < 1) return;
+  localStorage.setItem('wr_push_ios_hint', '1');
+  setTimeout(() => toast(t('push_ios_hint')), 2300);
+}
+
+$('btn-push-no').addEventListener('click', () => {
+  localStorage.setItem('wr_push_answered', '1');
+  $('overlay-push').hidden = true;
+});
 $('btn-push-yes').addEventListener('click', async () => {
+  localStorage.setItem('wr_push_answered', '1');
   $('overlay-push').hidden = true;
   // Asked inside the tap, which is what makes the browser show its prompt.
   let ok = false;

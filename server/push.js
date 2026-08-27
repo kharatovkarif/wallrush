@@ -106,6 +106,24 @@ const TEXTS = {
     streak: (d) => ({ title: `🔥 Your ${d}-day streak is about to end`, body: 'One match today keeps it alive.' }),
     online: (n) => ({ title: `⚡ ${n} players online right now`, body: 'A match starts in seconds.' }),
   },
+  // Iran is the largest audience in the game; a Farsi speaker was being written
+  // to in English, and so were the Spanish, French and Turkish players.
+  fa: {
+    streak: (d) => ({ title: `🔥 زنجیره ${d} روزه‌ات در خطر است`, body: 'یک بازی امروز و زنجیره ادامه پیدا می‌کند.' }),
+    online: (n) => ({ title: `⚡ الان ${n} نفر آنلاین‌اند`, body: 'حریف در چند ثانیه پیدا می‌شود.' }),
+  },
+  es: {
+    streak: (d) => ({ title: `🔥 Tu racha de ${d} días está por terminar`, body: 'Una partida hoy y sigue viva.' }),
+    online: (n) => ({ title: `⚡ ${n} jugadores en línea ahora`, body: 'Encuentras rival en segundos.' }),
+  },
+  fr: {
+    streak: (d) => ({ title: `🔥 Ta série de ${d} jours va s\u2019éteindre`, body: 'Une partie aujourd\u2019hui et elle continue.' }),
+    online: (n) => ({ title: `⚡ ${n} joueurs en ligne maintenant`, body: 'Un adversaire en quelques secondes.' }),
+  },
+  tr: {
+    streak: (d) => ({ title: `🔥 ${d} günlük serin bitmek üzere`, body: 'Bugün bir maç, seri devam etsin.' }),
+    online: (n) => ({ title: `⚡ Şu an ${n} oyuncu çevrimiçi`, body: 'Rakip birkaç saniyede bulunur.' }),
+  },
 };
 
 function plural(n, one, few, many) {

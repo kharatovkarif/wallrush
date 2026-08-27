@@ -164,6 +164,8 @@ export default {
   push_ask_body: 'Un mensaje corto por la tarde si la llama está a punto de apagarse. Como mucho una vez al día, y solo si aún no has jugado.',
   push_ask_yes: '🔔 Recordármelo',
   push_ask_no: 'No, gracias',
+  push_ask_streak: '— esa es tu racha. Se apaga si hoy no juegas.',
+  push_ios_hint: '🔔 ¿Quieres recordatorios de racha? Añade el juego a tu pantalla de inicio: Compartir ⬆️ → Añadir a inicio.',
   push_on: 'Notificaciones activadas 🔔',
   push_off: 'Notificaciones desactivadas',
   push_blocked: 'El navegador no lo permitió — actívalas en los ajustes del sitio',
