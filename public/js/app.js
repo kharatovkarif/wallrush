@@ -363,7 +363,7 @@ function show(screenId) {
   document.querySelectorAll('.nav-btn').forEach(b =>
     b.classList.toggle('active', b.dataset.screen === screenId));
   if (screenId === 'screen-leaderboard') loadLeaderboard();
-  if (screenId === 'screen-profile') { updateProfileUI(); renderPushRow(); } // points move every match
+  if (screenId === 'screen-profile') { updateProfileUI(); renderPushRow(); renderFriends(); loadFriends(); } // points move every match
   if (screenId === 'screen-rooms') wsSend({ t: 'lobby_sub' });
   else wsSend({ t: 'lobby_unsub' });
 }
@@ -398,6 +398,76 @@ window.addEventListener('online', () => {
   if (currentScreen === 'screen-leaderboard') loadLeaderboard();
 });
 window.addEventListener('offline', renderOnlineState);
+
+
+/* ================= friends =================
+   Only between accounts: a guest is a different person after clearing the
+   browser, so there is nobody on the other side of the friendship tomorrow.
+   Calling one opens a private room with the settings you played last —
+   they came to play, not to fill in a form. */
+let friends = [];
+let addedThisMatch = new Set();
+
+function renderAddFriend() {
+  const btn = $('btn-add-friend');
+  const id = game?.oppId;
+  const canAdd = Boolean(session && id && !friends.some(f => f.id === id));
+  btn.hidden = !canAdd;
+  if (!canAdd) return;
+  btn.disabled = addedThisMatch.has(id);
+  btn.textContent = addedThisMatch.has(id)
+    ? '✓ ' + t('friend_added')
+    : '＋ ' + t('friend_add') + ' ' + (game?.oppNick || '');
+}
+
+$('btn-add-friend').addEventListener('click', () => {
+  const id = game?.oppId;
+  if (!id) return;
+  addedThisMatch.add(id);
+  renderAddFriend();
+  wsSend({ t: 'friend_add', id });
+});
+
+function renderFriends() {
+  const block = $('friends-block');
+  if (!session) { block.hidden = true; return; }
+  block.hidden = false;
+  $('friends-count').textContent = friends.length ? String(friends.length) : '';
+  $('friends-empty').hidden = friends.length > 0;
+  $('friends-list').innerHTML = friends.map(f => {
+    const state = f.busy ? 'busy' : f.online ? 'on' : '';
+    const where = f.busy ? t('friend_busy') : f.online ? t('friend_online') : t('friend_offline');
+    const flame = f.streak > 0 ? ' · 🔥 ' + f.streak : '';
+    return `<div class="fr-row">
+      <span class="fr-dot ${state}"></span>
+      <span class="fr-info"><b>${esc(f.nick)}</b><small>${where} · ${f.points} ${t('save_ask_points')}${flame}</small></span>
+      <button class="fr-call" data-call="${esc(f.id)}"${f.online && !f.busy ? '' : ' disabled'}>${t('friend_call')}</button>
+      <button class="fr-del" data-del="${esc(f.id)}" aria-label="remove">✕</button>
+    </div>`;
+  }).join('');
+}
+
+$('friends-list').addEventListener('click', (e) => {
+  const call = e.target.closest('[data-call]');
+  if (call) {
+    wsSend({ t: 'friend_call', id: call.dataset.call,
+             mode: createCfg.mode, walls: Number(createCfg.walls), time: createCfg.time });
+    toast(t('friend_calling'));
+    return;
+  }
+  const del = e.target.closest('[data-del]');
+  if (del && confirm(t('friend_remove_ask'))) wsSend({ t: 'friend_remove', id: del.dataset.del });
+});
+
+function loadFriends() { if (session) wsSend({ t: 'friends' }); }
+
+let callCode = '';
+$('btn-call-no').addEventListener('click', () => { $('overlay-call').hidden = true; callCode = ''; });
+$('btn-call-yes').addEventListener('click', () => {
+  $('overlay-call').hidden = true;
+  if (callCode) wsSend({ t: 'join_code', code: callCode });
+  callCode = '';
+});
 
 /* ================= WebSocket ================= */
 let reconnectDelay = 500;
@@ -499,6 +569,34 @@ function handleWsMessage(msg) {
       portalRoom(msg.code, true);
       show('screen-waiting');
       break;
+    case 'friends':
+      friends = msg.list || [];
+      renderFriends();
+      renderAddFriend();
+      break;
+    case 'friend_added':
+      toast(t('friend_added_ok'));
+      loadFriends();
+      break;
+    case 'friend_added_you':
+      toast(`${msg.nick} ${t('friend_added_you')}`);
+      loadFriends();
+      break;
+    case 'friend_removed':
+      friends = friends.filter(f => f.id !== msg.id);
+      renderFriends();
+      break;
+    case 'friend_call': {
+      // Someone is holding a room open for us; the code is the way in.
+      callCode = msg.code || '';
+      $('call-from').textContent = `${msg.from} ${t('call_title')}`;
+      const modeName = msg.mode === 'race' ? t('race_title') : t('duel_title');
+      const timeName = msg.time === '0' ? '∞' : msg.time + ' ' + t('min_short');
+      $('call-settings').textContent = `${modeName} · ${msg.walls} 🧱 · ${timeName}`;
+      $('overlay-call').hidden = false;
+      vibrate([30, 60, 30]);
+      break;
+    }
     case 'game_start':
       portalHideInvite();       // the room is full; there is nobody left to invite
       portalRoom(inviteCode, false);   // same room, no longer open
@@ -1284,6 +1382,7 @@ function startOnlineGame(msg) {
     state: msg.state,
     myIndex: msg.you,
     oppNick: msg.opp?.nick || '???',
+    oppId: msg.opp?.id || null,
     oppPoints: msg.opp?.points || 0,
     ranked: msg.ranked !== false,
     clocks: { ...msg.clocks, recvAt: Date.now() },
@@ -1354,6 +1453,7 @@ function onGameOver(iWon, reason) {
     spawnConfetti(iWon);
     $('btn-rematch').style.display = '';
     $('rematch-status').hidden = true;
+    renderAddFriend();
     $('overlay-gameover').hidden = false;
     askAfterWin(iWon);
     maybePortalAd();
@@ -2292,6 +2392,7 @@ async function afterLogin() {
   showNickNotice();
   // re-identify on the game server with the account nick
   wsSend({ t: 'hello', nick: myNick(), token: wsToken, device: deviceId, tz: new Date().getTimezoneOffset(), jwt: session.access_token });
+  loadFriends();
 }
 
 // A nickname that broke the rules was replaced by hand. The player is told

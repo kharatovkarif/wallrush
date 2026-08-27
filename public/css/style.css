@@ -1076,3 +1076,17 @@ html[data-theme="dark"] .rp-btn { background: #2a3049; }
 html[data-theme="dark"] .rp-btn.rp-play { background: var(--blue); }
 .rp-btn.rp-play { width: 46px; height: 46px; font-size: 17px; }
 html[data-theme="dark"] .rooms-empty, html[data-theme="dark"] .lb-empty { color: var(--muted); }
+
+/* ---------- friends ---------- */
+.friends-count { color: var(--muted, #8892b0); font-size: 13px; }
+.fr-row { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-top: 1px solid rgba(0,0,0,.06); }
+.fr-dot { width: 9px; height: 9px; border-radius: 50%; background: #c9ced9; flex: none; }
+.fr-dot.on { background: #21c07a; }
+.fr-dot.busy { background: #f0a020; }
+.fr-info { flex: 1; min-width: 0; }
+.fr-info b { display: block; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fr-info small { font-size: 11.5px; color: #8892b0; }
+.fr-call { flex: none; border: 0; border-radius: 10px; padding: 8px 12px; font: inherit; font-size: 13px;
+           font-weight: 600; background: #2f6df6; color: #fff; cursor: pointer; }
+.fr-call[disabled] { background: #d7dbe4; color: #8892b0; }
+.fr-del { flex: none; border: 0; background: none; color: #b9bfcc; font-size: 17px; cursor: pointer; padding: 4px 6px; }

@@ -186,3 +186,48 @@ language sql security definer set search_path = public stable as $$
   limit 400
 $$;
 revoke all on function public.admin_person_days(text) from anon, authenticated;
+
+-- ---------------------------------------------------------------------------
+-- Friends. Mutual on add and with no confirmation step: this is a board game
+-- between nicknames, and a request nobody answers is a friend nobody plays.
+-- Only between accounts — a guest is a different person after clearing the
+-- browser, so there is nobody on the other side of the friendship tomorrow.
+create table if not exists public.friends (
+  user_id   uuid not null references public.profiles(id) on delete cascade,
+  friend_id uuid not null references public.profiles(id) on delete cascade,
+  added_at  timestamptz not null default now(),
+  primary key (user_id, friend_id),
+  check (user_id <> friend_id)
+);
+create index if not exists friends_user_idx on public.friends (user_id);
+alter table public.friends enable row level security;
+
+create or replace function public.friend_add(a uuid, b uuid)
+returns void language sql security definer set search_path = public as $$
+  insert into public.friends (user_id, friend_id) values (a, b), (b, a)
+  on conflict do nothing
+$$;
+
+create or replace function public.friend_remove(a uuid, b uuid)
+returns void language sql security definer set search_path = public as $$
+  delete from public.friends
+  where (user_id = a and friend_id = b) or (user_id = b and friend_id = a)
+$$;
+
+-- Online status is not here: the game server is the only thing that knows who
+-- is connected, so it adds that to each row before sending the list out.
+create or replace function public.friend_list(a uuid)
+returns table (id uuid, nick text, points integer, streak integer,
+               wins integer, losses integer, added_at timestamptz)
+language sql security definer set search_path = public stable as $$
+  select p.id, p.nick, p.points, p.streak, p.wins, p.losses, f.added_at
+  from public.friends f
+  join public.profiles p on p.id = f.friend_id
+  where f.user_id = a
+  order by p.points desc nulls last
+  limit 200
+$$;
+
+revoke all on function public.friend_add(uuid, uuid) from anon, authenticated;
+revoke all on function public.friend_remove(uuid, uuid) from anon, authenticated;
+revoke all on function public.friend_list(uuid) from anon, authenticated;

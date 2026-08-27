@@ -72,7 +72,7 @@
   <link rel="apple-touch-icon" href="icons/icon-192.png">
   <!-- Opens the connection to the ad host early. Costs one handshake and no
        download, and takes that handshake off the wait once Support is tapped. -->
-  <link rel="stylesheet" href="css/style.css?v=127">
+  <link rel="stylesheet" href="css/style.css?v=128">
   <!-- Are we inside somebody else's page? Every game portal forbids running
        your own ads inside theirs, and the ad scripts below start the moment
        the parser reaches them — long before any module could stop one. So the
@@ -502,6 +502,7 @@
                support ad it replaced earned cents. So the invite gets the spot
                and support lives on the home screen. -->
           <button class="btn-big" id="btn-rematch" data-i18n="rematch"></button>
+          <button class="btn-big btn-ghost" id="btn-add-friend" hidden></button>
           <button class="btn-big btn-ghost" id="btn-invite-friend" data-i18n="invite_short"></button>
           <button class="btn-big btn-ghost" id="btn-replay" data-i18n="replay"></button>
           <button class="btn-big btn-outline" id="btn-to-menu" data-i18n="back_menu"></button>
@@ -597,6 +598,19 @@
     <!-- Offered after a win to a guest who has something real to lose. Their
          points and streak live in this browser only: clear the data or change
          phone and they are gone, and until now nothing ever said so. -->
+    <div class="overlay" id="overlay-call" hidden>
+      <div class="modal">
+        <div class="modal-emoji">🎮</div>
+        <h2><span id="call-from"></span></h2>
+        <p class="hint" data-i18n="call_body"></p>
+        <p class="hint"><b id="call-settings"></b></p>
+        <div class="modal-buttons">
+          <button class="btn-big" id="btn-call-yes" data-i18n="call_yes"></button>
+          <button class="btn-big btn-outline" id="btn-call-no" data-i18n="call_no"></button>
+        </div>
+      </div>
+    </div>
+
     <div class="overlay" id="overlay-save" hidden>
       <div class="modal">
         <div class="modal-emoji">💾</div>
@@ -780,6 +794,17 @@
         </div>
       </div>
 
+      <!-- Friends. Only for accounts: a guest has no lasting name, so there is
+           nobody on the other side of the friendship tomorrow. -->
+      <div class="settings-box" id="friends-block" hidden>
+        <div class="setting-row">
+          <span data-i18n="friends_title"></span>
+          <span class="friends-count" id="friends-count"></span>
+        </div>
+        <div id="friends-list"></div>
+        <p class="hint" id="friends-empty" data-i18n="friends_empty" hidden></p>
+      </div>
+
       <!-- HilltopAds 300x250 banner, its own ad code so this slot is measured
            separately from the one on the leaderboard. Below the settings: the
            profile is read from the top down, and nothing here is in the way. -->
@@ -818,7 +843,7 @@
     <div id="toast" hidden></div>
   </div>
 
-  <script src="vendor/supabase.js?v=127" defer></script>
-  <script type="module" src="js/app.js?v=127"></script>
+  <script src="vendor/supabase.js?v=128" defer></script>
+  <script type="module" src="js/app.js?v=128"></script>
 </body>
 </html>

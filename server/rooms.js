@@ -7,6 +7,7 @@ import { checkNick, randomNick } from '../public/js/nick.js';
 import {
   verifyUser, getProfile, recordResult, recordBotResult, recordHumanMatch,
   getPoints, addPoints, addBotPoints, touchStreak,
+  friendAdd, friendRemove, friendList,
 } from './db.js';
 import { initBots, fakeOnline, notifyUserWaiting } from './bots.js';
 import crypto from 'crypto';
@@ -115,7 +116,9 @@ function startGame(room) {
       you: i,
       state: room.state,
       clocks: clockPayload(room),
-      opp: { nick: room.players[1 - i].nick, points: room.players[1 - i].points || 0 },
+      opp: { nick: room.players[1 - i].nick, points: room.players[1 - i].points || 0,
+             // so the winner can offer to add them as a friend
+             id: room.players[1 - i].userId || null },
       me: { points: pl.points || 0, veteran: Boolean(pl.veteran) },
       ranked: isRanked(room),
     });
@@ -379,7 +382,8 @@ async function handleHello(client, msg) {
               you: idx,
               state: room.state,
               clocks: clockPayload(room),
-              opp: { nick: room.players[1 - idx].nick, points: room.players[1 - idx].points || 0 },
+              opp: { nick: room.players[1 - idx].nick, points: room.players[1 - idx].points || 0,
+                    id: room.players[1 - idx].userId || null },
               me: { points: client.points || 0, veteran: Boolean(client.veteran) },
               ranked: isRanked(room),
               resumed: true,
@@ -553,6 +557,70 @@ export function attachWs(wss) {
           }
           case 'leave_room': leaveRoom(client); break;
           case 'move': handleMove(client, msg); break;
+
+          /* ---------- friends ----------
+             Only between accounts: a guest has no lasting name, so there is
+             nobody on the other side of the friendship tomorrow. */
+          case 'friend_add': {
+            const id = String(msg.id || '');
+            if (!client.userId || !id || id === client.userId) break;
+            if (await friendAdd(client.userId, id)) {
+              send(client, { t: 'friend_added', id });
+              // tell them, if they are here to hear it
+              for (const c of clients.values()) {
+                if (c.userId === id) send(c, { t: 'friend_added_you', nick: client.nick });
+              }
+            }
+            break;
+          }
+          case 'friend_remove': {
+            const id = String(msg.id || '');
+            if (!client.userId || !id) break;
+            await friendRemove(client.userId, id);
+            send(client, { t: 'friend_removed', id });
+            break;
+          }
+          case 'friends': {
+            if (!client.userId) { send(client, { t: 'friends', list: [] }); break; }
+            const list = await friendList(client.userId);
+            const busy = new Set();
+            const here = new Set();
+            for (const c of clients.values()) {
+              if (!c.userId) continue;
+              here.add(c.userId);
+              if (c.roomId) busy.add(c.userId);
+            }
+            send(client, {
+              t: 'friends',
+              list: list.map(f => ({
+                id: f.id, nick: f.nick, points: f.points || 0, streak: f.streak || 0,
+                wins: f.wins || 0, losses: f.losses || 0,
+                online: here.has(f.id), busy: busy.has(f.id),
+              })),
+            });
+            break;
+          }
+          /* Calling a friend opens a private room with the settings you played
+             last — they came to play, not to fill in a form — and hands them
+             the code directly instead of making you send it. */
+          case 'friend_call': {
+            const id = String(msg.id || '');
+            if (!client.userId || !id) break;
+            const target = [...clients.values()].find(c => c.userId === id && !c.roomId);
+            if (!target) { send(client, { t: 'error', code: 'friend_away' }); break; }
+            createRoom(client, true, { mode: msg.mode, walls: msg.walls, time: msg.time });
+            const room = rooms.get(client.roomId);
+            if (!room) break;
+            send(target, {
+              t: 'friend_call',
+              from: client.nick,
+              code: room.code,
+              mode: room.mode,
+              walls: room.walls,
+              time: room.time,
+            });
+            break;
+          }
           // A client that thinks it has fallen behind asks for the position.
           // A single dropped state message used to leave the board frozen on
           // the opponent's turn: no legal moves on screen, while the server
@@ -572,7 +640,8 @@ export function attachWs(wss) {
               you: idx,
               state: room.state,
               clocks: clockPayload(room),
-              opp: { nick: room.players[1 - idx].nick, points: room.players[1 - idx].points || 0 },
+              opp: { nick: room.players[1 - idx].nick, points: room.players[1 - idx].points || 0,
+                    id: room.players[1 - idx].userId || null },
               me: { points: client.points || 0, veteran: Boolean(client.veteran) },
               ranked: isRanked(room),
               resumed: true,

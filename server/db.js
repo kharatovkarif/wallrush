@@ -393,3 +393,28 @@ export async function growBots(botWinChance, activeChance = 0.07) {
     console.error('growBots failed:', e.message);
   }
 }
+
+/* ---------- friends ----------
+   Mutual on add, no confirmation step: a request nobody answers is a friend
+   nobody plays. The game server adds who is online — it is the only thing
+   that knows. */
+export async function friendAdd(a, b) {
+  if (!client || !a || !b || a === b) return false;
+  const { error } = await client.rpc('friend_add', { a, b });
+  if (error) { console.error('friendAdd failed:', error.message); return false; }
+  return true;
+}
+
+export async function friendRemove(a, b) {
+  if (!client || !a || !b) return false;
+  const { error } = await client.rpc('friend_remove', { a, b });
+  if (error) { console.error('friendRemove failed:', error.message); return false; }
+  return true;
+}
+
+export async function friendList(a) {
+  if (!client || !a) return [];
+  const { data, error } = await client.rpc('friend_list', { a });
+  if (error) { console.error('friendList failed:', error.message); return []; }
+  return data || [];
+}
