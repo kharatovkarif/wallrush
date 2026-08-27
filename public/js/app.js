@@ -1355,7 +1355,7 @@ function onGameOver(iWon, reason) {
     $('btn-rematch').style.display = '';
     $('rematch-status').hidden = true;
     $('overlay-gameover').hidden = false;
-    maybeAskPush(iWon);
+    askAfterWin(iWon);
     maybePortalAd();
   }, 600);
   vibrate(iWon ? [40, 60, 40, 60, 80] : 60);
@@ -2425,6 +2425,56 @@ async function subscribePush() {
     return false;
   }
 }
+
+/* Two things are worth asking a player for, and both belong at the same
+   moment — just after a win. Asking for both at once is how you get neither,
+   so only one goes out per match: the account first when there is progress
+   that would actually be lost, reminders otherwise. */
+let askedThisMatch = false;
+function askAfterWin(iWon) {
+  if (askedThisMatch) return;
+  if (maybeAskSaveProgress(iWon)) { askedThisMatch = true; return; }
+  maybeAskPush(iWon);
+}
+
+/* A guest's points and streak live in this browser and nowhere else. Clearing
+   the browser or changing phone loses the lot, and we never once said so —
+   registration existed only as a button in the profile that nobody opens.
+   Hence 5.7% of players with an account.
+
+   Returns true when it decided to ask, so the caller knows to hold the other
+   question back. */
+function maybeAskSaveProgress(iWon) {
+  if (!iWon || session) return false;                    // only guests, only on a win
+  if (!config?.auth || !supabase) return false;          // accounts are off
+  if (localStorage.getItem('wr_save_answered')) return false;
+  // Something has to be genuinely at stake, or the warning is just noise.
+  if (myPoints < 100 && myStreak < 2) return false;
+  const shows = Number(localStorage.getItem('wr_save_shows') || 0) + 1;
+  if (shows > 2) return false;
+  localStorage.setItem('wr_save_shows', String(shows));
+
+  const parts = [];
+  if (myPoints > 0) parts.push(myPoints + ' ' + t('save_ask_points'));
+  if (myStreak > 0) parts.push('🔥 ' + daysPhrase(myStreak));
+  setTimeout(() => {
+    if (session || $('overlay-gameover').hidden) return;
+    $('save-ask-what').textContent = parts.join(' · ');
+    $('overlay-save').hidden = false;
+  }, 2300);
+  return true;
+}
+
+$('btn-save-no').addEventListener('click', () => {
+  localStorage.setItem('wr_save_answered', '1');
+  $('overlay-save').hidden = true;
+});
+$('btn-save-yes').addEventListener('click', () => {
+  localStorage.setItem('wr_save_answered', '1');
+  $('overlay-save').hidden = true;
+  $('overlay-gameover').hidden = true;
+  if (ensureAuthAvailable()) { show('screen-profile'); openAuthForm('register'); }
+});
 
 /* Called after every finished match. Shows a question of our own, once, ever.
 
