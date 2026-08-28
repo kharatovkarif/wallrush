@@ -72,7 +72,7 @@
   <link rel="apple-touch-icon" href="icons/icon-192.png">
   <!-- Opens the connection to the ad host early. Costs one handshake and no
        download, and takes that handshake off the wait once Support is tapped. -->
-  <link rel="stylesheet" href="css/style.css?v=129">
+  <link rel="stylesheet" href="css/style.css?v=130">
   <!-- Are we inside somebody else's page? Every game portal forbids running
        your own ads inside theirs, and the ad scripts below start the moment
        the parser reaches them — long before any module could stop one. So the
@@ -193,7 +193,23 @@
 
       <!-- HilltopAds 300x100 banner: lives inside the home screen, so it shows
            in the menu only and is never present on the game screen. -->
-      <div class="ad-slot" data-ad="//massivesalad.com/b/XoVds/d.G/la0_Y/WQcM/Oe/mq9SufZ/UWl/k/P/THcly/NBTCUL2NMIT-MAtLNmzVIO1tNmT/YyxKNCwO" aria-hidden="true"></div>
+      <div class="ad-slot" aria-hidden="true">
+        <script>
+        if (!window.WR_EMBED) (function(osjgznp){
+        var d = document,
+            s = d.createElement('script'),
+            l = d.scripts[d.scripts.length - 1];
+        s.settings = osjgznp || {};
+        s.src = "\/\/massivesalad.com\/b\/XoVds\/d.G\/la0_Y\/WQcM\/Oe\/mq9SufZ\/UWl\/k\/P\/THcly\/NBTCUL2NMIT-MAtLNmzVIO1tNmT\/YyxKNCwO";
+        s.async = true;
+        s.referrerPolicy = 'no-referrer-when-downgrade';
+        // their server goes down sometimes; when it does, drop the slot rather
+        // than leave a hole where an ad should be
+        s.onerror = function () { var b = l.parentNode; if (b) b.style.display = 'none'; };
+        l.parentNode.insertBefore(s, l);
+        })({})
+        </script>
+      </div>
     </section>
 
     <!-- ============ ROOMS (public lobby) ============ -->
@@ -665,7 +681,23 @@
       <!-- HilltopAds 300x250 banner, in the menu only and never in-game. Back
            under the table: above it, the ad was the first thing anyone opening
            the leaderboard saw, in place of the leaderboard. -->
-      <div class="ad-slot ad-slot-lg" data-ad="//massivesalad.com/bwX.VrsEdqGmlv0/YpW/cC/WeSm_9zuuZSU/lokvPBTVcUyGNeTNUA2jMfz/c/trNIzTIm1ENVTtY-0/MTQb" aria-hidden="true"></div>
+      <div class="ad-slot ad-slot-lg" aria-hidden="true">
+        <script>
+        if (!window.WR_EMBED) (function(immt){
+        var d = document,
+            s = d.createElement('script'),
+            l = d.scripts[d.scripts.length - 1];
+        s.settings = immt || {};
+        s.src = "\/\/massivesalad.com\/bwX.VrsEdqGmlv0\/YpW\/cC\/WeSm_9zuuZSU\/lokvPBTVcUyGNeTNUA2jMfz\/c\/trNIzTIm1ENVTtY-0\/MTQb";
+        s.async = true;
+        s.referrerPolicy = 'no-referrer-when-downgrade';
+        // their server goes down sometimes; when it does, drop the slot rather
+        // than leave a hole where an ad should be
+        s.onerror = function () { var b = l.parentNode; if (b) b.style.display = 'none'; };
+        l.parentNode.insertBefore(s, l);
+        })({})
+        </script>
+      </div>
     </section>
 
     <!-- ============ PROFILE ============ -->
@@ -776,7 +808,23 @@
       <!-- HilltopAds 300x250 banner, its own ad code so this slot is measured
            separately from the one on the leaderboard. Below the settings: the
            profile is read from the top down, and nothing here is in the way. -->
-      <div class="ad-slot ad-slot-lg" data-ad="//massivesalad.com/bVXGV.sZdXGplL0oYoWmcJ/Ie/mg9/uAZdUZl/k/PyTJcMyfN/zBQv5KNmzDM/t-NfzZIt3pNjDMk/3vNYwP" aria-hidden="true"></div>
+      <div class="ad-slot ad-slot-lg" aria-hidden="true">
+        <script>
+        if (!window.WR_EMBED) (function(usypz){
+        var d = document,
+            s = d.createElement('script'),
+            l = d.scripts[d.scripts.length - 1];
+        s.settings = usypz || {};
+        s.src = "\/\/massivesalad.com\/bVXGV.sZdXGplL0oYoWmcJ\/Ie\/mg9\/uAZdUZl\/k\/PyTJcMyfN\/zBQv5KNmzDM\/t-NfzZIt3pNjDMk\/3vNYwP";
+        s.async = true;
+        s.referrerPolicy = 'no-referrer-when-downgrade';
+        // their server goes down sometimes; when it does, drop the slot rather
+        // than leave a hole where an ad should be
+        s.onerror = function () { var b = l.parentNode; if (b) b.style.display = 'none'; };
+        l.parentNode.insertBefore(s, l);
+        })({})
+        </script>
+      </div>
     </section>
 
     <!-- ============ BOTTOM NAV ============ -->
@@ -795,7 +843,7 @@
     <div id="toast" hidden></div>
   </div>
 
-  <script src="vendor/supabase.js?v=129" defer></script>
-  <script type="module" src="js/app.js?v=129"></script>
+  <script src="vendor/supabase.js?v=130" defer></script>
+  <script type="module" src="js/app.js?v=130"></script>
 </body>
 </html>

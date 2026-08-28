@@ -400,39 +400,6 @@ window.addEventListener('online', () => {
 window.addEventListener('offline', renderOnlineState);
 
 
-
-/* ================= ads, kept inside a box they cannot leave =================
-   The network was serving popunders: a tap anywhere on the page hijacked the
-   click and threw the player onto a video somewhere else. The script sits on
-   the whole page and runs for the whole session, so it could fire mid-match —
-   we were paying about $45 a month to have people carried off the site we
-   spend our days trying to keep them on. Google also treats that as an abusive
-   experience and can strip a site of ads and of new-window rights entirely,
-   which would cost the best traffic channel we have.
-
-   So each banner now lives in a sandboxed frame. "allow-scripts" and nothing
-   else: no allow-top-navigation, so it cannot move the page; no allow-popups,
-   so it cannot open a window; no allow-same-origin, so it cannot reach out and
-   undo any of that. The banner still shows and still earns. */
-function mountAds() {
-  if (window.WR_EMBED) return;                 // inside a portal we show no ads of our own
-  for (const slot of document.querySelectorAll('.ad-slot[data-ad]')) {
-    if (slot.dataset.mounted) continue;
-    slot.dataset.mounted = '1';
-    const src = slot.dataset.ad;
-    const f = document.createElement('iframe');
-    f.setAttribute('sandbox', 'allow-scripts');
-    f.setAttribute('scrolling', 'no');
-    f.setAttribute('title', 'ad');
-    f.setAttribute('loading', 'lazy');
-    f.style.cssText = 'border:0;width:100%;height:100%;display:block';
-    f.srcdoc = '<!doctype html><meta charset="utf-8">'
-      + '<style>html,body{margin:0;padding:0;overflow:hidden;background:transparent}</style>'
-      + '<scr' + 'ipt src="' + src + '" async referrerpolicy="no-referrer-when-downgrade"></scr' + 'ipt>';
-    slot.appendChild(f);
-  }
-}
-
 /* ================= friends =================
    Only between accounts: a guest is a different person after clearing the
    browser, so there is nobody on the other side of the friendship tomorrow.
@@ -2851,7 +2818,6 @@ async function boot() {
   buildLangList();
   await loadLang(lang);            // detected pack, if it is not ru/en
   applyI18n();
-  mountAds();
   logVisit(false);
   updateProfileUI();
   renderOnlineState();
