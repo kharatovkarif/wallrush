@@ -349,6 +349,7 @@ html[data-theme="dark"] .legal-links span { color: #333c5c; }
 .soc svg { width: 29px; height: 29px; position: relative; }
 .soc-ig { background: radial-gradient(circle at 28% 100%, #ffd776 0%, #f9ce34 12%, #ee2a7b 52%, #a134c9 76%, #6228d7 100%); }
 .soc-tt { background: #0d0d12; }
+.soc-tg { background: linear-gradient(180deg, #3fb2ea, #1d8fd0); }
 .soc-yt { background: linear-gradient(180deg, #ff2a2a, #d90000); }
 /* On a dark background a near-black tile disappears and TikTok became a
    floating glyph. A hairline edge gives it back its shape. */
