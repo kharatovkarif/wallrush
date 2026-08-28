@@ -1,7 +1,7 @@
 // WallRush client app: screens, board UI, online play (WebSocket), AI mode, auth.
 import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=119';
 import { aiMove } from './ai.js?v=119';
-import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=132';
+import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=133';
 import { rankOf, nextRank } from './ranks.js?v=119';
 import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=119';
 import { checkNick, nickOk, randomNick } from './nick.js?v=119';
@@ -363,6 +363,7 @@ function show(screenId) {
   document.querySelectorAll('.nav-btn').forEach(b =>
     b.classList.toggle('active', b.dataset.screen === screenId));
   if (screenId === 'screen-leaderboard') loadLeaderboard();
+  if (screenId === 'screen-reviews') loadReviews();
   if (screenId === 'screen-profile') { updateProfileUI(); renderPushRow(); renderFriends(); loadFriends(); } // points move every match
   if (screenId === 'screen-rooms') wsSend({ t: 'lobby_sub' });
   else wsSend({ t: 'lobby_unsub' });
@@ -2463,6 +2464,137 @@ $('sound-toggle').addEventListener('change', (e) => {
   if (soundOn) tick(true); // preview
 });
 
+/* ================= rating and reviews =================
+   One tap is a complete answer. The words underneath are optional and most
+   people will never write any, which is fine — a star still counts.
+
+   Where the answer goes depends on what it says. One to three stars are a
+   complaint and go to us privately: a rating like that is a bug report, and
+   putting it on a public page helps nobody and fixes nothing. Four and five
+   are offered a place on /reviews, the page a search engine can read.
+
+   Asked late on purpose. Three matches is enough to be asked about
+   notifications, which is a promise about the future; an opinion about the
+   game needs more of the game than that. */
+const RATE_AFTER_GAMES = 5;
+let ratePicked = 0;
+let rateStandalone = false;   // opened from the reviews screen, not after a match
+
+function rateAnswered() { return Boolean(localStorage.getItem('wr_rate_answered')); }
+
+// Returns true when it decided to ask, like the other two.
+function maybeAskRate(iWon) {
+  if (!iWon || rateAnswered()) return false;
+  if (Number(localStorage.getItem('wr_games') || 0) < RATE_AFTER_GAMES) return false;
+  const shows = Number(localStorage.getItem('wr_rate_shows') || 0) + 1;
+  if (shows > 2) return false;                       // two chances, then never again
+  localStorage.setItem('wr_rate_shows', String(shows));
+  setTimeout(() => {
+    if (rateAnswered() || $('overlay-gameover').hidden) return;
+    openRate(false);
+  }, 2600);
+  return true;
+}
+
+function openRate(standalone) {
+  rateStandalone = standalone;
+  ratePicked = 0;
+  $('rate-emoji').textContent = '⭐';
+  $('rate-title').textContent = t('rate_title');
+  $('rate-sub').textContent = t('rate_sub');
+  $('rate-text').hidden = true;
+  $('rate-text').value = '';
+  $('btn-rate-send').hidden = true;
+  $('btn-rate-close').textContent = t('rate_later');
+  paintStars(0);
+  $('overlay-rate').hidden = false;
+}
+
+function paintStars(n) {
+  $('rate-stars').querySelectorAll('button').forEach(b =>
+    b.classList.toggle('on', Number(b.dataset.star) <= n));
+}
+
+$('rate-stars').addEventListener('click', (e) => {
+  const b = e.target.closest('button[data-star]');
+  if (!b) return;
+  ratePicked = Number(b.dataset.star);
+  paintStars(ratePicked);
+  vibrate(15);
+  const good = ratePicked >= 4;
+  // The wording changes with the answer: thanks for a good one, and a straight
+  // question for a bad one. Both can be sent with the box left empty.
+  $('rate-emoji').textContent = good ? '🎉' : '🛠️';
+  $('rate-title').textContent = good ? t('rate_thanks') : t('rate_sorry');
+  $('rate-sub').textContent = good ? t('rate_public_note') : t('rate_private_note');
+  const box = $('rate-text');
+  box.hidden = false;
+  box.placeholder = good ? t('rate_ph_good') : t('rate_ph_bad');
+  $('btn-rate-send').hidden = false;
+  $('btn-rate-send').textContent = t('rate_send');
+  $('btn-rate-close').textContent = t('cancel');
+});
+
+async function sendReview() {
+  if (!ratePicked) return;
+  const stars = ratePicked, text = $('rate-text').value.trim();
+  localStorage.setItem('wr_rate_answered', '1');
+  localStorage.setItem('wr_rate_stars', String(stars));
+  $('overlay-rate').hidden = true;
+  toast(stars >= 4 ? t('rate_sent_public') : t('rate_sent_private'));
+  try {
+    await fetch('/api/review', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(session ? { Authorization: `Bearer ${session.access_token}` } : {}),
+      },
+      body: JSON.stringify({ device: deviceId, stars, text, nick: myNick(), lang }),
+    });
+  } catch { /* the answer is not worth an error message to the player */ }
+  if (rateStandalone || stars >= 4) loadReviews();
+}
+
+$('btn-rate-send').addEventListener('click', sendReview);
+$('btn-rate-close').addEventListener('click', () => {
+  $('overlay-rate').hidden = true;
+  // Waving away a window that was never answered is not an answer: it can come
+  // back once. Picking a star and then backing out is, so it does not.
+  if (ratePicked) localStorage.setItem('wr_rate_answered', '1');
+});
+
+$('btn-open-reviews').addEventListener('click', () => show('screen-reviews'));
+$('rv-back').addEventListener('click', () => show('screen-profile'));
+$('btn-leave-review').addEventListener('click', () => openRate(true));
+
+const starText = (n) => '★★★★★'.slice(0, n) + '☆☆☆☆☆'.slice(0, 5 - n);
+
+async function loadReviews() {
+  try {
+    const r = await (await fetch('/api/reviews')).json();
+    $('rv-score').hidden = !r.count;
+    $('rv-avg').textContent = r.count ? r.avg.toFixed(1) : '—';
+    $('rv-avg-stars').textContent = starText(Math.round(r.avg || 0));
+    $('rv-count').textContent = `${r.count} ${t('reviews_count')}`;
+    $('rv-list').innerHTML = (r.rows || []).map(row => `
+      <div class="rv-item">
+        <div class="rv-top"><b></b><span class="rv-stars">${starText(row.stars)}</span></div>
+        <p></p>
+      </div>`).join('');
+    // text goes in as text, never as markup
+    $('rv-list').querySelectorAll('.rv-item').forEach((el, i) => {
+      el.querySelector('b').textContent = r.rows[i].nick || 'Player';
+      el.querySelector('p').textContent = r.rows[i].text || '';
+    });
+    $('rv-empty').hidden = Boolean(r.rows && r.rows.length);
+    // The button stays put even for someone who has already answered: sending
+    // again replaces their review, which is the only way to change one.
+    $('btn-leave-review').textContent = rateAnswered() ? t('rate_change') : t('rate_leave');
+  } catch {
+    $('rv-empty').hidden = false;
+  }
+}
+
 /* ================= PWA: installable app ================= */
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
@@ -2559,8 +2691,14 @@ async function subscribePush() {
 let askedThisMatch = false;
 function askAfterWin(iWon) {
   if (askedThisMatch) return;
+  // One counter for every finished match, kept here rather than inside one of
+  // the questions: it used to be bumped inside the notifications prompt, which
+  // stopped counting the moment that prompt was answered — so anything asked
+  // later saw a number frozen at three.
+  localStorage.setItem('wr_games', String(Number(localStorage.getItem('wr_games') || 0) + 1));
   if (maybeAskSaveProgress(iWon)) { askedThisMatch = true; return; }
-  maybeAskPush(iWon);
+  if (maybeAskPush(iWon)) { askedThisMatch = true; return; }
+  maybeAskRate(iWon);
 }
 
 /* A guest's points and streak live in this browser and nowhere else. Clearing
@@ -2612,30 +2750,29 @@ $('btn-save-yes').addEventListener('click', () => {
 
    The flag is written the moment the window opens, not when it is answered,
    so reloading the page cannot bring it back. One time and no more. */
-async function maybeAskPush(iWon) {
-  if (!pushSupported() || !config?.vapid) { maybeHintInstallForPush(); return; }
-  if (localStorage.getItem('wr_push')) return;          // already subscribed
-  if (localStorage.getItem('wr_push_answered')) return; // they gave an answer, respect it
-  if (Notification.permission === 'denied') return;     // nothing we can do
-  const played = Number(localStorage.getItem('wr_games') || 0) + 1;
-  localStorage.setItem('wr_games', String(played));
-  if (played < PUSH_AFTER_GAMES) return;
+function maybeAskPush(iWon) {
+  if (!pushSupported() || !config?.vapid) return maybeHintInstallForPush();
+  if (localStorage.getItem('wr_push')) return false;          // already subscribed
+  if (localStorage.getItem('wr_push_answered')) return false; // they answered, respect it
+  if (Notification.permission === 'denied') return false;     // nothing we can do
+  if (Number(localStorage.getItem('wr_games') || 0) < PUSH_AFTER_GAMES) return false;
 
   // Ask on a win, not on a loss. "Shall we remind you about your streak?" put
   // to someone who has just lost reads as the site being pleased about it.
-  if (!iWon) return;
+  if (!iWon) return false;
   // And only when there is a flame to protect, so the promise is about them.
-  if (myStreak < 1) return;
+  if (myStreak < 1) return false;
 
   // Two chances, not one. The flag used to be written the moment the window
   // opened, so a prompt that landed on top of the result screen and got waved
   // away took the only attempt with it.
   const shows = Number(localStorage.getItem('wr_push_shows') || 0) + 1;
-  if (shows > 2) return;
+  if (shows > 2) return false;
   localStorage.setItem('wr_push_shows', String(shows));
 
   // Permission already given on another visit: nothing to ask, just finish up.
-  if (Notification.permission === 'granted') { subscribePush().then(renderPushRow); return; }
+  // Nothing appears on screen, so the slot stays free for another question.
+  if (Notification.permission === 'granted') { subscribePush().then(renderPushRow); return false; }
 
   // Let them have the win first — the trophy, the points, the confetti. The
   // question used to open in the same instant as the result and covered it.
@@ -2644,19 +2781,19 @@ async function maybeAskPush(iWon) {
     $('push-ask-days').textContent = '🔥 ' + daysPhrase(myStreak);
     $('overlay-push').hidden = false;
   }, 2300);
+  return true;
 }
 
 /* iPhone in a browser tab cannot receive push at all — the site has to be on
    the home screen first. Those people were silently skipped and never told
    why, so they had no way to ask for reminders even if they wanted them. */
 function maybeHintInstallForPush() {
-  if (!isIOS() || runsInstalled()) return;
-  if (localStorage.getItem('wr_push_ios_hint')) return;
-  const played = Number(localStorage.getItem('wr_games') || 0) + 1;
-  localStorage.setItem('wr_games', String(played));
-  if (played < PUSH_AFTER_GAMES || myStreak < 1) return;
+  if (!isIOS() || runsInstalled()) return false;
+  if (localStorage.getItem('wr_push_ios_hint')) return false;
+  if (Number(localStorage.getItem('wr_games') || 0) < PUSH_AFTER_GAMES || myStreak < 1) return false;
   localStorage.setItem('wr_push_ios_hint', '1');
   setTimeout(() => toast(t('push_ios_hint')), 2300);
+  return true;
 }
 
 $('btn-push-no').addEventListener('click', () => {

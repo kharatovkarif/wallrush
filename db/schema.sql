@@ -231,3 +231,27 @@ $$;
 revoke all on function public.friend_add(uuid, uuid) from anon, authenticated;
 revoke all on function public.friend_remove(uuid, uuid) from anon, authenticated;
 revoke all on function public.friend_list(uuid) from anon, authenticated;
+
+-- ---------- reviews ----------
+-- A star out of five from a player, and words if they felt like writing any.
+-- Four and five are shown at /reviews, the page search engines read; one to
+-- three stay private and appear only in the admin page, because a low rating
+-- is a bug report addressed to us rather than something to hang on the wall.
+create table if not exists reviews (
+  id          bigserial primary key,
+  device_id   text not null,
+  user_id     uuid,
+  nick        text,
+  stars       smallint not null check (stars between 1 and 5),
+  body        text,
+  lang        text,
+  is_public   boolean not null default false,   -- 4-5 stars
+  hidden      boolean not null default false,   -- moderation, or a foul word caught on the way in
+  created_at  timestamptz not null default now(),
+  updated_at  timestamptz not null default now()
+);
+
+-- one review per person; sending another replaces it
+create unique index if not exists reviews_device_uq on reviews (device_id);
+create index if not exists reviews_public_idx on reviews (created_at desc) where is_public and not hidden;
+create index if not exists reviews_recent_idx on reviews (created_at desc);

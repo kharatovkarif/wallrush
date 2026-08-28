@@ -316,6 +316,170 @@ app.post('/api/resolve-login', async (req, res) => {
   res.json({ email: u.user.email });
 });
 
+/* ---------- reviews ----------
+   A star out of five, and a couple of words if the player feels like it.
+   Four and five go on /reviews, the page search engines see. One to three
+   stay private and land in the admin page instead: a low rating is a bug
+   report addressed to us, not something to hang on the wall.
+
+   Google will only show stars in its results for ratings that come from real
+   people and are visible on the page carrying them, so the average printed
+   there is the average of the reviews printed under it — nothing invented,
+   nothing counted that a visitor cannot read for themselves. */
+
+const REVIEW_MAX = 400;
+
+// Not a filter so much as a doorman: a handful of words that have no business
+// on a page anyone can open. A hit is hidden rather than dropped, so the
+// message still reaches the owner and can be put back by hand.
+const FOUL = /(х[уy]й|пизд|\bеб[аеиуё]|бляд|\bсук[аи]\b|\bfuck|\bshit\b|\bcunt|\bbitch|\bnigg)/i;
+
+const starRow = (n) => '★★★★★'.slice(0, n) + '☆☆☆☆☆'.slice(0, 5 - n);
+
+async function readPublicReviews(limit = 200) {
+  const { data } = await supa.from('reviews')
+    .select('nick, stars, body, created_at')
+    .eq('is_public', true).eq('hidden', false)
+    .order('created_at', { ascending: false }).limit(limit);
+  const rows = data || [];
+  const count = rows.length;
+  const avg = count ? rows.reduce((s, r) => s + r.stars, 0) / count : 0;
+  return { rows, count, avg: Math.round(avg * 10) / 10 };
+}
+
+app.post('/api/review', async (req, res) => {
+  if (!dbEnabled) return res.status(503).json({ error: 'db_off' });
+  const device = String(req.body?.device || '');
+  if (!/^[A-Za-z0-9-]{8,64}$/.test(device)) return res.status(400).json({ error: 'bad_device' });
+  const stars = Number(req.body?.stars);
+  if (!Number.isInteger(stars) || stars < 1 || stars > 5) return res.status(400).json({ error: 'bad_stars' });
+  const body = String(req.body?.text || '').replace(/\s+/g, ' ').trim().slice(0, REVIEW_MAX) || null;
+  const nick = String(req.body?.nick || '').trim().slice(0, 24) || null;
+  const lang = String(req.body?.lang || '').slice(0, 8) || null;
+  try {
+    // Only from someone who has played. A rating from a person who never saw
+    // a board says nothing, and the endpoint is public.
+    const { data: v } = await supa.from('visitors').select('games').eq('device_id', device).maybeSingle();
+    if (!v || (v.games || 0) < 1) return res.status(403).json({ error: 'no_games' });
+    const user = await verifyUser(bearer(req));
+    const { error } = await supa.from('reviews').upsert({
+      device_id: device,
+      user_id: user ? user.id : null,
+      nick, stars, body, lang,
+      is_public: stars >= 4,
+      hidden: Boolean(body && FOUL.test(body)),
+      updated_at: new Date().toISOString(),
+    }, { onConflict: 'device_id' });
+    if (error) throw new Error(error.message);
+    res.json({ ok: true, published: stars >= 4 });
+  } catch (e) {
+    console.error('review failed:', e.message);
+    res.status(500).json({ error: 'failed' });
+  }
+});
+
+// What the game itself shows on its reviews screen.
+app.get('/api/reviews', async (req, res) => {
+  if (!dbEnabled) return res.json({ count: 0, avg: 0, rows: [] });
+  try {
+    const { rows, count, avg } = await readPublicReviews(100);
+    res.json({
+      count, avg,
+      // stars-only reviews are shown too, as a card with no words: they count
+      // towards the average, so hiding them would leave the number unexplained
+      rows: rows.slice(0, 60)
+        .map(r => ({ nick: r.nick || 'Player', stars: r.stars, text: r.body || '', at: r.created_at })),
+    });
+  } catch (e) {
+    console.error('reviews read failed:', e.message);
+    res.json({ count: 0, avg: 0, rows: [] });
+  }
+});
+
+// The page for search engines and for anyone who wants to read before playing.
+app.get('/reviews', async (req, res) => {
+  let rows = [], count = 0, avg = 0;
+  try { ({ rows, count, avg } = await readPublicReviews(200)); } catch { /* show the page anyway */ }
+  const withText = rows.filter(r => r.body);
+  const jsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'SoftwareApplication',
+    name: 'WallRush',
+    url: 'https://wallrush.online/',
+    applicationCategory: 'GameApplication',
+    operatingSystem: 'Any (web browser)',
+    offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
+    ...(count ? {
+      aggregateRating: {
+        '@type': 'AggregateRating',
+        ratingValue: String(avg), ratingCount: String(count),
+        bestRating: '5', worstRating: '1',
+      },
+    } : {}),
+    ...(withText.length ? {
+      review: withText.slice(0, 30).map(r => ({
+        '@type': 'Review',
+        author: { '@type': 'Person', name: r.nick || 'Player' },
+        reviewRating: { '@type': 'Rating', ratingValue: String(r.stars), bestRating: '5', worstRating: '1' },
+        datePublished: new Date(r.created_at).toISOString().slice(0, 10),
+        reviewBody: r.body,
+      })),
+    } : {}),
+  };
+  const cards = rows.map(r => `<article class="rv">
+  <div class="rv-top"><b>${esc(r.nick || 'Player')}</b><span class="rv-stars" aria-label="${r.stars} out of 5">${starRow(r.stars)}</span></div>
+  ${r.body ? `<p>${esc(r.body)}</p>` : ''}
+  <time datetime="${new Date(r.created_at).toISOString()}">${new Date(r.created_at).toISOString().slice(0, 10)}</time>
+</article>`).join('\n');
+
+  res.set('Cache-Control', 'public, max-age=300');
+  res.send(`<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WallRush reviews — what players say</title>
+<meta name="description" content="${count ? `${avg} out of 5 from ${count} WallRush players.` : 'What players say about WallRush.'} Reviews written by the people who play the game.">
+<link rel="canonical" href="https://wallrush.online/reviews">
+<link rel="icon" href="/icons/icon-192.png">
+<script type="application/ld+json">${JSON.stringify(jsonLd)}</script>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #0e1015; color: #eef1f7; font: 16px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+  .wrap { max-width: 720px; margin: 0 auto; padding: 28px 18px 64px; }
+  a { color: #8ab4ff; }
+  h1 { font-size: 26px; margin: 0 0 6px; }
+  .lede { color: #9aa3b2; margin: 0 0 22px; }
+  .score { display: flex; align-items: center; gap: 16px; background: #171a22; border: 1px solid #232838; border-radius: 16px; padding: 18px; margin-bottom: 8px; }
+  .score b { font-size: 40px; line-height: 1; }
+  .score .stars { color: #ffc531; font-size: 20px; letter-spacing: 2px; }
+  .score small { color: #9aa3b2; display: block; margin-top: 4px; }
+  .play { display: inline-block; margin: 18px 0 26px; background: #4c7dff; color: #fff; text-decoration: none; font-weight: 600; padding: 13px 22px; border-radius: 12px; }
+  .rv { background: #171a22; border: 1px solid #232838; border-radius: 14px; padding: 14px 16px; margin-bottom: 10px; }
+  .rv-top { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+  .rv-stars { color: #ffc531; letter-spacing: 2px; white-space: nowrap; }
+  .rv p { margin: 8px 0 6px; overflow-wrap: anywhere; }
+  .rv time { color: #6f7787; font-size: 13px; }
+  footer { margin-top: 30px; color: #6f7787; font-size: 14px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>What players say about WallRush</h1>
+  <p class="lede">WallRush is a free 1v1 strategy game in the browser — the classic Quoridor, online. These reviews are written by people who played it.</p>
+  ${count ? `<div class="score">
+    <b>${avg.toFixed(1)}</b>
+    <div><div class="stars">${starRow(Math.round(avg))}</div><small>${count} review${count === 1 ? '' : 's'} from players</small></div>
+  </div>` : '<p class="lede">No reviews yet — be the first to leave one after a game.</p>'}
+  <a class="play" href="/">Play WallRush</a>
+  ${cards}
+  <footer>Reviews are left inside the game after a match, by the players themselves. Contact: <a href="https://t.me/Karoboev">@Karoboev</a></footer>
+</div>
+</body>
+</html>`);
+});
+
 /* ---------- owner's private stats page ----------
    /admin?key=<ADMIN_KEY> — full visitor journal: every device, when it came,
    whether it played, how many games; plus live online and daily growth. */
@@ -544,6 +708,7 @@ const NAV_ITEMS = [
   ['audience', '🌍', 'Аудитория'],
   ['sources', '📈', 'Источники'],
   ['days', '📅', 'Дни'],
+  ['reviews', '⭐', 'Отзывы'],
 ];
 const bottomNav = (active) => `<nav class="adm-nav">${NAV_ITEMS.map(([id, ic, label]) =>
   `<a class="an-btn ${active === id ? 'on' : ''}" href="/admin?key=${ADMIN_KEY}&view=${id}"><span class="an-ic">${ic}</span>${label}</a>`
@@ -974,8 +1139,17 @@ app.get('/admin', async (req, res) => {
   const cnt = async (q) => (await q).count || 0;
   const today = mskDayStart(Date.now());
   const todayStartIso = new Date(today * dayMs - 3 * 3600e3).toISOString();
-  const view = ['obzor', 'people', 'audience', 'sources', 'days'].includes(String(req.query.view))
+  const view = ['obzor', 'people', 'audience', 'sources', 'days', 'reviews'].includes(String(req.query.view))
     ? String(req.query.view) : 'obzor';
+
+  // moderation from the reviews section: one tap hides a review or puts it back
+  const hideId = Number(req.query.hide || 0), showId = Number(req.query.show || 0);
+  if (hideId || showId) {
+    try {
+      await supa.from('reviews').update({ hidden: Boolean(hideId) }).eq('id', hideId || showId);
+    } catch (e) { console.error('review moderation failed:', e.message); }
+    return res.redirect(`/admin?key=${ADMIN_KEY}&view=reviews`);
+  }
 
   let content = '';
 
@@ -1166,6 +1340,52 @@ ${rowsHtml || '<p class="note">Пока нет данных за этот пер
 <p class="note"><b>Определяется само.</b> Instagram, TikTok, Facebook и Telegram открывают ссылки во встроенном браузере, который называет себя по имени — такие заходы распознаются без всяких меток. Google, Яндекс, Reddit и обычные сайты видно по переходу. «Прямые» — это те, кто набрал адрес руками с экрана видео: их не определить никак.</p>
 <p class="note"><b>Метки нужны только для мелочей.</b> Отличить один ролик от другого или проверить платный посев: <code>wallrush.online/?f=reels_walls</code>, <code>/?f=tg_kanal1</code>. Метка сильнее автоопределения и запоминается при первом заходе навсегда.</p>
 <p class="note">«Сыграли» — начали хотя бы одну партию. «Вернулись» — заходили ещё через сутки после первого раза.</p>`;
+  } else if (view === 'reviews') {
+    /* ----- what players think -----
+       Everything is here, not only what the site shows: the ones and twos are
+       the whole point of asking. Two averages, deliberately: the one visitors
+       see (four and five stars, the ones printed on /reviews) and the real one
+       across every rating given. */
+    const { data: all } = await supa.from('reviews')
+      .select('id, nick, stars, body, lang, is_public, hidden, created_at, device_id')
+      .order('created_at', { ascending: false }).limit(300);
+    const list = all || [];
+    const shown = list.filter(r => r.is_public && !r.hidden);
+    const trueAvg = list.length ? list.reduce((a, r) => a + r.stars, 0) / list.length : 0;
+    const shownAvg = shown.length ? shown.reduce((a, r) => a + r.stars, 0) / shown.length : 0;
+    const byStar = [5, 4, 3, 2, 1].map(n => [n, list.filter(r => r.stars === n).length]);
+    const maxStar = Math.max(1, ...byStar.map(([, n]) => n));
+    const bars = byStar.map(([n, c]) => `<div class="geo">
+      <div class="top"><span class="name">${'★'.repeat(n)}</span><span class="pct">${num(c)}</span></div>
+      <div class="track"><i style="width:${Math.max(1, 100 * c / maxStar).toFixed(1)}%"></i></div>
+    </div>`).join('');
+    const card = (r) => {
+      const bad = r.stars <= 3;
+      const state = r.hidden ? 'скрыт' : r.is_public ? 'на сайте' : 'только тут';
+      return `<div class="pcard" style="align-items:flex-start">
+        <div class="pc-avatar" style="background:${bad ? 'var(--down)' : 'var(--up)'}">${r.stars}</div>
+        <div class="pc-info">
+          <b>${esc(r.nick || 'без ника')} <span class="note" style="font-weight:400">· ${state} · ${mskFmt(r.created_at)}</span></b>
+          <small>${r.body ? esc(r.body) : '<i>без текста, только оценка</i>'}</small>
+          ${r.stars >= 4 ? `<small><a href="/admin?key=${ADMIN_KEY}&view=reviews&${r.hidden ? 'show' : 'hide'}=${r.id}">${r.hidden ? '↩︎ вернуть на сайт' : '✕ убрать с сайта'}</a></small>` : ''}
+        </div>
+      </div>`;
+    };
+    const bad = list.filter(r => r.stars <= 3);
+    content = `<h2>Отзывы игроков</h2>
+<div class="grid2">
+  ${statCard('🌐', 'Средняя на сайте', shownAvg ? shownAvg.toFixed(1) : '—')}
+  ${statCard('📋', 'Средняя по всем', trueAvg ? trueAvg.toFixed(1) : '—')}
+  ${statCard('⭐', 'Всего оценок', num(list.length))}
+  ${statCard('✍️', 'С текстом', num(list.filter(r => r.body).length))}
+</div>
+<p class="note">«Средняя на сайте» — то, что видят посетители и Google: это оценки 4–5, они же напечатаны на странице <a href="/reviews">wallrush.online/reviews</a>. «Средняя по всем» — правда по всем оценкам, включая те, что остаются здесь.</p>
+<p class="sect">Как распределились</p>
+${bars}
+<p class="sect" style="margin-top:22px">😕 Недовольные (1–3) <span class="note" style="font-weight:400">— ${num(bad.length)}, наружу не попадают</span></p>
+${bad.map(card).join('') || '<p class="note">Пока никто не жаловался.</p>'}
+<p class="sect" style="margin-top:22px">🙂 Довольные (4–5)</p>
+${list.filter(r => r.stars >= 4).map(card).join('') || '<p class="note">Пока пусто.</p>'}`;
   } else if (view === 'days') {
     // ----- days: each day a block with its own numbers, plus a 14-day chart -----
     const fromTs = new Date((today - 13) * dayMs - 3 * 3600e3).toISOString();

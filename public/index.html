@@ -72,7 +72,7 @@
   <link rel="apple-touch-icon" href="icons/icon-192.png">
   <!-- Opens the connection to the ad host early. Costs one handshake and no
        download, and takes that handshake off the wait once Support is tapped. -->
-  <link rel="stylesheet" href="css/style.css?v=132">
+  <link rel="stylesheet" href="css/style.css?v=133">
   <!-- Are we inside somebody else's page? Every game portal forbids running
        your own ads inside theirs, and the ad scripts below start the moment
        the parser reaches them — long before any module could stop one. So the
@@ -627,6 +627,30 @@
       </div>
     </div>
 
+    <!-- The one question a player can answer in a single tap. Stars only is a
+         complete answer: the words are optional, and most people will not
+         write any. One to three stars turn into a private note to us; four and
+         five are offered a place on the public page. -->
+    <div class="overlay" id="overlay-rate" hidden>
+      <div class="modal">
+        <div class="modal-emoji" id="rate-emoji">⭐</div>
+        <h2 id="rate-title" data-i18n="rate_title"></h2>
+        <p class="hint" id="rate-sub" data-i18n="rate_sub"></p>
+        <div class="stars-pick" id="rate-stars">
+          <button type="button" data-star="1">★</button>
+          <button type="button" data-star="2">★</button>
+          <button type="button" data-star="3">★</button>
+          <button type="button" data-star="4">★</button>
+          <button type="button" data-star="5">★</button>
+        </div>
+        <textarea class="input rate-text" id="rate-text" rows="3" maxlength="400" hidden></textarea>
+        <div class="modal-buttons">
+          <button class="btn-big" id="btn-rate-send" hidden></button>
+          <button class="btn-big btn-outline" id="btn-rate-close" data-i18n="rate_later"></button>
+        </div>
+      </div>
+    </div>
+
     <div class="overlay" id="overlay-push" hidden>
       <div class="modal">
         <div class="modal-emoji">🔔</div>
@@ -701,6 +725,29 @@
         })({})
         </script>
       </div>
+    </section>
+
+    <!-- ============ REVIEWS ============ -->
+    <!-- Reachable at any time, not only in the moment after a win. The same
+         page lives at /reviews for anyone who has not opened the game yet. -->
+    <section class="screen" id="screen-reviews">
+      <header class="sub-head">
+        <button class="btn-back" id="rv-back">‹</button>
+        <h2>⭐ <span data-i18n="reviews_title"></span></h2>
+      </header>
+      <div class="rv-score" id="rv-score" hidden>
+        <b id="rv-avg">—</b>
+        <div>
+          <div class="rv-stars" id="rv-avg-stars"></div>
+          <small id="rv-count"></small>
+        </div>
+      </div>
+      <button class="btn-big" id="btn-leave-review" data-i18n="rate_leave"></button>
+      <div id="rv-list" class="rv-list"></div>
+      <p class="hint" id="rv-empty" data-i18n="reviews_empty" hidden></p>
+      <!-- the same reviews live at a real address, which is what a search
+           engine can read and what a link to the game can point at -->
+      <p class="hint"><a href="/reviews" target="_blank" rel="noopener" data-i18n="reviews_page_link"></a></p>
     </section>
 
     <!-- ============ PROFILE ============ -->
@@ -791,6 +838,10 @@
         <!-- The game used to offer notifications exactly once, after a third
              match, and never again — so anyone who tapped past that prompt had
              no way back. Hidden where the browser has already refused. -->
+        <div class="setting-row">
+          <span data-i18n="reviews_title"></span>
+          <button class="btn-mini" id="btn-open-reviews">⭐</button>
+        </div>
         <div class="setting-row" id="push-row" hidden>
           <span data-i18n="push_label"></span>
           <label class="toggle"><input type="checkbox" id="push-toggle"><span></span></label>
@@ -846,7 +897,7 @@
     <div id="toast" hidden></div>
   </div>
 
-  <script src="vendor/supabase.js?v=132" defer></script>
-  <script type="module" src="js/app.js?v=132"></script>
+  <script src="vendor/supabase.js?v=133" defer></script>
+  <script type="module" src="js/app.js?v=133"></script>
 </body>
 </html>

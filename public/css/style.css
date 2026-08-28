@@ -1091,3 +1091,28 @@ html[data-theme="dark"] .rooms-empty, html[data-theme="dark"] .lb-empty { color:
            font-weight: 600; background: #2f6df6; color: #fff; cursor: pointer; }
 .fr-call[disabled] { background: #d7dbe4; color: #8892b0; }
 .fr-del { flex: none; border: 0; background: none; color: #b9bfcc; font-size: 17px; cursor: pointer; padding: 4px 6px; }
+
+/* ---------- rating and reviews ---------- */
+/* The stars are the whole question, so they are big enough to hit without
+   aiming and spaced far enough apart that a thumb cannot take two at once. */
+.stars-pick { display: flex; justify-content: center; gap: 6px; margin: 14px 0 4px; }
+.stars-pick button { border: 0; background: none; cursor: pointer; padding: 4px 2px;
+                     font-size: 34px; line-height: 1; color: #d7dbe4;
+                     transition: transform .12s ease, color .12s ease; }
+.stars-pick button.on { color: #ffc531; }
+.stars-pick button:active { transform: scale(1.18); }
+.rate-text { width: 100%; margin-top: 10px; resize: none; font: inherit; }
+
+.rv-score { display: flex; align-items: center; gap: 14px; background: var(--card);
+            border-radius: var(--radius); padding: 16px 18px; margin: 0 0 12px;
+            box-shadow: var(--shadow); }
+.rv-score b { font-size: 34px; line-height: 1; }
+.rv-score small { color: var(--muted); font-size: 12.5px; }
+.rv-stars { color: #ffc531; letter-spacing: 2px; }
+.rv-list { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; }
+.rv-item { background: var(--card); border-radius: 16px; padding: 12px 14px; box-shadow: var(--shadow); }
+.rv-item .rv-top { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.rv-item b { font-size: 14px; }
+.rv-item p { margin: 6px 0 0; font-size: 14px; line-height: 1.45; overflow-wrap: anywhere; }
+html[data-theme="dark"] .stars-pick button { color: #39405c; }
+html[data-theme="dark"] .rv-score, html[data-theme="dark"] .rv-item { background: #171a28; }

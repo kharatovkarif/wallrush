@@ -165,6 +165,24 @@ export const I18N = {
     push_ask_body: 'Пришлём одно короткое сообщение вечером, если огонёк вот-вот погаснет. Не чаще раза в день, и только если ты сегодня ещё не играл.',
     push_ask_yes: '🔔 Напоминать',
     push_ask_no: 'Не надо',
+    rate_title: 'Как тебе WallRush?',
+    rate_sub: 'Одно касание — и всё. Писать ничего не нужно.',
+    rate_later: 'Потом',
+    rate_thanks: 'Спасибо!',
+    rate_sorry: 'Жаль. Что не так?',
+    rate_public_note: 'Можешь добавить пару слов — они появятся на странице отзывов.',
+    rate_private_note: 'Это письмо придёт только владельцу игры. На сайте его никто не увидит.',
+    rate_ph_good: 'Пара слов об игре (необязательно)',
+    rate_ph_bad: 'Что сломалось или не понравилось?',
+    rate_send: 'Отправить',
+    rate_sent_public: 'Спасибо! Отзыв на странице отзывов',
+    rate_sent_private: 'Спасибо, передал владельцу',
+    rate_leave: 'Оставить отзыв',
+    reviews_title: 'Отзывы',
+    reviews_empty: 'Отзывов пока нет. Твой может стать первым.',
+    reviews_count: 'отзывов',
+    reviews_page_link: 'Открыть страницу отзывов →',
+    rate_change: 'Изменить свой отзыв',
     save_ask_title: 'Сохранить прогресс?',
     save_ask_points: 'очков',
     save_ask_body: 'Сейчас это хранится только в этом браузере. Очистишь данные или сменишь телефон — всё пропадёт. Аккаунт займёт полминуты, весь прогресс перенесётся.',
@@ -437,6 +455,24 @@ export const I18N = {
     push_ask_body: 'One short message in the evening if the flame is about to go out. Never more than once a day, and only if you have not played yet.',
     push_ask_yes: '🔔 Remind me',
     push_ask_no: 'No thanks',
+    rate_title: 'How is WallRush?',
+    rate_sub: 'One tap is enough. No writing needed.',
+    rate_later: 'Later',
+    rate_thanks: 'Thank you!',
+    rate_sorry: 'Sorry to hear it. What went wrong?',
+    rate_public_note: 'Add a couple of words if you like — they go on the reviews page.',
+    rate_private_note: 'This goes to the owner of the game only. Nobody sees it on the site.',
+    rate_ph_good: 'A couple of words about the game (optional)',
+    rate_ph_bad: 'What broke, or what did you dislike?',
+    rate_send: 'Send',
+    rate_sent_public: 'Thank you! It is on the reviews page',
+    rate_sent_private: 'Thank you, the owner has it',
+    rate_leave: 'Leave a review',
+    reviews_title: 'Reviews',
+    reviews_empty: 'No reviews yet. Yours could be the first.',
+    reviews_count: 'reviews',
+    reviews_page_link: 'Open the reviews page →',
+    rate_change: 'Change your review',
     save_ask_title: 'Save your progress?',
     save_ask_points: 'points',
     save_ask_body: 'Right now this lives only in this browser. Clear your data or change phone and it is gone. An account takes half a minute and carries everything over.',
@@ -560,7 +596,7 @@ export const LANGS = [
 export const LANG_CODES = LANGS.map((l) => l.code);
 export const RTL = new Set(['fa']);
 
-const V = '132';
+const V = '133';
 
 // Loads a translation file on demand. Safe to call repeatedly and safe to fail:
 // if the request never lands, makeT keeps falling back to English.

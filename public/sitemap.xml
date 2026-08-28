@@ -1,10 +1,15 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- One page. The rules, help, terms and privacy live inside it as dialogs
-     rather than at addresses of their own, so there is nothing else to list. -->
+<!-- The game itself, and the reviews page. The rules, help, terms and privacy
+     live inside the game as dialogs rather than at addresses of their own. -->
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
     <loc>https://wallrush.online/</loc>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
+  </url>
+  <url>
+    <loc>https://wallrush.online/reviews</loc>
+    <changefreq>daily</changefreq>
+    <priority>0.6</priority>
   </url>
 </urlset>
