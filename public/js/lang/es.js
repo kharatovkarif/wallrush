@@ -249,6 +249,7 @@ export default {
   auth_error: 'Correo o contraseña incorrectos',
   connecting: 'Conectando…',
   conn_lost: 'Conexión perdida, reconectando…',
+  game_gone: 'La partida ha terminado',
   how_title: 'Cómo jugar',
   how_text: 'Lleva tu bola al lado opuesto antes que tu rival. Por turno: mueves la bola O colocas un muro. Los muros no se saltan. Si las bolas están juntas, puedes saltar por encima de la del rival. Nunca puedes encerrar del todo a un jugador: siempre debe quedar un camino hasta la meta. Cada uno tiene 10 muros y 5 minutos por partida, con un máximo de 30 segundos por turno.\n\nSolo puntúan las salas públicas. Una victoria vale 25 puntos, o 40 contra alguien de rango superior. Una derrota cuesta 10, o 20 contra alguien de rango inferior. Tu puntuación nunca baja de cero. Rangos: Novato → Aprendiz → Estratega → Maestro de muros → Pro → Leyenda → GOAT 🐐.\n\nNo se puntúa una partida de menos de seis movimientos, y a partir de la cuarta revancha seguida contra la misma persona los puntos se reducen a la mitad y luego se detienen. Jugar con un amigo por código y entrenar contra la IA no afectan a tu puntuación. Los primeros 1500 puntos del día se ganan enteros; después una victoria vale la mitad, y pasados 3000, un cuarto. Las derrotas siempre cuentan enteras.\n\nJuega cada día y tu racha crece 🔥. Todo esto, con más detalle, está en las Reglas.',
   zone_you: 'TU META',

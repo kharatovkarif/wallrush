@@ -1,7 +1,7 @@
 // WallRush client app: screens, board UI, online play (WebSocket), AI mode, auth.
 import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=119';
 import { aiMove } from './ai.js?v=119';
-import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=119';
+import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=132';
 import { rankOf, nextRank } from './ranks.js?v=119';
 import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=119';
 import { checkNick, nickOk, randomNick } from './nick.js?v=119';
@@ -498,7 +498,20 @@ function requestSync() {
 }
 
 function watchdogTick() {
-  if (inLiveGame() && Date.now() - lastMsgAt > 10000) requestSync();
+  if (!inLiveGame()) return;
+  const quiet = Date.now() - lastMsgAt;
+  if (quiet > 10000) requestSync();
+  // A socket can stay "open" for good with nothing going through it: a phone
+  // that changed network, a tunnel that died without saying so. The browser
+  // reports readyState 1, no onclose ever fires, and asking for a sync over
+  // it is shouting down a dead line — the board froze on its last frame for
+  // as long as the player was willing to wait. So after the sync goes
+  // unanswered, hang up by hand: onclose then rebuilds the connection, and
+  // hello with the same token brings the game back.
+  if (quiet > 20000 && ws && ws.readyState === 1) {
+    lastMsgAt = Date.now();       // the new socket gets its own grace period
+    try { ws.close(); } catch { /* already going */ }
+  }
 }
 
 function connectWs() {
@@ -552,6 +565,9 @@ function handleWsMessage(msg) {
       flushPendingJoin();   // arrived through an invite link
       flushPendingQuick();  // arrived from a notification
       flushPortalRoom();    // leading a group in from the portal
+      // A reconnect in the middle of a game: make the server say where we
+      // stand. It answers with the position, the result we missed, or nothing.
+      if (inLiveGame()) requestSync();
       break;
     case 'lobby':
       $('online-count').textContent = msg.online;
@@ -660,6 +676,15 @@ function handleWsMessage(msg) {
     case 'opp_reconnected':
       if (msg.clocks && game) game.clocks = { ...msg.clocks, recvAt: Date.now() };
       toast(t('opp_reconnected'));
+      break;
+    case 'no_game':
+      // The room is gone and the server has no result for us either. Nothing
+      // is coming, so let go of the board rather than freeze on it.
+      if (inLiveGame()) {
+        game.over = true;
+        toast(t('game_gone'));
+        show('screen-home');
+      }
       break;
     case 'error':
       if (msg.code === 'room_not_found') toast(t('err_room_not_found'));

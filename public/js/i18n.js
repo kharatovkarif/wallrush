@@ -255,6 +255,7 @@ export const I18N = {
     auth_error: 'Неверная почта или пароль',
     connecting: 'Подключение…',
     conn_lost: 'Связь потеряна, переподключаемся…',
+    game_gone: 'Партия завершена',
     how_title: 'Как играть',
     how_text: 'Доведи свой шар до противоположной стороны раньше соперника. За ход: шаг шаром ИЛИ одна стена. Стены нельзя перепрыгивать. Если шары рядом — можно перепрыгнуть через шар соперника. Полностью запереть игрока нельзя — путь к цели всегда должен оставаться. У каждого 10 стен и 5 минут на партию, максимум 30 секунд на ход.\n\nОчки идут только за публичные комнаты. Победа — 25 очков, а над соперником выше званием — 40. Поражение — минус 10, а от соперника ниже званием — минус 20. Ниже нуля рейтинг не падает. Звания: Новичок → Ученик → Стратег → Мастер стен → Про → Легенда → GOAT 🐐.\n\nОчков не будет за партию короче шести ходов, а с четвёртого реванша подряд против того же соперника они уменьшаются вдвое и дальше прекращаются. Игра с другом по коду и тренировка с ИИ на рейтинг не влияют. За день 1500 очков начисляются полностью, дальше победа приносит половину, после 3000 — четверть. Поражения считаются всегда целиком.\n\nЗаходи каждый день — растёт огонёк серии 🔥. То же самое и подробнее — в «Правилах».',
     zone_you: 'ТВОЯ ЦЕЛЬ',
@@ -526,6 +527,7 @@ export const I18N = {
     auth_error: 'Wrong email or password',
     connecting: 'Connecting…',
     conn_lost: 'Connection lost, reconnecting…',
+    game_gone: 'The game has ended',
     how_title: 'How to play',
     how_text: 'Get your ball to the opposite side before your opponent. Each turn: move your ball OR place one wall. Walls can\'t be jumped over. If the balls are adjacent you may jump over the opponent\'s ball. You can never fully trap a player — a path to the goal must always remain. Each player has 10 walls and 5 minutes per game, max 30 seconds per move.\n\nOnly public rooms are scored. A win is 25 points, or 40 against someone who outranks you. A loss costs 10, or 20 against someone below you. Your rating never falls below zero. Ranks: Rookie → Student → Strategist → Wall Master → Pro → Legend → GOAT 🐐.\n\nNothing is scored for a game shorter than six moves, and from the fourth rematch in a row against the same person points are halved and then stop. Games with a friend by code and practice against the AI do not affect your rating. The first 1500 points of a day are earned in full, after that a win is worth half, and past 3000 a quarter. Losses always count in full.\n\nPlay every day and your streak flame grows 🔥. The same, in more detail, is in the Rules.',
     zone_you: 'YOUR GOAL',
@@ -558,7 +560,7 @@ export const LANGS = [
 export const LANG_CODES = LANGS.map((l) => l.code);
 export const RTL = new Set(['fa']);
 
-const V = '119';
+const V = '132';
 
 // Loads a translation file on demand. Safe to call repeatedly and safe to fail:
 // if the request never lands, makeT keeps falling back to English.

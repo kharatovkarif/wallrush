@@ -19,6 +19,30 @@ const EMOJIS = ['😂', '🫡', '🤝', '😡'];
 
 const clients = new Map();   // ws -> client {ws, token, nick, userId, roomId, inLobby}
 const byToken = new Map();   // token -> client
+
+// A result the player never saw. If their socket was already dead when the
+// match ended, game_over went nowhere and the board stayed frozen on their
+// screen for as long as they were willing to look at it. Keep the result by
+// token for a few minutes so a reconnect can still be told how it finished.
+const lastResults = new Map();   // token -> { msg, at }
+const RESULT_KEEP_MS = 5 * 60_000;
+
+function keepResult(token, msg) {
+  if (!token) return;
+  lastResults.set(token, { msg, at: Date.now() });
+  if (lastResults.size > 500) {
+    const cut = Date.now() - RESULT_KEEP_MS;
+    for (const [k, v] of lastResults) if (v.at < cut) lastResults.delete(k);
+  }
+}
+
+// One-shot: a result is handed over once and then forgotten.
+function takeResult(token) {
+  const r = token ? lastResults.get(token) : null;
+  if (!r) return null;
+  lastResults.delete(token);
+  return Date.now() - r.at > RESULT_KEEP_MS ? null : r.msg;
+}
 const rooms = new Map();     // roomId -> room
 
 function rid() { return crypto.randomBytes(8).toString('hex'); }
@@ -210,10 +234,12 @@ async function finish(room, winnerIdx, reason) {
   const w = room.players[winnerIdx], l = room.players[1 - winnerIdx];
   const deltas = awardPoints(room, w, l);
   room.players.forEach((pl, i) => {
-    send(pl, {
+    const payload = {
       t: 'game_over', winner: winnerIdx, you: i, reason,
       points: { delta: deltas[i], total: pl.points || 0, ranked: isRanked(room) },
-    });
+    };
+    if (!pl.isBot) keepResult(pl.token, payload);
+    send(pl, payload);
   });
   // The streak needs a database round trip, so it follows the result rather
   // than holding it up — the result overlay only appears after 600ms anyway.
@@ -400,6 +426,12 @@ async function handleHello(client, msg) {
     client.token = rid();
     byToken.set(client.token, client);
   }
+  // Their match ended while they were disconnected, so the result went to a
+  // socket nobody was listening on. Hand it over now — but never on top of a
+  // game that is still running, or a stale result would end a live one.
+  const liveRoom = rooms.get(client.roomId);
+  const missed = (!liveRoom || liveRoom.status !== 'playing') ? takeResult(msg.token) : null;
+
   send(client, {
     t: 'hello_ok', token: client.token, nick: client.nick, online: onlineCount(),
     points: client.points || 0, veteran: Boolean(client.veteran),
@@ -409,6 +441,7 @@ async function handleHello(client, msg) {
     streakLost: client.streakLost || 0,
     streakFree: Boolean(client.streakFree),
   });
+  if (missed) send(client, missed);
 }
 
 function handleMove(client, msg) {
@@ -632,9 +665,15 @@ export function attachWs(wss) {
             if (nowMs - (client.lastSync || 0) < 1500) break;
             client.lastSync = nowMs;
             const room = rooms.get(client.roomId);
-            if (!room || room.status !== 'playing') break;
+            if (!room || room.status !== 'playing') {
+              // Nothing to sync to: the match ended while they were off the
+              // air, or the room is long gone. Answering with silence left
+              // the board frozen on their screen, so say it plainly instead.
+              send(client, takeResult(client.token) || { t: 'no_game' });
+              break;
+            }
             const idx = room.players.indexOf(client);
-            if (idx === -1) break;
+            if (idx === -1) { send(client, { t: 'no_game' }); break; }
             send(client, {
               t: 'game_start',
               you: idx,
