@@ -1192,3 +1192,25 @@ html[data-theme="dark"] .fr-row { border-top-color: rgba(255,255,255,.06); }
 .rv-answer p { margin: 2px 0 0; font-size: 13.5px; color: var(--muted); }
 html[data-theme="dark"] .rv-tabs button { background: #171a28; }
 html[data-theme="dark"] .rv-bt { background: #262c42; }
+
+/* ---------- advertising page ---------- */
+.ads-live { background: var(--card); border-radius: var(--radius); padding: 16px;
+            box-shadow: var(--shadow); margin-bottom: 16px; }
+.ads-day { margin: 0 0 12px; font-size: 13px; color: var(--muted); }
+.ads-day b { color: var(--text); }
+.ads-flags { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0 10px; }
+.ads-flag { background: var(--bg2); border-radius: 999px; padding: 5px 11px; font-size: 14px; }
+.ads-flag b { font-size: 12.5px; color: var(--muted); font-weight: 600; }
+.ads-h { margin: 22px 0 10px; font-size: 16px; }
+.packs { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.pack { display: flex; flex-direction: column; gap: 4px; text-align: left; border: 0;
+        background: var(--card); border-radius: 16px; padding: 13px 14px; font: inherit;
+        box-shadow: var(--shadow); cursor: pointer; transition: transform .12s ease; }
+.pack:active { transform: scale(.978); }
+.pack-wide { grid-column: 1 / -1; }
+.pk-name { font-size: 13px; font-weight: 600; color: var(--text); line-height: 1.3; }
+.pk-days { font-size: 11.5px; color: var(--muted); }
+.pk-price { font-size: 19px; font-weight: 700; color: var(--blue); margin-top: 2px; }
+.pk-price i { font-size: 11px; font-style: normal; color: var(--green); font-weight: 600; }
+html[data-theme="dark"] .ads-live, html[data-theme="dark"] .pack { background: #171a28; }
+html[data-theme="dark"] .ads-flag { background: #262c42; }

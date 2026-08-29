@@ -72,7 +72,7 @@
   <link rel="apple-touch-icon" href="icons/icon-192.png">
   <!-- Opens the connection to the ad host early. Costs one handshake and no
        download, and takes that handshake off the wait once Support is tapped. -->
-  <link rel="stylesheet" href="css/style.css?v=136">
+  <link rel="stylesheet" href="css/style.css?v=137">
   <!-- Are we inside somebody else's page? Every game portal forbids running
        your own ads inside theirs, and the ad scripts below start the moment
        the parser reaches them — long before any module could stop one. So the
@@ -301,11 +301,19 @@
         <!-- The numbers come first: an advertiser decides on reach, and
              sending them away to ask for it loses most of them. Deliberately
              rounded down — every one of them holds on the game's worst day. -->
-        <div class="ads-stats">
-          <div class="ads-stat"><b>5 000+</b><small data-i18n="ads_l_day"></small></div>
-          <div class="ads-stat"><b>50 000+</b><small data-i18n="ads_l_month"></small></div>
-          <div class="ads-stat"><b>10 000+</b><small data-i18n="ads_l_match"></small></div>
-          <div class="ads-stat"><b>30+</b><small data-i18n="ads_l_geo"></small></div>
+        <!-- Yesterday, from the same statistics the owner reads. A finished
+             day with a date on it can be checked tomorrow against the next
+             one; "5000+" cannot be checked against anything. -->
+        <div class="ads-live" id="ads-live" hidden>
+          <p class="ads-day"><span data-i18n="ads_day_label"></span> <b id="ads-date"></b></p>
+          <div class="ads-stats">
+            <div class="ads-stat"><b id="ads-people">—</b><small data-i18n="ads_l_players"></small></div>
+            <div class="ads-stat"><b id="ads-games">—</b><small data-i18n="ads_l_games"></small></div>
+            <div class="ads-stat"><b id="ads-quiet">—</b><small data-i18n="ads_l_quiet"></small></div>
+            <div class="ads-stat"><b id="ads-geo">—</b><small data-i18n="ads_l_countries"></small></div>
+          </div>
+          <div class="ads-flags" id="ads-flags"></div>
+          <p class="hint" data-i18n="ads_auto"></p>
         </div>
 
         <div class="fmt-list">
@@ -315,16 +323,53 @@
           <div class="fmt"><span class="fmt-ico">🎯</span><div><b data-i18n="ads_f3"></b><small data-i18n="ads_f3_sub"></small></div></div>
         </div>
 
+        <!-- Prices, and a tap on one starts the conversation about it -->
+        <h3 class="ads-h" data-i18n="ads_price_title"></h3>
+        <div class="packs" id="ads-packs">
+          <button class="pack" data-pack="banner-7">
+            <span class="pk-name" data-i18n="ads_p_banner"></span>
+            <span class="pk-days" data-i18n="ads_7days"></span>
+            <span class="pk-price">$19</span>
+          </button>
+          <button class="pack" data-pack="banner-30">
+            <span class="pk-name" data-i18n="ads_p_banner"></span>
+            <span class="pk-days" data-i18n="ads_30days"></span>
+            <span class="pk-price">$59 <i data-i18n="ads_save22"></i></span>
+          </button>
+          <button class="pack" data-pack="all-7">
+            <span class="pk-name" data-i18n="ads_p_all"></span>
+            <span class="pk-days" data-i18n="ads_7days"></span>
+            <span class="pk-price">$39</span>
+          </button>
+          <button class="pack" data-pack="all-30">
+            <span class="pk-name" data-i18n="ads_p_all"></span>
+            <span class="pk-days" data-i18n="ads_30days"></span>
+            <span class="pk-price">$119 <i data-i18n="ads_save24"></i></span>
+          </button>
+          <button class="pack" data-pack="social-1">
+            <span class="pk-name" data-i18n="ads_p_social"></span>
+            <span class="pk-days" data-i18n="ads_one_post"></span>
+            <span class="pk-price">$29</span>
+          </button>
+          <button class="pack" data-pack="social-4">
+            <span class="pk-name" data-i18n="ads_p_social"></span>
+            <span class="pk-days" data-i18n="ads_four_posts"></span>
+            <span class="pk-price">$89 <i data-i18n="ads_save23"></i></span>
+          </button>
+          <button class="pack pack-wide" data-pack="everything">
+            <span class="pk-name" data-i18n="ads_p_all_in"></span>
+            <span class="pk-days" data-i18n="ads_30days"></span>
+            <span class="pk-price">$199</span>
+          </button>
+        </div>
+        <p class="hint" data-i18n="ads_promise"></p>
+
         <div class="ads-cta">
           <b data-i18n="ads_cta"></b>
           <p class="hint" data-i18n="ads_foot"></p>
-          <!-- Two ways in, both the same size. The email used to be a footnote
-               under the button; half of the people who buy advertising work by
-               email and want to see the address, not a word to tap. -->
-          <a class="btn-big" id="ads-contact" href="https://t.me/Karoboev" target="_blank" rel="noopener noreferrer" data-i18n="ads_tg"></a>
+          <button class="btn-big" id="ads-leave" data-i18n="ads_leave"></button>
+          <a class="btn-big btn-outline" id="ads-contact" href="https://t.me/Karoboev" target="_blank" rel="noopener noreferrer" data-i18n="ads_tg"></a>
           <a class="btn-big btn-outline ads-mail" href="mailto:ads@wallrush.online?subject=WallRush%20—%20advertising">✉️ ads@wallrush.online</a>
-          <!-- a desktop browser with no mail client makes mailto: do nothing,
-               so the address can always be taken away by hand -->
           <button class="ads-copy" id="ads-email-copy" data-i18n="ads_copy_mail"></button>
         </div>
       </div>
@@ -658,6 +703,23 @@
       </div>
     </div>
 
+    <!-- Leaving a way to be reached. No payment: there is nothing here to
+         take money with yet, and a dead pay button loses the enquiry too. -->
+    <div class="overlay" id="overlay-adreq" hidden>
+      <div class="modal">
+        <div class="modal-emoji">📣</div>
+        <h2 data-i18n="ads_req_title"></h2>
+        <p class="hint" id="adreq-pack"></p>
+        <input class="input" id="adreq-contact" maxlength="200" data-i18n-ph="ads_req_contact_ph" autocomplete="off">
+        <textarea class="input rate-text" id="adreq-about" rows="3" maxlength="500" data-i18n-ph="ads_req_about_ph"></textarea>
+        <p class="hint" data-i18n="ads_req_promise"></p>
+        <div class="modal-buttons">
+          <button class="btn-big" id="adreq-send" data-i18n="ads_req_send"></button>
+          <button class="btn-big btn-outline" id="adreq-cancel" data-i18n="cancel"></button>
+        </div>
+      </div>
+    </div>
+
     <div class="overlay" id="overlay-rate" hidden>
       <div class="modal">
         <div class="modal-emoji" id="rate-emoji">⭐</div>
@@ -959,7 +1021,7 @@
     <div id="toast" hidden></div>
   </div>
 
-  <script src="vendor/supabase.js?v=136" defer></script>
-  <script type="module" src="js/app.js?v=136"></script>
+  <script src="vendor/supabase.js?v=137" defer></script>
+  <script type="module" src="js/app.js?v=137"></script>
 </body>
 </html>

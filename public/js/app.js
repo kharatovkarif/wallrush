@@ -1,7 +1,7 @@
 // WallRush client app: screens, board UI, online play (WebSocket), AI mode, auth.
 import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=119';
 import { aiMove } from './ai.js?v=119';
-import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=136';
+import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=137';
 import { rankOf, nextRank } from './ranks.js?v=119';
 import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=119';
 import { checkNick, nickOk, randomNick } from './nick.js?v=119';
@@ -364,6 +364,7 @@ function show(screenId) {
     b.classList.toggle('active', b.dataset.screen === screenId));
   if (screenId === 'screen-leaderboard') loadLeaderboard();
   if (screenId === 'screen-reviews') loadReviews();
+  if (screenId === 'screen-ads') loadAdsStats();
   if (screenId === 'screen-profile') { updateProfileUI(); renderPushRow(); loadFriends(); } // points move every match
   if (screenId === 'screen-friends') { renderFriends(); loadFriends(); }
   if (screenId === 'screen-rooms') wsSend({ t: 'lobby_sub' });
@@ -2580,6 +2581,62 @@ $('sound-toggle').addEventListener('change', (e) => {
   soundOn = e.target.checked;
   localStorage.setItem('wr_sound', soundOn ? '1' : '0');
   if (soundOn) tick(true); // preview
+});
+
+/* ================= the advertising page =================
+   Yesterday's real figures, fetched once when the page is opened. An
+   advertiser decides on reach, and a rounded promise decides nothing. */
+let adsPack = '';
+
+async function loadAdsStats() {
+  try {
+    const r = await (await fetch('/api/ads/stats')).json();
+    if (!r || !r.people) return;
+    const n = (x) => Number(x).toLocaleString(lang === 'ru' ? 'ru' : 'en-US');
+    $('ads-date').textContent = new Date(r.day + 'T12:00:00Z').toLocaleDateString(lang === 'en' ? 'en-GB' : lang);
+    $('ads-people').textContent = n(r.people);
+    $('ads-games').textContent = n(r.games);
+    // the quietest hour of the day says more than a peak: it is the number
+    // that holds at four in the morning
+    $('ads-quiet').textContent = n(r.quietestHour);
+    $('ads-geo').textContent = String(r.countriesTotal || 0);
+    $('ads-flags').innerHTML = (r.countries || [])
+      .map(c => `<span class="ads-flag">${c.flag} <b>${c.pct}%</b></span>`).join('');
+    $('ads-live').hidden = false;
+  } catch { /* the page still works without them */ }
+}
+
+$('ads-packs').addEventListener('click', (e) => {
+  const b = e.target.closest('.pack');
+  if (!b) return;
+  adsPack = b.dataset.pack;
+  $('adreq-pack').textContent = b.querySelector('.pk-name').textContent + ' · ' +
+    b.querySelector('.pk-days').textContent + ' · ' + b.querySelector('.pk-price').textContent;
+  $('overlay-adreq').hidden = false;
+});
+$('ads-leave').addEventListener('click', () => {
+  adsPack = '';
+  $('adreq-pack').textContent = '';
+  $('overlay-adreq').hidden = false;
+});
+$('adreq-cancel').addEventListener('click', () => { $('overlay-adreq').hidden = true; });
+$('adreq-send').addEventListener('click', async () => {
+  const contact = $('adreq-contact').value.trim();
+  if (contact.length < 3) { $('adreq-contact').focus(); return; }
+  $('overlay-adreq').hidden = true;
+  toast(t('ads_req_sent'));
+  try {
+    await fetch('/api/ads/request', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        pack: adsPack, contact, about: $('adreq-about').value.trim(),
+        device: deviceId, lang,
+      }),
+    });
+  } catch { /* they still have the telegram link */ }
+  $('adreq-contact').value = '';
+  $('adreq-about').value = '';
 });
 
 /* ================= task of the day =================

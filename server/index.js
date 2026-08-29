@@ -317,6 +317,86 @@ app.post('/api/resolve-login', async (req, res) => {
   res.json({ email: u.user.email });
 });
 
+/* ---------- the advertising page ----------
+   It used to show four rounded numbers and an invitation to write. An
+   advertiser decides on reach, and "50 000+ a month" was both vague and wrong
+   by a factor of thirty — the game plays a million and a half matches a month.
+
+   So it shows yesterday. A day that has finished, counted from the same
+   statistics the owner reads, refreshed once an hour and named by its date, so
+   anyone can come back tomorrow and see it move. */
+
+let adsCache = { at: 0, data: null };
+const ADS_CACHE_MS = 30 * 60_000;
+
+async function adsStats() {
+  if (adsCache.data && Date.now() - adsCache.at < ADS_CACHE_MS) return adsCache.data;
+  const dayIso = new Date(Date.now() + 3 * 3600e3 - dayMs).toISOString().slice(0, 10);   // yesterday, MSK
+  const startIso = new Date(new Date(dayIso + 'T00:00:00+03:00').getTime()).toISOString();
+  const endIso = new Date(new Date(startIso).getTime() + dayMs).toISOString();
+  const [{ data: rows }, { data: hours }] = await Promise.all([
+    supa.rpc('ads_day_stats', { d: dayIso }),
+    supa.rpc('admin_buckets', { from_ts: startIso, to_ts: endIso, bucket_secs: 3600, offset_secs: 10800 }),
+  ]);
+  const list = rows || [];
+  const people = list.reduce((a, r) => a + Number(r.people || 0), 0);
+  const games = list.reduce((a, r) => a + Number(r.games || 0), 0);
+  // group the timezones into countries, then keep the ones big enough to mean
+  // something — a flag standing for four people is noise on a media kit
+  const byFlag = new Map();
+  for (const r of list) {
+    const flag = countryOf(r.tz).split(' ')[0];
+    byFlag.set(flag, (byFlag.get(flag) || 0) + Number(r.people || 0));
+  }
+  const countries = [...byFlag.entries()]
+    .map(([flag, n]) => ({ flag, pct: people ? Math.round(1000 * n / people) / 10 : 0 }))
+    .filter(c => c.pct >= 1.5 && c.flag !== '🏳️' && c.flag !== '🌍')
+    .sort((a, b) => b.pct - a.pct)
+    .slice(0, 10);
+  const hourly = (hours || []).map(h => Number(h.people || 0)).filter(n => n > 0);
+  const data = {
+    day: dayIso,
+    people, games,
+    countries,
+    countriesTotal: byFlag.size,
+    quietestHour: hourly.length ? Math.min(...hourly) : 0,
+    busiestHour: hourly.length ? Math.max(...hourly) : 0,
+  };
+  adsCache = { at: Date.now(), data };
+  return data;
+}
+
+app.get('/api/ads/stats', async (req, res) => {
+  if (!dbEnabled) return res.json(null);
+  try {
+    res.json(await adsStats());
+  } catch (e) {
+    console.error('ads stats failed:', e.message);
+    res.json(null);
+  }
+});
+
+// An enquiry, not a checkout. There is nothing here to take money with yet,
+// and a dead pay button loses the enquiry along with the payment.
+app.post('/api/ads/request', async (req, res) => {
+  if (!dbEnabled) return res.status(503).json({ error: 'db_off' });
+  const contact = String(req.body?.contact || '').trim().slice(0, 200);
+  if (contact.length < 3) return res.status(400).json({ error: 'no_contact' });
+  try {
+    await supa.from('ad_requests').insert({
+      pack: String(req.body?.pack || '').slice(0, 40) || null,
+      contact,
+      about: String(req.body?.about || '').trim().slice(0, 500) || null,
+      lang: String(req.body?.lang || '').slice(0, 8) || null,
+      device_id: String(req.body?.device || '').slice(0, 64) || null,
+    });
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('ad request failed:', e.message);
+    res.status(500).json({ error: 'failed' });
+  }
+});
+
 /* ---------- reviews ----------
    A star out of five, and a couple of words if the player feels like it.
    Four and five go on /reviews, the page search engines see. One to three
@@ -812,6 +892,7 @@ const NAV_ITEMS = [
   ['sources', '📈', 'Источники'],
   ['days', '📅', 'Дни'],
   ['reviews', '⭐', 'Отзывы'],
+  ['ads', '📣', 'Реклама'],
 ];
 const bottomNav = (active) => `<nav class="adm-nav">${NAV_ITEMS.map(([id, ic, label]) =>
   `<a class="an-btn ${active === id ? 'on' : ''}" href="/admin?key=${ADMIN_KEY}&view=${id}"><span class="an-ic">${ic}</span>${label}</a>`
@@ -1190,6 +1271,36 @@ const COUNTRY_BY_TZ = {
   'Asia/Jakarta': '🇮🇩 Индонезия', 'Asia/Manila': '🇵🇭 Филиппины', 'Asia/Bangkok': '🇹🇭 Таиланд',
   'Asia/Ho_Chi_Minh': '🇻🇳 Вьетнам', 'Asia/Saigon': '🇻🇳 Вьетнам',
   'Asia/Kuala_Lumpur': '🇲🇾 Малайзия', 'Asia/Singapore': '🇸🇬 Сингапур',
+  'Africa/Accra': '🇬🇭 Гана', 'Africa/Dakar': '🇸🇳 Сенегал', 'Africa/Abidjan': '🇨🇮 Кот-д’Ивуар',
+  'Africa/Mogadishu': '🇸🇴 Сомали', 'Africa/Addis_Ababa': '🇪🇹 Эфиопия', 'Africa/Douala': '🇨🇲 Камерун',
+  'Africa/Dar_es_Salaam': '🇹🇿 Танзания', 'Africa/Bamako': '🇲🇱 Мали', 'Africa/Kampala': '🇺🇬 Уганда',
+  'Africa/Ouagadougou': '🇧🇫 Буркина-Фасо', 'Africa/Lome': '🇹🇬 Того', 'Africa/Conakry': '🇬🇳 Гвинея',
+  'Africa/Kinshasa': '🇨🇩 ДР Конго', 'Africa/Lubumbashi': '🇨🇩 ДР Конго', 'Africa/Luanda': '🇦🇴 Ангола',
+  'Africa/Niamey': '🇳🇪 Нигер', 'Africa/Ndjamena': '🇹🇩 Чад', 'Africa/Freetown': '🇸🇱 Сьерра-Леоне',
+  'Africa/Monrovia': '🇱🇷 Либерия', 'Africa/Banjul': '🇬🇲 Гамбия', 'Africa/Bissau': '🇬🇼 Гвинея-Бисау',
+  'Africa/Nouakchott': '🇲🇷 Мавритания', 'Africa/Harare': '🇿🇼 Зимбабве', 'Africa/Lusaka': '🇿🇲 Замбия',
+  'Africa/Maputo': '🇲🇿 Мозамбик', 'Africa/Kigali': '🇷🇼 Руанда', 'Africa/Juba': '🇸🇸 Южный Судан',
+  'Indian/Reunion': '🇷🇪 Реюньон', 'Indian/Antananarivo': '🇲🇬 Мадагаскар', 'Indian/Mauritius': '🇲🇺 Маврикий',
+  'Asia/Ulaanbaatar': '🇲🇳 Монголия', 'Asia/Katmandu': '🇳🇵 Непал',
+  'Asia/Rangoon': '🇲🇲 Мьянма', 'Asia/Yangon': '🇲🇲 Мьянма', 'Asia/Makassar': '🇮🇩 Индонезия',
+  'Asia/Pontianak': '🇮🇩 Индонезия', 'Asia/Phnom_Penh': '🇰🇭 Камбоджа', 'Asia/Vientiane': '🇱🇦 Лаос',
+  'America/Sao_Paulo': '🇧🇷 Бразилия', 'America/Fortaleza': '🇧🇷 Бразилия', 'America/Bahia': '🇧🇷 Бразилия',
+  'America/Recife': '🇧🇷 Бразилия', 'America/Manaus': '🇧🇷 Бразилия',
+  'America/Caracas': '🇻🇪 Венесуэла', 'America/Mexico_City': '🇲🇽 Мексика', 'America/Monterrey': '🇲🇽 Мексика',
+  'America/Bogota': '🇨🇴 Колумбия', 'America/Lima': '🇵🇪 Перу', 'America/Santiago': '🇨🇱 Чили',
+  'America/Buenos_Aires': '🇦🇷 Аргентина', 'America/Argentina/Buenos_Aires': '🇦🇷 Аргентина',
+  'America/Guayaquil': '🇪🇨 Эквадор', 'America/La_Paz': '🇧🇴 Боливия', 'America/Asuncion': '🇵🇾 Парагвай',
+  'America/Montevideo': '🇺🇾 Уругвай', 'America/Santo_Domingo': '🇩🇴 Доминикана',
+  'America/Guatemala': '🇬🇹 Гватемала', 'America/Tegucigalpa': '🇭🇳 Гондурас',
+  'America/Port-au-Prince': '🇭🇹 Гаити', 'America/Havana': '🇨🇺 Куба',
+  'America/Toronto': '🇨🇦 Канада', 'America/Vancouver': '🇨🇦 Канада', 'America/Edmonton': '🇨🇦 Канада',
+  'Europe/Belgrade': '🇷🇸 Сербия', 'Europe/Bucharest': '🇷🇴 Румыния', 'Europe/Sofia': '🇧🇬 Болгария',
+  'Europe/Athens': '🇬🇷 Греция', 'Europe/Zagreb': '🇭🇷 Хорватия', 'Europe/Sarajevo': '🇧🇦 Босния',
+  'Europe/Skopje': '🇲🇰 Македония', 'Europe/Tirane': '🇦🇱 Албания', 'Europe/Bratislava': '🇸🇰 Словакия',
+  'Europe/Ljubljana': '🇸🇮 Словения', 'Europe/Stockholm': '🇸🇪 Швеция', 'Europe/Oslo': '🇳🇴 Норвегия',
+  'Europe/Copenhagen': '🇩🇰 Дания', 'Europe/Helsinki': '🇫🇮 Финляндия',
+  'Australia/Sydney': '🇦🇺 Австралия', 'Australia/Melbourne': '🇦🇺 Австралия',
+  'Pacific/Auckland': '🇳🇿 Новая Зеландия',
   'Africa/Cairo': '🇪🇬 Египет', 'Africa/Algiers': '🇩🇿 Алжир', 'Africa/Casablanca': '🇲🇦 Марокко',
   'Africa/Tunis': '🇹🇳 Тунис', 'Africa/Tripoli': '🇱🇾 Ливия', 'Africa/Lagos': '🇳🇬 Нигерия',
   'Africa/Nairobi': '🇰🇪 Кения', 'Africa/Johannesburg': '🇿🇦 ЮАР', 'Africa/Khartoum': '🇸🇩 Судан',
@@ -1242,8 +1353,17 @@ app.get('/admin', async (req, res) => {
   const cnt = async (q) => (await q).count || 0;
   const today = mskDayStart(Date.now());
   const todayStartIso = new Date(today * dayMs - 3 * 3600e3).toISOString();
-  const view = ['obzor', 'people', 'audience', 'sources', 'days', 'reviews'].includes(String(req.query.view))
+  const view = ['obzor', 'people', 'audience', 'sources', 'days', 'reviews', 'ads'].includes(String(req.query.view))
     ? String(req.query.view) : 'obzor';
+
+  // an enquiry is marked done, or put back
+  const handleId = Number(req.query.handle || 0), unhandleId = Number(req.query.unhandle || 0);
+  if (handleId || unhandleId) {
+    try {
+      await supa.from('ad_requests').update({ handled: Boolean(handleId) }).eq('id', handleId || unhandleId);
+    } catch (e) { console.error('ad request update failed:', e.message); }
+    return res.redirect(`/admin?key=${ADMIN_KEY}&view=ads`);
+  }
 
   // answering a review, from the form under it
   if (req.query.reply) {
@@ -1509,6 +1629,34 @@ ${bars}
 ${bad.map(card).join('') || '<p class="note">Пока никто не жаловался.</p>'}
 <p class="sect" style="margin-top:22px">🙂 Довольные (4–5)</p>
 ${list.filter(r => r.stars >= 4).map(card).join('') || '<p class="note">Пока пусто.</p>'}`;
+  } else if (view === 'ads') {
+    /* ----- who wants to buy advertising -----
+       The page shows yesterday's real figures and a price list; this is where
+       the answers land. Marking one done is a tick, not a delete: an enquiry
+       that came to nothing is still worth being able to look back at. */
+    const { data: reqs } = await supa.from('ad_requests')
+      .select('id, pack, contact, about, lang, handled, created_at')
+      .order('created_at', { ascending: false }).limit(200);
+    const list = reqs || [];
+    const open = list.filter(r => !r.handled);
+    const stats = await adsStats().catch(() => null);
+    const card = (r) => `<div class="pcard" style="align-items:flex-start">
+      <div class="pc-avatar" style="background:${r.handled ? 'var(--up)' : 'var(--accent)'}">${r.handled ? '✓' : '📣'}</div>
+      <div class="pc-info">
+        <b>${esc(r.contact)} <span class="note" style="font-weight:400">· ${esc(r.pack || 'без пакета')} · ${mskFmt(r.created_at)}</span></b>
+        <small>${r.about ? esc(r.about) : '<i>ничего не написали</i>'}</small>
+        <small><a href="/admin?key=${ADMIN_KEY}&view=ads&${r.handled ? 'unhandle' : 'handle'}=${r.id}">${r.handled ? '↩︎ вернуть в новые' : '✓ отметить обработанной'}</a></small>
+      </div>
+    </div>`;
+    content = `<h2>Реклама</h2>
+<div class="grid2">
+  ${statCard('📣', 'Новых заявок', num(open.length))}
+  ${statCard('📋', 'Всего заявок', num(list.length))}
+</div>
+${stats ? `<p class="note">На странице рекламы сейчас показано за <b>${esc(stats.day)}</b>: ${num(stats.people)} игроков, ${num(stats.games)} партий, ${num(stats.quietestHour)} человек в самый тихий час, ${num(stats.countriesTotal)} стран. Обновляется само раз в полчаса.</p>` : ''}
+<p class="sect">📬 Новые</p>
+${open.map(card).join('') || '<p class="note">Пока никто не оставлял заявок.</p>'}
+${list.some(r => r.handled) ? `<p class="sect" style="margin-top:22px">✓ Обработанные</p>${list.filter(r => r.handled).map(card).join('')}` : ''}`;
   } else if (view === 'days') {
     // ----- days: each day a block with its own numbers, plus a 14-day chart -----
     const fromTs = new Date((today - 13) * dayMs - 3 * 3600e3).toISOString();

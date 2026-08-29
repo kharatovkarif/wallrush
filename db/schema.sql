@@ -416,3 +416,33 @@ begin
   liked := not had;
   return next;
 end $$;
+
+-- ---------- advertising ----------
+-- Yesterday by timezone, for the numbers on the advertising page: a day that
+-- has finished, counted from the same statistics the owner reads.
+create or replace function ads_day_stats(d date)
+returns table(tz text, people bigint, games bigint)
+language sql stable as $$
+  select coalesce(v.tz, '') as tz,
+         count(*)::bigint as people,
+         coalesce(sum(vd.games), 0)::bigint as games
+  from visitor_days vd
+  join visitors v on v.device_id = vd.device_id
+  where vd.day = d
+  group by 1
+$$;
+
+-- Someone who wants to advertise leaves a way to reach them. No payment here:
+-- there is nothing to take money with yet, and a dead pay button would lose
+-- the enquiry as well as the payment.
+create table if not exists ad_requests (
+  id         bigserial primary key,
+  pack       text,
+  contact    text not null,
+  about      text,
+  lang       text,
+  device_id  text,
+  handled    boolean not null default false,
+  created_at timestamptz not null default now()
+);
+create index if not exists ad_requests_new_idx on ad_requests (created_at desc);
