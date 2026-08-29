@@ -72,7 +72,7 @@
   <link rel="apple-touch-icon" href="icons/icon-192.png">
   <!-- Opens the connection to the ad host early. Costs one handshake and no
        download, and takes that handshake off the wait once Support is tapped. -->
-  <link rel="stylesheet" href="css/style.css?v=135">
+  <link rel="stylesheet" href="css/style.css?v=136">
   <!-- Are we inside somebody else's page? Every game portal forbids running
        your own ads inside theirs, and the ad scripts below start the moment
        the parser reaches them — long before any module could stop one. So the
@@ -794,13 +794,22 @@
         <h2>⭐ <span data-i18n="reviews_title"></span></h2>
       </header>
       <div class="rv-score" id="rv-score" hidden>
-        <b id="rv-avg">—</b>
-        <div>
+        <div class="rv-big">
+          <b id="rv-avg">—</b>
           <div class="rv-stars" id="rv-avg-stars"></div>
           <small id="rv-count"></small>
         </div>
+        <div class="rv-bars" id="rv-bars"></div>
       </div>
       <button class="btn-big" id="btn-leave-review" data-i18n="rate_leave"></button>
+      <div class="rv-tabs" id="rv-tabs" hidden>
+        <button data-f="new" class="on" data-i18n="rv_new"></button>
+        <button data-f="text" data-i18n="rv_text"></button>
+        <button data-f="good" data-i18n="rv_good"></button>
+        <button data-f="bad" data-i18n="rv_bad"></button>
+        <button data-f="liked" data-i18n="rv_liked"></button>
+        <button data-f="old" data-i18n="rv_old"></button>
+      </div>
       <div id="rv-list" class="rv-list"></div>
       <p class="hint" id="rv-empty" data-i18n="reviews_empty" hidden></p>
       <!-- the same reviews live at a real address, which is what a search
@@ -950,7 +959,7 @@
     <div id="toast" hidden></div>
   </div>
 
-  <script src="vendor/supabase.js?v=135" defer></script>
-  <script type="module" src="js/app.js?v=135"></script>
+  <script src="vendor/supabase.js?v=136" defer></script>
+  <script type="module" src="js/app.js?v=136"></script>
 </body>
 </html>

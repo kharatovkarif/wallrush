@@ -337,15 +337,47 @@ const FOUL = /(х[уy]й|пизд|\bеб[аеиуё]|бляд|\bсук[аи]\b|\
 
 const starRow = (n) => '★★★★★'.slice(0, n) + '☆☆☆☆☆'.slice(0, 5 - n);
 
-async function readPublicReviews(limit = 200) {
+/* Every rating anyone gave is shown, one to five. The words are another
+   matter: four and five stars are printed, one to three arrive as a rating and
+   nothing more, because a complaint is a letter to us and gets answered rather
+   than displayed. A visitor still sees that the low rating exists and counts.
+
+   That is also what keeps the page honest with search engines: they require
+   the average to be the average of what is actually on the page, and here it
+   is — every rating on the page, none held back. */
+async function readPublicReviews(limit = 400) {
   const { data } = await supa.from('reviews')
-    .select('nick, stars, body, created_at')
-    .eq('is_public', true).eq('hidden', false)
+    .select('id, nick, stars, body, likes, reply, reply_at, created_at')
+    .eq('hidden', false)
     .order('created_at', { ascending: false }).limit(limit);
-  const rows = data || [];
+  const all = data || [];
+  const rows = all.map(r => ({
+    id: r.id,
+    nick: r.nick || 'Player',
+    stars: r.stars,
+    body: r.stars >= 4 ? (r.body || '') : '',   // low ratings keep their words private
+    likes: r.likes || 0,
+    reply: r.reply || '',
+    at: r.created_at,
+  }));
   const count = rows.length;
   const avg = count ? rows.reduce((s, r) => s + r.stars, 0) / count : 0;
-  return { rows, count, avg: Math.round(avg * 10) / 10 };
+  const spread = [5, 4, 3, 2, 1].map(n => {
+    const c = rows.filter(r => r.stars === n).length;
+    return { stars: n, count: c, pct: count ? Math.round(100 * c / count) : 0 };
+  });
+  return { rows, count, avg: Math.round(avg * 10) / 10, spread };
+}
+
+// Sorting and filtering, shared by the page and the game so both offer the
+// same choices and mean the same thing by them.
+function sortReviews(rows, f) {
+  if (f === 'text') return rows.filter(r => r.body);
+  if (f === 'good') return rows.filter(r => r.stars >= 4);
+  if (f === 'bad') return rows.filter(r => r.stars <= 3);
+  if (f === 'liked') return [...rows].sort((a, b) => b.likes - a.likes);
+  if (f === 'old') return [...rows].reverse();
+  return rows;   // newest first, as they come out of the database
 }
 
 app.post('/api/review', async (req, res) => {
@@ -381,26 +413,55 @@ app.post('/api/review', async (req, res) => {
 
 // What the game itself shows on its reviews screen.
 app.get('/api/reviews', async (req, res) => {
-  if (!dbEnabled) return res.json({ count: 0, avg: 0, rows: [] });
+  if (!dbEnabled) return res.json({ count: 0, avg: 0, spread: [], rows: [] });
   try {
-    const { rows, count, avg } = await readPublicReviews(100);
+    const { rows, count, avg, spread } = await readPublicReviews(300);
+    const f = String(req.query.f || 'new');
+    const device = String(req.query.device || '');
+    // which of these the asker has already liked, so the heart comes back
+    // filled in rather than empty every time the screen is opened
+    let mine = new Set();
+    if (/^[A-Za-z0-9-]{8,64}$/.test(device)) {
+      const { data } = await supa.from('review_likes').select('review_id').eq('device_id', device).limit(300);
+      mine = new Set((data || []).map(r => r.review_id));
+    }
     res.json({
-      count, avg,
-      // stars-only reviews are shown too, as a card with no words: they count
-      // towards the average, so hiding them would leave the number unexplained
-      rows: rows.slice(0, 60)
-        .map(r => ({ nick: r.nick || 'Player', stars: r.stars, text: r.body || '', at: r.created_at })),
+      count, avg, spread,
+      rows: sortReviews(rows, f).slice(0, 80).map(r => ({
+        id: r.id, nick: r.nick, stars: r.stars, text: r.body,
+        likes: r.likes, liked: mine.has(r.id), reply: r.reply, at: r.at,
+      })),
     });
   } catch (e) {
     console.error('reviews read failed:', e.message);
-    res.json({ count: 0, avg: 0, rows: [] });
+    res.json({ count: 0, avg: 0, spread: [], rows: [] });
+  }
+});
+
+// A like is a tap, and tapping again takes it back.
+app.post('/api/review/like', async (req, res) => {
+  if (!dbEnabled) return res.status(503).json({ error: 'db_off' });
+  const device = String(req.body?.device || '');
+  const id = Number(req.body?.id);
+  if (!/^[A-Za-z0-9-]{8,64}$/.test(device)) return res.status(400).json({ error: 'bad_device' });
+  if (!Number.isInteger(id)) return res.status(400).json({ error: 'bad_id' });
+  try {
+    const { data, error } = await supa.rpc('review_like', { rid: id, dev: device });
+    if (error) throw new Error(error.message);
+    const row = Array.isArray(data) ? data[0] : data;
+    res.json({ likes: row?.likes || 0, liked: Boolean(row?.liked) });
+  } catch (e) {
+    console.error('review like failed:', e.message);
+    res.status(500).json({ error: 'failed' });
   }
 });
 
 // The page for search engines and for anyone who wants to read before playing.
 app.get('/reviews', async (req, res) => {
-  let rows = [], count = 0, avg = 0;
-  try { ({ rows, count, avg } = await readPublicReviews(200)); } catch { /* show the page anyway */ }
+  let rows = [], count = 0, avg = 0, spread = [];
+  try { ({ rows, count, avg, spread } = await readPublicReviews(400)); } catch { /* show the page anyway */ }
+  const f = ['new', 'old', 'text', 'good', 'bad', 'liked'].includes(String(req.query.f)) ? String(req.query.f) : 'new';
+  const shown = sortReviews(rows, f).slice(0, 120);
   const withText = rows.filter(r => r.body);
   const jsonLd = {
     '@context': 'https://schema.org',
@@ -413,8 +474,8 @@ app.get('/reviews', async (req, res) => {
     ...(count ? {
       aggregateRating: {
         '@type': 'AggregateRating',
-        // exactly the number printed on the page: 5 and 5.0 are the same
-        // rating, but the markup is supposed to quote what a visitor reads
+        // exactly the number printed on the page, over exactly the ratings
+        // printed under it
         ratingValue: avg.toFixed(1), ratingCount: String(count),
         bestRating: '5', worstRating: '1',
       },
@@ -422,17 +483,27 @@ app.get('/reviews', async (req, res) => {
     ...(withText.length ? {
       review: withText.slice(0, 30).map(r => ({
         '@type': 'Review',
-        author: { '@type': 'Person', name: r.nick || 'Player' },
+        author: { '@type': 'Person', name: r.nick },
         reviewRating: { '@type': 'Rating', ratingValue: String(r.stars), bestRating: '5', worstRating: '1' },
-        datePublished: new Date(r.created_at).toISOString().slice(0, 10),
+        datePublished: new Date(r.at).toISOString().slice(0, 10),
         reviewBody: r.body,
       })),
     } : {}),
   };
-  const cards = rows.map(r => `<article class="rv">
-  <div class="rv-top"><b>${esc(r.nick || 'Player')}</b><span class="rv-stars" aria-label="${r.stars} out of 5">${starRow(r.stars)}</span></div>
+  const tab = (id, label) => `<a class="${f === id ? 'on' : ''}" href="/reviews?f=${id}">${label}</a>`;
+  const bars = spread.map(sp => `<div class="bar">
+    <span class="bl">${'★'.repeat(sp.stars)}</span>
+    <span class="bt"><i style="width:${sp.pct}%"></i></span>
+    <span class="bn">${sp.count} <small>(${sp.pct}%)</small></span>
+  </div>`).join('');
+  const cards = shown.map(r => `<article class="rv">
+  <div class="rv-top"><b>${esc(r.nick)}</b><span class="rv-stars" aria-label="${r.stars} out of 5">${starRow(r.stars)}</span></div>
   ${r.body ? `<p>${esc(r.body)}</p>` : ''}
-  <time datetime="${new Date(r.created_at).toISOString()}">${new Date(r.created_at).toISOString().slice(0, 10)}</time>
+  ${r.reply ? `<div class="rv-reply"><b>WallRush</b><p>${esc(r.reply)}</p></div>` : ''}
+  <div class="rv-foot">
+    <time datetime="${new Date(r.at).toISOString()}">${new Date(r.at).toISOString().slice(0, 10)}</time>
+    ${r.likes ? `<span class="rv-likes">♥ ${r.likes}</span>` : ''}
+  </div>
 </article>`).join('\n');
 
   res.set('Cache-Control', 'public, max-age=300');
@@ -442,7 +513,7 @@ app.get('/reviews', async (req, res) => {
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>WallRush reviews — what players say</title>
-<meta name="description" content="${count ? `${avg} out of 5 from ${count} WallRush players.` : 'What players say about WallRush.'} Reviews written by the people who play the game.">
+<meta name="description" content="${count ? `${avg.toFixed(1)} out of 5 from ${count} WallRush players.` : 'What players say about WallRush.'} Ratings and reviews left by the people who play the game.">
 <link rel="canonical" href="https://wallrush.online/reviews">
 <link rel="icon" href="/icons/icon-192.png">
 <script type="application/ld+json">${JSON.stringify(jsonLd)}</script>
@@ -454,30 +525,51 @@ app.get('/reviews', async (req, res) => {
   a { color: #8ab4ff; }
   h1 { font-size: 26px; margin: 0 0 6px; }
   .lede { color: #9aa3b2; margin: 0 0 22px; }
-  .score { display: flex; align-items: center; gap: 16px; background: #171a22; border: 1px solid #232838; border-radius: 16px; padding: 18px; margin-bottom: 8px; }
-  .score b { font-size: 40px; line-height: 1; }
-  .score .stars { color: #ffc531; font-size: 20px; letter-spacing: 2px; }
-  .score small { color: #9aa3b2; display: block; margin-top: 4px; }
-  .play { display: inline-block; margin: 18px 0 26px; background: #4c7dff; color: #fff; text-decoration: none; font-weight: 600; padding: 13px 22px; border-radius: 12px; }
+  .score { display: flex; align-items: center; gap: 18px; background: #171a22; border: 1px solid #232838; border-radius: 16px; padding: 18px; margin-bottom: 10px; flex-wrap: wrap; }
+  .score .big { text-align: center; }
+  .score .big b { font-size: 44px; line-height: 1; display: block; }
+  .score .stars { color: #ffc531; font-size: 18px; letter-spacing: 2px; }
+  .score small { color: #9aa3b2; }
+  .bars { flex: 1; min-width: 230px; }
+  .bar { display: flex; align-items: center; gap: 10px; font-size: 13px; margin: 3px 0; }
+  .bar .bl { color: #ffc531; letter-spacing: 1px; width: 76px; white-space: nowrap; font-size: 11px; }
+  .bar .bt { flex: 1; height: 7px; background: #232838; border-radius: 4px; overflow: hidden; }
+  .bar .bt i { display: block; height: 100%; background: #ffc531; border-radius: 4px; }
+  .bar .bn { width: 72px; text-align: right; color: #c7cddb; }
+  .bar .bn small { color: #6f7787; }
+  .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin: 16px 0 14px; }
+  .tabs a { display: inline-block; padding: 7px 13px; border-radius: 999px; background: #171a22; border: 1px solid #232838; color: #c7cddb; text-decoration: none; font-size: 13.5px; }
+  .tabs a.on { background: #4c7dff; border-color: #4c7dff; color: #fff; }
+  .play { display: inline-block; margin: 4px 0 20px; background: #4c7dff; color: #fff; text-decoration: none; font-weight: 600; padding: 13px 22px; border-radius: 12px; }
   .rv { background: #171a22; border: 1px solid #232838; border-radius: 14px; padding: 14px 16px; margin-bottom: 10px; }
   .rv-top { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
   .rv-stars { color: #ffc531; letter-spacing: 2px; white-space: nowrap; }
   .rv p { margin: 8px 0 6px; overflow-wrap: anywhere; }
-  .rv time { color: #6f7787; font-size: 13px; }
-  footer { margin-top: 30px; color: #6f7787; font-size: 14px; }
+  .rv-reply { border-left: 3px solid #4c7dff; padding: 2px 0 2px 12px; margin: 10px 0 4px; }
+  .rv-reply b { color: #8ab4ff; font-size: 13px; }
+  .rv-reply p { margin: 3px 0 0; font-size: 14.5px; color: #c7cddb; }
+  .rv-foot { display: flex; justify-content: space-between; align-items: center; color: #6f7787; font-size: 13px; margin-top: 6px; }
+  .rv-likes { color: #ff6b81; }
+  footer { margin-top: 30px; color: #6f7787; font-size: 14px; line-height: 1.7; }
 </style>
 </head>
 <body>
 <div class="wrap">
   <h1>What players say about WallRush</h1>
-  <p class="lede">WallRush is a free 1v1 strategy game in the browser — the classic Quoridor, online. These reviews are written by people who played it.</p>
+  <p class="lede">WallRush is a free 1v1 strategy game in the browser — the classic Quoridor, online. Every rating below was left by someone who played it.</p>
   ${count ? `<div class="score">
-    <b>${avg.toFixed(1)}</b>
-    <div><div class="stars">${starRow(Math.round(avg))}</div><small>${count} review${count === 1 ? '' : 's'} from players</small></div>
-  </div>` : '<p class="lede">No reviews yet — be the first to leave one after a game.</p>'}
+    <div class="big"><b>${avg.toFixed(1)}</b><div class="stars">${starRow(Math.round(avg))}</div><small>${count} rating${count === 1 ? '' : 's'}</small></div>
+    <div class="bars">${bars}</div>
+  </div>` : '<p class="lede">No ratings yet — be the first to leave one after a game.</p>'}
+  ${count ? `<div class="tabs">
+    ${tab('new', 'Newest')}${tab('old', 'Oldest')}${tab('text', 'With a comment')}${tab('good', '4–5 ★')}${tab('bad', '1–3 ★')}${tab('liked', 'Most liked')}
+  </div>` : ''}
   <a class="play" href="/">Play WallRush</a>
   ${cards}
-  <footer>Reviews are left inside the game after a match, by the players themselves. Contact: <a href="https://t.me/Karoboev">@Karoboev</a></footer>
+  <footer>
+    Ratings are left inside the game after a match, by the players themselves. Ratings of three stars and below are shown as ratings — their text goes to us privately so it can be answered and fixed, not displayed.<br>
+    Contact: <a href="https://t.me/Karoboev">@Karoboev</a> · <a href="mailto:ads@wallrush.online">ads@wallrush.online</a>
+  </footer>
 </div>
 </body>
 </html>`);
@@ -675,7 +767,10 @@ const ADMIN_CSS = `
   #admProg.on { opacity: 1; }
 
   /* ---------- 14-day chart you can drag your finger across ---------- */
-  .tchart { position: relative; margin: 4px 0 2px; touch-action: pan-y; user-select: none; -webkit-user-select: none; }
+  .rv-reply-form{display:flex;gap:6px;width:100%;margin:8px 0 0}
+.rv-reply-form .search-box{margin:0;flex:1}
+.rv-reply-go{border:0;border-radius:10px;padding:0 14px;background:var(--accent);color:#fff;font:inherit;font-size:13px;font-weight:600}
+.tchart { position: relative; margin: 4px 0 2px; touch-action: pan-y; user-select: none; -webkit-user-select: none; }
   .tchart { padding-top: 46px; }
   .tchart svg { display: block; width: 100%; height: 170px; overflow: visible; }
   .tc-line { fill: none; stroke: #b9a3ff; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
@@ -1150,6 +1245,18 @@ app.get('/admin', async (req, res) => {
   const view = ['obzor', 'people', 'audience', 'sources', 'days', 'reviews'].includes(String(req.query.view))
     ? String(req.query.view) : 'obzor';
 
+  // answering a review, from the form under it
+  if (req.query.reply) {
+    const id = Number(req.query.reply);
+    const text = String(req.query.text || '').trim().slice(0, 500);
+    try {
+      await supa.from('reviews')
+        .update({ reply: text || null, reply_at: text ? new Date().toISOString() : null })
+        .eq('id', id);
+    } catch (e) { console.error('review reply failed:', e.message); }
+    return res.redirect(`/admin?key=${ADMIN_KEY}&view=reviews`);
+  }
+
   // moderation from the reviews section: one tap hides a review or puts it back
   const hideId = Number(req.query.hide || 0), showId = Number(req.query.show || 0);
   if (hideId || showId) {
@@ -1355,7 +1462,7 @@ ${rowsHtml || '<p class="note">Пока нет данных за этот пер
        see (four and five stars, the ones printed on /reviews) and the real one
        across every rating given. */
     const { data: all } = await supa.from('reviews')
-      .select('id, nick, stars, body, lang, is_public, hidden, created_at, device_id')
+      .select('id, nick, stars, body, lang, is_public, hidden, likes, reply, created_at, device_id')
       .order('created_at', { ascending: false }).limit(300);
     const list = all || [];
     const shown = list.filter(r => r.is_public && !r.hidden);
@@ -1369,25 +1476,33 @@ ${rowsHtml || '<p class="note">Пока нет данных за этот пер
     </div>`).join('');
     const card = (r) => {
       const bad = r.stars <= 3;
-      const state = r.hidden ? 'скрыт' : r.is_public ? 'на сайте' : 'только тут';
-      return `<div class="pcard" style="align-items:flex-start">
+      // every rating is on the page now; what differs is whether the words are
+      const state = r.hidden ? 'скрыт целиком' : bad ? 'оценка на сайте, текст только тут' : 'на сайте';
+      return `<div class="pcard" style="align-items:flex-start;flex-wrap:wrap">
         <div class="pc-avatar" style="background:${bad ? 'var(--down)' : 'var(--up)'}">${r.stars}</div>
         <div class="pc-info">
-          <b>${esc(r.nick || 'без ника')} <span class="note" style="font-weight:400">· ${state} · ${mskFmt(r.created_at)}</span></b>
+          <b>${esc(r.nick || 'без ника')} <span class="note" style="font-weight:400">· ${state} · ${mskFmt(r.created_at)}${r.likes ? ' · ♥ ' + r.likes : ''}</span></b>
           <small>${r.body ? esc(r.body) : '<i>без текста, только оценка</i>'}</small>
+          ${r.reply ? `<small style="color:var(--accent)"><b>Твой ответ:</b> ${esc(r.reply)}</small>` : ''}
           ${r.stars >= 4 ? `<small><a href="/admin?key=${ADMIN_KEY}&view=reviews&${r.hidden ? 'show' : 'hide'}=${r.id}">${r.hidden ? '↩︎ вернуть на сайт' : '✕ убрать с сайта'}</a></small>` : ''}
         </div>
+        ${r.stars >= 4 && r.body ? `<form class="rv-reply-form" method="get" action="/admin">
+          <input type="hidden" name="key" value="${ADMIN_KEY}">
+          <input type="hidden" name="reply" value="${r.id}">
+          <input class="search-box" name="text" maxlength="500" placeholder="${r.reply ? 'Изменить ответ…' : 'Ответить на отзыв…'}" value="${esc(r.reply || '')}" autocomplete="off">
+          <button class="rv-reply-go" type="submit">Ответить</button>
+        </form>` : ''}
       </div>`;
     };
     const bad = list.filter(r => r.stars <= 3);
     content = `<h2>Отзывы игроков</h2>
 <div class="grid2">
-  ${statCard('🌐', 'Средняя на сайте', shownAvg ? shownAvg.toFixed(1) : '—')}
-  ${statCard('📋', 'Средняя по всем', trueAvg ? trueAvg.toFixed(1) : '—')}
+  ${statCard('🌐', 'Средняя на сайте', trueAvg ? trueAvg.toFixed(1) : '—')}
+  ${statCard('🙂', 'Средняя по хорошим', shownAvg ? shownAvg.toFixed(1) : '—')}
   ${statCard('⭐', 'Всего оценок', num(list.length))}
   ${statCard('✍️', 'С текстом', num(list.filter(r => r.body).length))}
 </div>
-<p class="note">«Средняя на сайте» — то, что видят посетители и Google: это оценки 4–5, они же напечатаны на странице <a href="/reviews">wallrush.online/reviews</a>. «Средняя по всем» — правда по всем оценкам, включая те, что остаются здесь.</p>
+<p class="note">На странице <a href="/reviews">wallrush.online/reviews</a> теперь видны <b>все оценки</b>, включая единицы, — поэтому средняя там настоящая. Разница только в тексте: слова из отзывов на 4–5 напечатаны, а жалобы на 1–3 остаются здесь, чтобы их можно было починить, а не выставить.</p>
 <p class="sect">Как распределились</p>
 ${bars}
 <p class="sect" style="margin-top:22px">😕 Недовольные (1–3) <span class="note" style="font-weight:400">— ${num(bad.length)}, наружу не попадают</span></p>

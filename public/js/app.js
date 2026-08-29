@@ -1,7 +1,7 @@
 // WallRush client app: screens, board UI, online play (WebSocket), AI mode, auth.
 import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=119';
 import { aiMove } from './ai.js?v=119';
-import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=135';
+import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=136';
 import { rankOf, nextRank } from './ranks.js?v=119';
 import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=119';
 import { checkNick, nickOk, randomNick } from './nick.js?v=119';
@@ -2737,31 +2737,72 @@ $('btn-leave-review').addEventListener('click', () => openRate(true));
 
 const starText = (n) => '★★★★★'.slice(0, n) + '☆☆☆☆☆'.slice(0, 5 - n);
 
+let rvFilter = 'new';
+
+function rvDate(iso) {
+  try { return new Date(iso).toLocaleDateString(lang === 'en' ? 'en-GB' : lang); }
+  catch { return String(iso).slice(0, 10); }
+}
+
 async function loadReviews() {
   try {
-    const r = await (await fetch('/api/reviews')).json();
+    const r = await (await fetch(`/api/reviews?f=${rvFilter}&device=${encodeURIComponent(deviceId)}`)).json();
     $('rv-score').hidden = !r.count;
+    $('rv-tabs').hidden = !r.count;
     $('rv-avg').textContent = r.count ? r.avg.toFixed(1) : '—';
     $('rv-avg-stars').textContent = starText(Math.round(r.avg || 0));
     $('rv-count').textContent = `${r.count} ${t('reviews_count')}`;
-    $('rv-list').innerHTML = (r.rows || []).map(row => `
-      <div class="rv-item">
-        <div class="rv-top"><b></b><span class="rv-stars">${starText(row.stars)}</span></div>
-        <p></p>
+    // the spread, so the average is a number with a shape behind it
+    $('rv-bars').innerHTML = (r.spread || []).map(sp => `
+      <div class="rv-bar">
+        <span class="rv-bl">${'★'.repeat(sp.stars)}</span>
+        <span class="rv-bt"><i style="width:${sp.pct}%"></i></span>
+        <span class="rv-bn">${sp.count}<small> (${sp.pct}%)</small></span>
       </div>`).join('');
-    // text goes in as text, never as markup
-    $('rv-list').querySelectorAll('.rv-item').forEach((el, i) => {
-      el.querySelector('b').textContent = r.rows[i].nick || 'Player';
-      el.querySelector('p').textContent = r.rows[i].text || '';
-    });
+    $('rv-list').innerHTML = (r.rows || []).map(row => `
+      <div class="rv-item" data-id="${row.id}">
+        <div class="rv-top"><b>${esc(row.nick)}</b><span class="rv-stars">${starText(row.stars)}</span></div>
+        ${row.text ? `<p>${esc(row.text)}</p>` : ''}
+        ${row.reply ? `<div class="rv-answer"><b>WallRush</b><p>${esc(row.reply)}</p></div>` : ''}
+        <div class="rv-foot">
+          <span>${rvDate(row.at)}</span>
+          <button class="rv-like${row.liked ? ' on' : ''}" data-like="${row.id}">♥ <b>${row.likes || 0}</b></button>
+        </div>
+      </div>`).join('');
     $('rv-empty').hidden = Boolean(r.rows && r.rows.length);
-    // The button stays put even for someone who has already answered: sending
-    // again replaces their review, which is the only way to change one.
     $('btn-leave-review').textContent = rateAnswered() ? t('rate_change') : t('rate_leave');
   } catch {
     $('rv-empty').hidden = false;
   }
 }
+
+$('rv-tabs').addEventListener('click', (e) => {
+  const b = e.target.closest('button[data-f]');
+  if (!b) return;
+  rvFilter = b.dataset.f;
+  $('rv-tabs').querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b));
+  loadReviews();
+});
+
+// A like is a tap and tapping again takes it back. The number moves at once
+// and is corrected by the answer, so a slow connection never feels stuck.
+$('rv-list').addEventListener('click', async (e) => {
+  const btn = e.target.closest('[data-like]');
+  if (!btn) return;
+  const num = btn.querySelector('b');
+  const was = btn.classList.contains('on');
+  btn.classList.toggle('on', !was);
+  num.textContent = Math.max(0, Number(num.textContent || 0) + (was ? -1 : 1));
+  vibrate(12);
+  try {
+    const r = await (await fetch('/api/review/like', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: Number(btn.dataset.like), device: deviceId }),
+    })).json();
+    if (typeof r.likes === 'number') { num.textContent = r.likes; btn.classList.toggle('on', Boolean(r.liked)); }
+  } catch { /* the heart can wait */ }
+});
 
 /* ================= PWA: installable app ================= */
 if ('serviceWorker' in navigator) {

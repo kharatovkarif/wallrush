@@ -182,6 +182,12 @@ export const I18N = {
     reviews_empty: 'Отзывов пока нет. Твой может стать первым.',
     reviews_count: 'отзывов',
     reviews_page_link: 'Открыть страницу отзывов →',
+    rv_new: 'Новые',
+    rv_old: 'Старые',
+    rv_text: 'С текстом',
+    rv_good: '4–5 ★',
+    rv_bad: '1–3 ★',
+    rv_liked: 'Популярные',
     rate_change: 'Изменить свой отзыв',
     daily_title: 'Задача дня',
     daily_done: 'Готово',
@@ -494,6 +500,12 @@ export const I18N = {
     reviews_empty: 'No reviews yet. Yours could be the first.',
     reviews_count: 'reviews',
     reviews_page_link: 'Open the reviews page →',
+    rv_new: 'Newest',
+    rv_old: 'Oldest',
+    rv_text: 'With a comment',
+    rv_good: '4–5 ★',
+    rv_bad: '1–3 ★',
+    rv_liked: 'Most liked',
     rate_change: 'Change your review',
     daily_title: 'Task of the day',
     daily_done: 'Done',
@@ -640,7 +652,7 @@ export const LANGS = [
 export const LANG_CODES = LANGS.map((l) => l.code);
 export const RTL = new Set(['fa']);
 
-const V = '135';
+const V = '136';
 
 // Loads a translation file on demand. Safe to call repeatedly and safe to fail:
 // if the request never lands, makeT keeps falling back to English.

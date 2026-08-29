@@ -246,8 +246,11 @@ create table if not exists reviews (
   stars       smallint not null check (stars between 1 and 5),
   body        text,
   lang        text,
-  is_public   boolean not null default false,   -- 4-5 stars
+  is_public   boolean not null default false,   -- 4-5 stars: their words are printed
   hidden      boolean not null default false,   -- moderation, or a foul word caught on the way in
+  likes       int not null default 0,
+  reply       text,                             -- the owner's answer, shown under the review
+  reply_at    timestamptz
   created_at  timestamptz not null default now(),
   updated_at  timestamptz not null default now()
 );
@@ -384,3 +387,32 @@ revoke all on function public.friend_request_accept(uuid, uuid) from anon, authe
 revoke all on function public.friend_request_decline(uuid, uuid) from anon, authenticated;
 revoke all on function public.friend_requests_in(uuid) from anon, authenticated;
 revoke all on function public.friend_count(uuid) from anon, authenticated;
+
+-- One like per person per review, so the count means something.
+create table if not exists review_likes (
+  review_id bigint not null references reviews(id) on delete cascade,
+  device_id text not null,
+  at timestamptz not null default now(),
+  primary key (review_id, device_id)
+);
+
+-- Tapping again takes the like back. The count on the review is kept in step
+-- inside the same call, so the two can never drift apart.
+create or replace function review_like(rid bigint, dev text)
+returns table(likes int, liked boolean)
+language plpgsql as $$
+declare had boolean;
+begin
+  select exists (select 1 from review_likes l where l.review_id = rid and l.device_id = dev) into had;
+  if had then
+    delete from review_likes l where l.review_id = rid and l.device_id = dev;
+  else
+    insert into review_likes (review_id, device_id) values (rid, dev) on conflict do nothing;
+  end if;
+  update reviews r
+     set likes = (select count(*) from review_likes l where l.review_id = rid)
+   where r.id = rid
+  returning r.likes into likes;
+  liked := not had;
+  return next;
+end $$;
