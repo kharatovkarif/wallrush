@@ -255,3 +255,58 @@ create table if not exists reviews (
 create unique index if not exists reviews_device_uq on reviews (device_id);
 create index if not exists reviews_public_idx on reviews (created_at desc) where is_public and not hidden;
 create index if not exists reviews_recent_idx on reviews (created_at desc);
+
+-- ---------- task of the day ----------
+-- One row per player per local day: which task they were given, how far along
+-- they are, and whether the reward has already been paid. The task itself is
+-- not stored anywhere — it is decided by the date alone (public/js/daily.js),
+-- so server and client always agree on what today's task is.
+create table if not exists daily_progress (
+  key        text not null,      -- 'u:<user id>' for an account, 'd:<device>' for a guest
+  day        date not null,      -- the player's own local day, as the streak counts it
+  task_id    text not null,
+  progress   int  not null default 0,
+  done       boolean not null default false,
+  rewarded   boolean not null default false,
+  updated_at timestamptz not null default now(),
+  primary key (key, day)
+);
+
+create index if not exists daily_progress_day_idx on daily_progress (day);
+
+-- Adds to a player's progress and reports whether this call is the one that
+-- finished the task, so the reward is paid exactly once however many matches
+-- land at the same moment.
+create or replace function daily_bump(k text, d date, tid text, inc int, tgt int)
+returns table(progress int, done boolean, awarded_now boolean)
+language plpgsql
+as $$
+declare
+  p int; dn boolean; rw boolean;
+begin
+  insert into daily_progress (key, day, task_id, progress, done, rewarded, updated_at)
+  values (k, d, tid, least(inc, tgt), inc >= tgt, false, now())
+  on conflict (key, day) do update set
+    -- a different task means the day's task changed under them: start over
+    progress = case when daily_progress.task_id = excluded.task_id
+                    then least(daily_progress.progress + inc, tgt) else least(inc, tgt) end,
+    done     = case when daily_progress.task_id = excluded.task_id
+                    then (daily_progress.progress + inc) >= tgt else inc >= tgt end,
+    rewarded = case when daily_progress.task_id = excluded.task_id
+                    then daily_progress.rewarded else false end,
+    task_id  = excluded.task_id,
+    updated_at = now()
+  returning daily_progress.progress, daily_progress.done, daily_progress.rewarded
+  into p, dn, rw;
+
+  if dn and not rw then
+    update daily_progress set rewarded = true where daily_progress.key = k and daily_progress.day = d;
+    awarded_now := true;
+  else
+    awarded_now := false;
+  end if;
+
+  progress := p;
+  done := dn;
+  return next;
+end $$;

@@ -9,6 +9,7 @@ import { fakeOnline } from './bots.js';
 import { RANKS } from '../public/js/ranks.js';
 import { checkNick } from '../public/js/nick.js';
 import { localDay } from '../public/js/streak.js';
+import { taskForDay } from '../public/js/daily.js';
 import { initPush, pushPublicKey, saveSub, dropSub, pushTick } from './push.js';
 import { dbEnabled, dbStatus, dbDetail, cleanEnv, likeEscape, supa, verifyUser, getProfile, createProfile, claimGuestProgress, leaderboard, clearNickNotice, restoreStreak } from './db.js';
 
@@ -412,7 +413,9 @@ app.get('/reviews', async (req, res) => {
     ...(count ? {
       aggregateRating: {
         '@type': 'AggregateRating',
-        ratingValue: String(avg), ratingCount: String(count),
+        // exactly the number printed on the page: 5 and 5.0 are the same
+        // rating, but the markup is supposed to quote what a visitor reads
+        ratingValue: avg.toFixed(1), ratingCount: String(count),
         bestRating: '5', worstRating: '1',
       },
     } : {}),
@@ -486,6 +489,11 @@ app.get('/reviews', async (req, res) => {
 const ADMIN_KEY = cleanEnv(process.env.ADMIN_KEY) || 'karoboev777';
 
 // the ladder speaks six languages in the game; this page only needs one
+const TASK_RU = {
+  play4: 'сыграть 4 партии', win2: 'выиграть 2 партии', walls12: 'поставить 12 стен',
+  win_human: 'выиграть 2 партии у живых', win_thrifty: 'выиграть, потратив ≤3 стен',
+  win3: 'выиграть 3 партии', win_strong: 'обыграть соперника сильнее себя',
+};
 const RANK_RU = {
   rank_rookie: 'Новичок', rank_student: 'Ученик', rank_strategist: 'Стратег',
   rank_master: 'Мастер стен', rank_pro: 'Про', rank_legend: 'Легенда', rank_goat: 'GOAT',
@@ -1455,12 +1463,18 @@ ${blocks.join('') || '<p class="note">Подневная история пише
     // Lifetime totals come from the permanent rollup in one call. "Games for
     // all time" used to be counted straight out of visit_log, which keeps only
     // the last 7 days — it read 244,777 when the real figure was 1,639,335.
-    const [cur, prev, dataStart, tot] = await Promise.all([
+    const todayStr = new Date(Date.now() + 3 * 3600e3).toISOString().slice(0, 10);
+    const [cur, prev, dataStart, tot, dailyTook, dailyDone] = await Promise.all([
       periodStats(range.from, range.to),
       periodStats(range.prevFrom, range.prevTo),
       supa.rpc('admin_data_start').then(r => r.data || null),
       supa.rpc('admin_totals').then(r => r.data?.[0] || {}),
+      // how the task of the day is going. Rows are per player per local day,
+      // so this counts everyone who moved it at all and everyone who finished.
+      cnt(supa.from('daily_progress').select('key', { count: 'exact', head: true }).eq('day', todayStr)),
+      cnt(supa.from('daily_progress').select('key', { count: 'exact', head: true }).eq('day', todayStr).eq('done', true)),
     ]);
+    const dailyTask = taskForDay(todayStr);
     const totalPeople = Number(tot.people || 0);
     const totalGames = Number(tot.games || 0);
     const humansTotal = Number(tot.humans || 0);
@@ -1500,7 +1514,14 @@ ${blocks.join('') || '<p class="note">Подневная история пише
   <div class="t2"><b>${num(humansTotal)}</b><i>🤝 живых</i></div>
   <div class="t3"><b>${num(installs)}</b><i>📲 установили</i></div>
   <div class="t3"><b>${num(regs)}</b><i>✔ регистраций</i></div>
-</div>`;
+</div>
+<p class="subsect">🎯 Задача дня</p>
+<p class="note" style="margin:0 0 10px">Сегодня: <b>${esc(TASK_RU[dailyTask.id] || dailyTask.id)}</b> · награда +${dailyTask.reward} очков</p>
+<div class="grid2">
+  ${statCard('🎯', 'Взялись', num(dailyTook))}
+  ${statCard('✅', 'Выполнили', num(dailyDone))}
+</div>
+<p class="note">«Взялись» — сдвинули задачу хотя бы на шаг. Задача одна для всех и меняется каждый день сама, по дате.</p>`;
   }
 
   res.send(adminPage('WallRush — статистика', `

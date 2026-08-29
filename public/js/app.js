@@ -1,7 +1,7 @@
 // WallRush client app: screens, board UI, online play (WebSocket), AI mode, auth.
 import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=119';
 import { aiMove } from './ai.js?v=119';
-import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=133';
+import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=134';
 import { rankOf, nextRank } from './ranks.js?v=119';
 import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=119';
 import { checkNick, nickOk, randomNick } from './nick.js?v=119';
@@ -677,6 +677,9 @@ function handleWsMessage(msg) {
     case 'opp_reconnected':
       if (msg.clocks && game) game.clocks = { ...msg.clocks, recvAt: Date.now() };
       toast(t('opp_reconnected'));
+      break;
+    case 'daily':
+      renderDaily(msg);
       break;
     case 'no_game':
       // The room is gone and the server has no result for us either. Nothing
@@ -2464,6 +2467,56 @@ $('sound-toggle').addEventListener('change', (e) => {
   if (soundOn) tick(true); // preview
 });
 
+/* ================= task of the day =================
+   A strip on the home screen, nothing more. It appears when the server says
+   what today's task is and disappears when there is no answer — a card that
+   guesses would show the wrong task at midnight, and a wrong task is worse
+   than none.
+
+   The words come from i18n rather than the server: the server knows which
+   task it is, the player's own language decides how it reads. */
+let dailyNow = null;
+// Set when the match just finished the task: the celebration takes that
+// match's slot, so a player is congratulated or asked something, never both.
+let dailyJustDone = false;
+
+function dailyLine(task, target) {
+  return (t('task_' + task) || '').replace('%n', target);
+}
+
+function renderDaily(msg) {
+  dailyNow = msg;
+  const card = $('daily-card');
+  if (!msg || !msg.task) { card.hidden = true; return; }
+  const done = Boolean(msg.done);
+  const pct = Math.max(0, Math.min(100, Math.round(100 * msg.progress / msg.target)));
+  $('daily-ic').textContent = done ? '✅' : '🎯';
+  $('daily-text').textContent = dailyLine(msg.task, msg.target);
+  $('daily-fill').style.width = pct + '%';
+  $('daily-num').textContent = done ? t('daily_done') : `${msg.progress}/${msg.target}`;
+  $('daily-reward').textContent = done ? '' : '+' + msg.reward;
+  card.classList.toggle('is-done', done);
+  card.hidden = false;
+  if (msg.points !== undefined) { myPoints = msg.points; updateProfileUI(); }
+
+  // The one moment it interrupts anything: the match that finished it.
+  if (msg.justDone) {
+    dailyJustDone = true;
+    $('daily-done-what').textContent = dailyLine(msg.task, msg.target);
+    $('daily-done-reward').textContent = '+' + msg.reward + ' ' + t('daily_points');
+    setTimeout(() => { $('overlay-daily').hidden = false; vibrate([30, 60, 30, 60, 90]); }, 1400);
+  }
+}
+
+$('btn-daily-ok').addEventListener('click', () => { $('overlay-daily').hidden = true; });
+// tapping the strip starts a match, which is the only thing it ever asks for
+$('daily-card').addEventListener('click', () => {
+  if (dailyNow && dailyNow.done) return;
+  wsSend({ t: 'quick' });
+  show('screen-waiting');
+  $('waiting-code').hidden = true;
+});
+
 /* ================= rating and reviews =================
    One tap is a complete answer. The words underneath are optional and most
    people will never write any, which is fine — a star still counts.
@@ -2696,6 +2749,9 @@ function askAfterWin(iWon) {
   // stopped counting the moment that prompt was answered — so anything asked
   // later saw a number frozen at three.
   localStorage.setItem('wr_games', String(Number(localStorage.getItem('wr_games') || 0) + 1));
+  // The task of the day was just finished and is being celebrated. One thing
+  // on screen after a match, not two.
+  if (dailyJustDone) { dailyJustDone = false; return; }
   if (maybeAskSaveProgress(iWon)) { askedThisMatch = true; return; }
   if (maybeAskPush(iWon)) { askedThisMatch = true; return; }
   maybeAskRate(iWon);

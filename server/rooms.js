@@ -7,8 +7,9 @@ import { checkNick, randomNick } from '../public/js/nick.js';
 import {
   verifyUser, getProfile, recordResult, recordBotResult, recordHumanMatch,
   getPoints, addPoints, addBotPoints, touchStreak,
-  friendAdd, friendRemove, friendList,
+  friendAdd, friendRemove, friendList, dailyState, dailyBump,
 } from './db.js';
+import { taskForDay, matchProgress } from '../public/js/daily.js';
 import { initBots, fakeOnline, notifyUserWaiting } from './bots.js';
 import crypto from 'crypto';
 
@@ -195,6 +196,53 @@ function rematchFactor(room) {
   return 0;
 }
 
+/* ---------- task of the day ----------
+   Sent when a player arrives and again after every match that moves it. The
+   client only draws what it is told: which task, how far along, and whether
+   the reward has just landed. */
+
+async function sendDaily(pl) {
+  if (pl.isBot || !pl.ws) return;
+  const day = localDay(pl.tzOffset || 0);
+  const task = taskForDay(day);
+  const st = await dailyState({ userId: pl.userId, deviceId: pl.deviceId }, day);
+  send(pl, {
+    t: 'daily', task: task.id, target: task.target, reward: task.reward,
+    progress: st && st.taskId === task.id ? st.progress : 0,
+    done: Boolean(st && st.taskId === task.id && st.done),
+  });
+}
+
+async function bumpDaily(room, pl, won) {
+  if (pl.isBot || !pl.ws) return;
+  // A match decided in a handful of moves is a machine farming, not a game.
+  // Points already refuse to count those, and so does the task.
+  if ((room.moves || 0) < MIN_RANKED_MOVES) return;
+  const day = localDay(pl.tzOffset || 0);
+  const task = taskForDay(day);
+  const idx = room.players.indexOf(pl);
+  const opp = room.players[1 - idx];
+  const inc = matchProgress(task, {
+    won,
+    walls: (room.state.walls || []).filter(w => w.by === idx).length,
+    myPoints: pl.points || 0,
+    oppPoints: opp?.points || 0,
+    oppIsBot: Boolean(opp?.isBot),
+  });
+  if (!inc) return;
+  const st = await dailyBump({ userId: pl.userId, deviceId: pl.deviceId }, day, task.id, inc, task.target);
+  if (!st) return;
+  if (st.awardedNow) {
+    pl.points = (pl.points || 0) + task.reward;
+    persistPoints(pl, task.reward);
+  }
+  send(pl, {
+    t: 'daily', task: task.id, target: task.target, reward: task.reward,
+    progress: st.progress, done: st.done, justDone: st.awardedNow,
+    points: st.awardedNow ? pl.points : undefined,
+  });
+}
+
 function persistPoints(pl, delta) {
   if (!delta) return;
   if (pl.isBot) addBotPoints(pl.nick, delta);
@@ -256,6 +304,9 @@ async function finish(room, winnerIdx, reason) {
         send(pl, { t: 'streak', streak: st.streak, best: st.best, advanced: st.advanced, froze: st.froze });
       });
   }
+  // The task of the day follows the result rather than holding it up.
+  bumpDaily(room, w, true);
+  bumpDaily(room, l, false);
   if (w.userId || l.userId) {
     await recordResult(w.userId || null, l.userId || null);
   }
@@ -442,6 +493,7 @@ async function handleHello(client, msg) {
     streakFree: Boolean(client.streakFree),
   });
   if (missed) send(client, missed);
+  sendDaily(client);
 }
 
 function handleMove(client, msg) {

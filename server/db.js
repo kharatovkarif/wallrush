@@ -398,6 +398,49 @@ export async function growBots(botWinChance, activeChance = 0.07) {
    Mutual on add, no confirmation step: a request nobody answers is a friend
    nobody plays. The game server adds who is online — it is the only thing
    that knows. */
+/* ---------- task of the day ----------
+   Progress is counted in the database rather than in memory: a player can
+   finish one match on a phone and the next on a laptop, and a restart of the
+   server must not wipe a day's work. The RPC also reports whether this call
+   was the one that finished the task, so the reward is paid exactly once even
+   if two matches land in the same instant. */
+
+const dailyKey = ({ userId, deviceId }) => (userId ? 'u:' + userId : deviceId ? 'd:' + deviceId : null);
+
+export async function dailyState({ userId, deviceId }, day) {
+  const key = dailyKey({ userId, deviceId });
+  if (!dbEnabled || !key || !day) return null;
+  try {
+    const { data } = await supa.from('daily_progress')
+      .select('task_id, progress, done').eq('key', key).eq('day', day).maybeSingle();
+    return data ? { taskId: data.task_id, progress: data.progress || 0, done: Boolean(data.done) } : null;
+  } catch (e) {
+    console.error('dailyState failed:', e.message);
+    return null;
+  }
+}
+
+export async function dailyBump({ userId, deviceId }, day, taskId, inc, target) {
+  const key = dailyKey({ userId, deviceId });
+  if (!dbEnabled || !key || !day || !inc) return null;
+  try {
+    const { data } = await supa.rpc('daily_bump', { k: key, d: day, tid: taskId, inc, tgt: target });
+    const row = Array.isArray(data) ? data[0] : data;
+    if (!row) return null;
+    // Yesterday's rows are read by nobody. Kept for a few days so a player
+    // crossing midnight mid-session still sees a sane card, then dropped:
+    // this table gains a row per player per day and the database has a ceiling.
+    if (Math.random() < 0.005) {
+      await supa.from('daily_progress').delete()
+        .lt('day', new Date(Date.now() - 4 * 86400e3).toISOString().slice(0, 10));
+    }
+    return { progress: row.progress || 0, done: Boolean(row.done), awardedNow: Boolean(row.awarded_now) };
+  } catch (e) {
+    console.error('dailyBump failed:', e.message);
+    return null;
+  }
+}
+
 export async function friendAdd(a, b) {
   if (!client || !a || !b || a === b) return false;
   const { error } = await client.rpc('friend_add', { a, b });

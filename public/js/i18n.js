@@ -183,6 +183,18 @@ export const I18N = {
     reviews_count: 'отзывов',
     reviews_page_link: 'Открыть страницу отзывов →',
     rate_change: 'Изменить свой отзыв',
+    daily_title: 'Задача дня',
+    daily_done: 'Готово',
+    daily_points: 'очков',
+    daily_done_title: 'Задача дня выполнена!',
+    nice: 'Отлично',
+    task_play4: 'Сыграй %n партии сегодня',
+    task_win2: 'Выиграй %n партии',
+    task_walls12: 'Поставь %n стен',
+    task_win_human: 'Выиграй %n партии у живых игроков',
+    task_win_thrifty: 'Выиграй, потратив не больше 3 стен',
+    task_win3: 'Выиграй %n партии',
+    task_win_strong: 'Обыграй соперника сильнее себя',
     save_ask_title: 'Сохранить прогресс?',
     save_ask_points: 'очков',
     save_ask_body: 'Сейчас это хранится только в этом браузере. Очистишь данные или сменишь телефон — всё пропадёт. Аккаунт займёт полминуты, весь прогресс перенесётся.',
@@ -473,6 +485,18 @@ export const I18N = {
     reviews_count: 'reviews',
     reviews_page_link: 'Open the reviews page →',
     rate_change: 'Change your review',
+    daily_title: 'Task of the day',
+    daily_done: 'Done',
+    daily_points: 'points',
+    daily_done_title: 'Task of the day complete!',
+    nice: 'Nice',
+    task_play4: 'Play %n matches today',
+    task_win2: 'Win %n matches',
+    task_walls12: 'Place %n walls',
+    task_win_human: 'Win %n matches against real players',
+    task_win_thrifty: 'Win a match using no more than 3 walls',
+    task_win3: 'Win %n matches',
+    task_win_strong: 'Beat someone rated above you',
     save_ask_title: 'Save your progress?',
     save_ask_points: 'points',
     save_ask_body: 'Right now this lives only in this browser. Clear your data or change phone and it is gone. An account takes half a minute and carries everything over.',
@@ -596,7 +620,7 @@ export const LANGS = [
 export const LANG_CODES = LANGS.map((l) => l.code);
 export const RTL = new Set(['fa']);
 
-const V = '133';
+const V = '134';
 
 // Loads a translation file on demand. Safe to call repeatedly and safe to fail:
 // if the request never lands, makeT keeps falling back to English.

@@ -1116,3 +1116,29 @@ html[data-theme="dark"] .rooms-empty, html[data-theme="dark"] .lb-empty { color:
 .rv-item p { margin: 6px 0 0; font-size: 14px; line-height: 1.45; overflow-wrap: anywhere; }
 html[data-theme="dark"] .stars-pick button { color: #39405c; }
 html[data-theme="dark"] .rv-score, html[data-theme="dark"] .rv-item { background: #171a28; }
+
+/* ---------- task of the day ---------- */
+/* A strip above the play buttons, the height of one row. It has to be small
+   enough that a player who does not care can look past it every day without
+   being bothered, and clear enough to be read at a glance by one who does. */
+.daily { display: flex; align-items: center; gap: 12px; width: 100%;
+         background: var(--card); border: 0; border-radius: 16px;
+         padding: 12px 14px; margin: 0 0 12px; box-shadow: var(--shadow);
+         font: inherit; text-align: left; cursor: pointer;
+         transition: transform .12s ease; }
+.daily:active { transform: scale(.985); }
+.dl-ic { font-size: 22px; flex: none; }
+.dl-mid { flex: 1; min-width: 0; }
+.dl-mid b { display: block; font-size: 13.5px; font-weight: 600; color: var(--text);
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dl-bar { display: block; height: 5px; border-radius: 3px; background: var(--bg2); margin-top: 7px; overflow: hidden; }
+.dl-bar i { display: block; height: 100%; border-radius: 3px; background: var(--blue);
+            width: 0; transition: width .5s ease; }
+.dl-right { flex: none; text-align: right; }
+.dl-right b { display: block; font-size: 13px; color: var(--text); }
+.dl-right small { font-size: 11.5px; color: var(--green); font-weight: 700; }
+.daily.is-done .dl-bar i { background: var(--green); }
+.daily.is-done .dl-right b { color: var(--green); }
+.daily.is-done { cursor: default; }
+html[data-theme="dark"] .daily { background: #171a28; }
+html[data-theme="dark"] .dl-bar { background: #262c42; }

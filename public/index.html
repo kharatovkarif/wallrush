@@ -72,7 +72,7 @@
   <link rel="apple-touch-icon" href="icons/icon-192.png">
   <!-- Opens the connection to the ad host early. Costs one handshake and no
        download, and takes that handshake off the wait once Support is tapped. -->
-  <link rel="stylesheet" href="css/style.css?v=133">
+  <link rel="stylesheet" href="css/style.css?v=134">
   <!-- Are we inside somebody else's page? Every game portal forbids running
        your own ads inside theirs, and the ad scripts below start the moment
        the parser reaches them — long before any module could stop one. So the
@@ -120,6 +120,19 @@
           </button>
         </div>
       </header>
+
+      <!-- The task of the day. A strip, not a window: it is a reason to come
+           back, and something that greets a player with a dialog every day
+           stops being a reason and starts being a toll. Hidden entirely until
+           the server says what today's task is. -->
+      <button class="daily" id="daily-card" hidden>
+        <span class="dl-ic" id="daily-ic">🎯</span>
+        <span class="dl-mid">
+          <b id="daily-text"></b>
+          <span class="dl-bar"><i id="daily-fill"></i></span>
+        </span>
+        <span class="dl-right"><b id="daily-num"></b><small id="daily-reward"></small></span>
+      </button>
 
       <div class="cards">
         <button class="card card-primary" id="btn-quick">
@@ -631,6 +644,20 @@
          complete answer: the words are optional, and most people will not
          write any. One to three stars turn into a private note to us; four and
          five are offered a place on the public page. -->
+    <!-- Shown once, on the match that finishes the task. The points are
+         already in the account by the time this opens. -->
+    <div class="overlay" id="overlay-daily" hidden>
+      <div class="modal">
+        <div class="modal-emoji">🎯</div>
+        <h2 data-i18n="daily_done_title"></h2>
+        <p class="hint" id="daily-done-what"></p>
+        <p class="hint"><b id="daily-done-reward"></b></p>
+        <div class="modal-buttons">
+          <button class="btn-big" id="btn-daily-ok" data-i18n="nice"></button>
+        </div>
+      </div>
+    </div>
+
     <div class="overlay" id="overlay-rate" hidden>
       <div class="modal">
         <div class="modal-emoji" id="rate-emoji">⭐</div>
@@ -897,7 +924,7 @@
     <div id="toast" hidden></div>
   </div>
 
-  <script src="vendor/supabase.js?v=133" defer></script>
-  <script type="module" src="js/app.js?v=133"></script>
+  <script src="vendor/supabase.js?v=134" defer></script>
+  <script type="module" src="js/app.js?v=134"></script>
 </body>
 </html>
