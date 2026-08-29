@@ -72,7 +72,7 @@
   <link rel="apple-touch-icon" href="icons/icon-192.png">
   <!-- Opens the connection to the ad host early. Costs one handshake and no
        download, and takes that handshake off the wait once Support is tapped. -->
-  <link rel="stylesheet" href="css/style.css?v=134">
+  <link rel="stylesheet" href="css/style.css?v=135">
   <!-- Are we inside somebody else's page? Every game portal forbids running
        your own ads inside theirs, and the ad scripts below start the moment
        the parser reaches them — long before any module could stop one. So the
@@ -754,6 +754,37 @@
       </div>
     </section>
 
+    <!-- ============ FRIENDS ============ -->
+    <!-- It used to be a block at the very bottom of the profile, under every
+         setting, and a player with ninety matches wrote that the game had no
+         friends list at all. Its own screen, one tap from the profile. -->
+    <section class="screen" id="screen-friends">
+      <header class="sub-head">
+        <button class="btn-back" id="fr-back">‹</button>
+        <h2 data-i18n="friends_title"></h2>
+      </header>
+
+      <div class="fr-find" id="fr-find">
+        <p class="hint" data-i18n="friends_find_hint"></p>
+        <div class="fr-find-row">
+          <input class="input" id="fr-search" maxlength="16" autocomplete="off" data-i18n-ph="friends_find_ph">
+          <button class="btn-mini" id="fr-search-go">🔍</button>
+        </div>
+        <div id="fr-found"></div>
+      </div>
+
+      <!-- people who asked to be added -->
+      <div id="fr-requests-box" hidden>
+        <p class="fr-sect"><span data-i18n="friends_requests"></span> <b id="fr-req-count"></b></p>
+        <div id="fr-requests"></div>
+      </div>
+
+      <p class="fr-sect"><span data-i18n="friends_title"></span> <b id="fr-count"></b></p>
+      <div id="fr-list"></div>
+      <p class="hint" id="fr-empty" data-i18n="friends_empty" hidden></p>
+      <p class="hint" id="fr-guest" data-i18n="friends_guest" hidden></p>
+    </section>
+
     <!-- ============ REVIEWS ============ -->
     <!-- Reachable at any time, not only in the moment after a win. The same
          page lives at /reviews for anyone who has not opened the game yet. -->
@@ -866,6 +897,10 @@
              match, and never again — so anyone who tapped past that prompt had
              no way back. Hidden where the browser has already refused. -->
         <div class="setting-row">
+          <span data-i18n="friends_title"></span>
+          <button class="btn-mini" id="btn-open-friends">🤝</button>
+        </div>
+        <div class="setting-row">
           <span data-i18n="reviews_title"></span>
           <button class="btn-mini" id="btn-open-reviews">⭐</button>
         </div>
@@ -875,16 +910,7 @@
         </div>
       </div>
 
-      <!-- Friends. Only for accounts: a guest has no lasting name, so there is
-           nobody on the other side of the friendship tomorrow. -->
-      <div class="settings-box" id="friends-block" hidden>
-        <div class="setting-row">
-          <span data-i18n="friends_title"></span>
-          <span class="friends-count" id="friends-count"></span>
-        </div>
-        <div id="friends-list"></div>
-        <p class="hint" id="friends-empty" data-i18n="friends_empty" hidden></p>
-      </div>
+      <!-- The list itself lives on its own screen now -->
 
       <!-- HilltopAds 300x250 banner, its own ad code so this slot is measured
            separately from the one on the leaderboard. Below the settings: the
@@ -924,7 +950,7 @@
     <div id="toast" hidden></div>
   </div>
 
-  <script src="vendor/supabase.js?v=134" defer></script>
-  <script type="module" src="js/app.js?v=134"></script>
+  <script src="vendor/supabase.js?v=135" defer></script>
+  <script type="module" src="js/app.js?v=135"></script>
 </body>
 </html>

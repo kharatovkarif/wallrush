@@ -188,8 +188,9 @@ $$;
 revoke all on function public.admin_person_days(text) from anon, authenticated;
 
 -- ---------------------------------------------------------------------------
--- Friends. Mutual on add and with no confirmation step: this is a board game
--- between nicknames, and a request nobody answers is a friend nobody plays.
+-- Friends. Adding someone you have just played is mutual and immediate — you
+-- were both there. Finding a stranger by nickname goes through friend_requests
+-- below, so a name cannot be added to by anyone who can spell it.
 -- Only between accounts — a guest is a different person after clearing the
 -- browser, so there is nobody on the other side of the friendship tomorrow.
 create table if not exists public.friends (
@@ -310,3 +311,76 @@ begin
   done := dn;
   return next;
 end $$;
+
+-- ---------------------------------------------------------------------------
+-- Friend requests: only for people found by name, never for an opponent you
+-- have just played.
+create table if not exists public.friend_requests (
+  from_id uuid not null references public.profiles(id) on delete cascade,
+  to_id   uuid not null references public.profiles(id) on delete cascade,
+  at      timestamptz not null default now(),
+  primary key (from_id, to_id),
+  check (from_id <> to_id)
+);
+create index if not exists friend_requests_to_idx on public.friend_requests (to_id);
+alter table public.friend_requests enable row level security;
+
+-- Exact match, case-insensitive: a search that returns lists of half-matching
+-- strangers is a way to pester people, not a way to find the one you just met.
+create or replace function public.friend_find(q text, me uuid)
+returns table (id uuid, nick text, points integer, streak integer, already boolean, pending boolean)
+language sql security definer set search_path = public stable as $$
+  select p.id, p.nick, p.points, p.streak,
+         exists (select 1 from public.friends f where f.user_id = me and f.friend_id = p.id) as already,
+         exists (select 1 from public.friend_requests r
+                 where (r.from_id = me and r.to_id = p.id) or (r.from_id = p.id and r.to_id = me)) as pending
+  from public.profiles p
+  where lower(p.nick) = lower(trim(q)) and p.id <> me
+  limit 1
+$$;
+
+create or replace function public.friend_request_add(a uuid, b uuid)
+returns void language sql security definer set search_path = public as $$
+  insert into public.friend_requests (from_id, to_id)
+  select a, b
+  where not exists (select 1 from public.friends f where f.user_id = a and f.friend_id = b)
+  on conflict do nothing
+$$;
+
+-- Both directions go: two people who asked each other are simply friends.
+create or replace function public.friend_request_accept(me uuid, other uuid)
+returns void language plpgsql security definer set search_path = public as $$
+begin
+  delete from public.friend_requests
+   where (from_id = other and to_id = me) or (from_id = me and to_id = other);
+  insert into public.friends (user_id, friend_id) values (me, other), (other, me)
+  on conflict do nothing;
+end $$;
+
+create or replace function public.friend_request_decline(me uuid, other uuid)
+returns void language sql security definer set search_path = public as $$
+  delete from public.friend_requests where from_id = other and to_id = me
+$$;
+
+create or replace function public.friend_requests_in(me uuid)
+returns table (id uuid, nick text, points integer, streak integer, at timestamptz)
+language sql security definer set search_path = public stable as $$
+  select p.id, p.nick, p.points, p.streak, r.at
+  from public.friend_requests r
+  join public.profiles p on p.id = r.from_id
+  where r.to_id = me
+  order by r.at desc
+  limit 50
+$$;
+
+create or replace function public.friend_count(me uuid)
+returns integer language sql security definer set search_path = public stable as $$
+  select count(*)::int from public.friends where user_id = me
+$$;
+
+revoke all on function public.friend_find(text, uuid) from anon, authenticated;
+revoke all on function public.friend_request_add(uuid, uuid) from anon, authenticated;
+revoke all on function public.friend_request_accept(uuid, uuid) from anon, authenticated;
+revoke all on function public.friend_request_decline(uuid, uuid) from anon, authenticated;
+revoke all on function public.friend_requests_in(uuid) from anon, authenticated;
+revoke all on function public.friend_count(uuid) from anon, authenticated;

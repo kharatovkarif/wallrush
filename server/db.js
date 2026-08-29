@@ -455,6 +455,48 @@ export async function friendRemove(a, b) {
   return true;
 }
 
+export async function friendFind(nick, me) {
+  if (!client || !nick || !me) return null;
+  const { data, error } = await client.rpc('friend_find', { q: nick, me });
+  if (error) { console.error('friendFind failed:', error.message); return null; }
+  const row = Array.isArray(data) ? data[0] : data;
+  return row || null;
+}
+
+export async function friendCount(me) {
+  if (!client || !me) return 0;
+  const { data } = await client.rpc('friend_count', { me });
+  return typeof data === 'number' ? data : 0;
+}
+
+export async function friendRequestAdd(a, b) {
+  if (!client || !a || !b || a === b) return false;
+  const { error } = await client.rpc('friend_request_add', { a, b });
+  if (error) { console.error('friendRequestAdd failed:', error.message); return false; }
+  return true;
+}
+
+export async function friendRequestAccept(me, other) {
+  if (!client || !me || !other) return false;
+  const { error } = await client.rpc('friend_request_accept', { me, other });
+  if (error) { console.error('friendRequestAccept failed:', error.message); return false; }
+  return true;
+}
+
+export async function friendRequestDecline(me, other) {
+  if (!client || !me || !other) return false;
+  const { error } = await client.rpc('friend_request_decline', { me, other });
+  if (error) { console.error('friendRequestDecline failed:', error.message); return false; }
+  return true;
+}
+
+export async function friendRequestsIn(me) {
+  if (!client || !me) return [];
+  const { data, error } = await client.rpc('friend_requests_in', { me });
+  if (error) { console.error('friendRequestsIn failed:', error.message); return []; }
+  return data || [];
+}
+
 export async function friendList(a) {
   if (!client || !a) return [];
   const { data, error } = await client.rpc('friend_list', { a });

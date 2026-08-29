@@ -1142,3 +1142,22 @@ html[data-theme="dark"] .rv-score, html[data-theme="dark"] .rv-item { background
 .daily.is-done { cursor: default; }
 html[data-theme="dark"] .daily { background: #171a28; }
 html[data-theme="dark"] .dl-bar { background: #262c42; }
+
+/* ---------- friends screen ---------- */
+.fr-find { background: var(--card); border-radius: var(--radius); padding: 14px 16px;
+           box-shadow: var(--shadow); margin-bottom: 14px; }
+.fr-find-row { display: flex; gap: 8px; align-items: center; }
+.fr-find-row .input { flex: 1; margin: 0; }
+.fr-find-row .btn-mini { flex: none; }
+.fr-sect { font-size: 13px; font-weight: 700; color: var(--muted); margin: 16px 4px 8px;
+           text-transform: uppercase; letter-spacing: .04em; }
+.fr-sect b { color: var(--blue); }
+#fr-list, #fr-requests, #fr-found { background: var(--card); border-radius: var(--radius);
+                                    box-shadow: var(--shadow); overflow: hidden; }
+#fr-list:empty, #fr-requests:empty, #fr-found:empty { box-shadow: none; background: none; }
+#fr-list .fr-row:first-child, #fr-requests .fr-row:first-child, #fr-found .fr-row:first-child { border-top: 0; }
+html[data-theme="dark"] .fr-find,
+html[data-theme="dark"] #fr-list,
+html[data-theme="dark"] #fr-requests,
+html[data-theme="dark"] #fr-found { background: #171a28; }
+html[data-theme="dark"] .fr-row { border-top-color: rgba(255,255,255,.06); }

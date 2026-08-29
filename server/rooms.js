@@ -8,6 +8,7 @@ import {
   verifyUser, getProfile, recordResult, recordBotResult, recordHumanMatch,
   getPoints, addPoints, addBotPoints, touchStreak,
   friendAdd, friendRemove, friendList, dailyState, dailyBump,
+  friendFind, friendCount, friendRequestAdd, friendRequestAccept, friendRequestDecline, friendRequestsIn,
 } from './db.js';
 import { taskForDay, matchProgress } from '../public/js/daily.js';
 import { initBots, fakeOnline, notifyUserWaiting } from './bots.js';
@@ -16,6 +17,9 @@ import crypto from 'crypto';
 const BANK_MS = 300_000;      // 5:00 per player per game
 const MOVE_MS = 30_000;       // max per move
 const GRACE_MS = 30_000;      // reconnect window
+// A ceiling rather than a price: a list nobody can scroll is no use to
+// anyone, and past a hundred names it is a directory, not friends.
+const FRIEND_MAX = 100;
 const EMOJIS = ['😂', '🫡', '🤝', '😡'];
 
 const clients = new Map();   // ws -> client {ws, token, nick, userId, roomId, inLobby}
@@ -649,6 +653,10 @@ export function attachWs(wss) {
           case 'friend_add': {
             const id = String(msg.id || '');
             if (!client.userId || !id || id === client.userId) break;
+            if (await friendCount(client.userId) >= FRIEND_MAX) {
+              send(client, { t: 'error', code: 'friends_full' });
+              break;
+            }
             if (await friendAdd(client.userId, id)) {
               send(client, { t: 'friend_added', id });
               // tell them, if they are here to hear it
@@ -656,6 +664,67 @@ export function attachWs(wss) {
                 if (c.userId === id) send(c, { t: 'friend_added_you', nick: client.nick });
               }
             }
+            break;
+          }
+          /* Looking someone up by the name they play under. Exact match
+             only: a search that lists half-matching strangers is a way to
+             pester people rather than a way to find the one you just met. */
+          case 'friend_search': {
+            if (!client.userId) { send(client, { t: 'friend_found', found: null }); break; }
+            const q = String(msg.nick || '').trim().slice(0, 32);
+            if (q.length < 2) { send(client, { t: 'friend_found', found: null }); break; }
+            const row = await friendFind(q, client.userId);
+            send(client, {
+              t: 'friend_found',
+              found: row ? {
+                id: row.id, nick: row.nick, points: row.points || 0, streak: row.streak || 0,
+                already: Boolean(row.already), pending: Boolean(row.pending),
+                online: [...clients.values()].some(c => c.userId === row.id),
+              } : null,
+            });
+            break;
+          }
+          /* A stranger found by name gets asked, not added. Someone you have
+             just played is added outright — you were both there. */
+          case 'friend_request': {
+            const id = String(msg.id || '');
+            if (!client.userId || !id || id === client.userId) break;
+            if (await friendCount(client.userId) >= FRIEND_MAX) {
+              send(client, { t: 'error', code: 'friends_full' });
+              break;
+            }
+            await friendRequestAdd(client.userId, id);
+            send(client, { t: 'friend_requested', id });
+            for (const c of clients.values()) {
+              if (c.userId === id) send(c, { t: 'friend_request_in', nick: client.nick });
+            }
+            break;
+          }
+          case 'friend_requests': {
+            if (!client.userId) { send(client, { t: 'friend_requests', list: [] }); break; }
+            const list = await friendRequestsIn(client.userId);
+            send(client, {
+              t: 'friend_requests',
+              list: list.map(r => ({ id: r.id, nick: r.nick, points: r.points || 0, streak: r.streak || 0 })),
+            });
+            break;
+          }
+          case 'friend_answer': {
+            const id = String(msg.id || '');
+            if (!client.userId || !id) break;
+            if (msg.yes) {
+              if (await friendCount(client.userId) >= FRIEND_MAX) {
+                send(client, { t: 'error', code: 'friends_full' });
+                break;
+              }
+              await friendRequestAccept(client.userId, id);
+              for (const c of clients.values()) {
+                if (c.userId === id) send(c, { t: 'friend_added_you', nick: client.nick });
+              }
+            } else {
+              await friendRequestDecline(client.userId, id);
+            }
+            send(client, { t: 'friend_answered', id, yes: Boolean(msg.yes) });
             break;
           }
           case 'friend_remove': {

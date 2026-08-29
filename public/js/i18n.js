@@ -202,6 +202,16 @@ export const I18N = {
     save_ask_no: 'Потом',
     friends_title: 'Друзья',
     friends_empty: 'Пока никого. Добавь соперника после матча — и сможешь звать его в игру.',
+    friends_find_hint: 'Найди игрока по нику — он получит приглашение в друзья',
+    friends_find_ph: 'Ник игрока',
+    friends_requests: 'Приглашения',
+    friends_not_found: 'Никого с таким ником нет. Ник вводится точно, как он написан у игрока.',
+    friends_already: 'Уже в друзьях',
+    friends_pending: 'Приглашение отправлено',
+    friends_sent: 'Приглашение отправлено',
+    friends_wants: 'зовёт в друзья',
+    friends_full: 'Больше 100 друзей нельзя',
+    friends_guest: 'Друзья доступны только с аккаунтом — создай его в профиле, иначе завтра тебя некому будет узнать.',
     friend_add: 'В друзья',
     friend_added: 'Добавлен',
     friend_added_ok: 'Добавлен в друзья',
@@ -504,6 +514,16 @@ export const I18N = {
     save_ask_no: 'Later',
     friends_title: 'Friends',
     friends_empty: 'Nobody yet. Add an opponent after a match and you can call them to play.',
+    friends_find_hint: 'Find a player by nickname — they get a friend request',
+    friends_find_ph: 'Nickname',
+    friends_requests: 'Requests',
+    friends_not_found: 'Nobody plays under that name. It has to be typed exactly as they have it.',
+    friends_already: 'Already friends',
+    friends_pending: 'Request sent',
+    friends_sent: 'Request sent',
+    friends_wants: 'wants to be friends',
+    friends_full: '100 friends is the limit',
+    friends_guest: 'Friends need an account — make one in your profile, or there is nobody to recognise you tomorrow.',
     friend_add: 'Add',
     friend_added: 'Added',
     friend_added_ok: 'Added to friends',
@@ -620,7 +640,7 @@ export const LANGS = [
 export const LANG_CODES = LANGS.map((l) => l.code);
 export const RTL = new Set(['fa']);
 
-const V = '134';
+const V = '135';
 
 // Loads a translation file on demand. Safe to call repeatedly and safe to fail:
 // if the request never lands, makeT keeps falling back to English.

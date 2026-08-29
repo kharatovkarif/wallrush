@@ -1,7 +1,7 @@
 // WallRush client app: screens, board UI, online play (WebSocket), AI mode, auth.
 import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=119';
 import { aiMove } from './ai.js?v=119';
-import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=134';
+import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=135';
 import { rankOf, nextRank } from './ranks.js?v=119';
 import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=119';
 import { checkNick, nickOk, randomNick } from './nick.js?v=119';
@@ -364,7 +364,8 @@ function show(screenId) {
     b.classList.toggle('active', b.dataset.screen === screenId));
   if (screenId === 'screen-leaderboard') loadLeaderboard();
   if (screenId === 'screen-reviews') loadReviews();
-  if (screenId === 'screen-profile') { updateProfileUI(); renderPushRow(); renderFriends(); loadFriends(); } // points move every match
+  if (screenId === 'screen-profile') { updateProfileUI(); renderPushRow(); loadFriends(); } // points move every match
+  if (screenId === 'screen-friends') { renderFriends(); loadFriends(); }
   if (screenId === 'screen-rooms') wsSend({ t: 'lobby_sub' });
   else wsSend({ t: 'lobby_unsub' });
 }
@@ -429,38 +430,124 @@ $('btn-add-friend').addEventListener('click', () => {
   wsSend({ t: 'friend_add', id });
 });
 
-function renderFriends() {
-  const block = $('friends-block');
-  if (!session) { block.hidden = true; return; }
-  block.hidden = false;
-  $('friends-count').textContent = friends.length ? String(friends.length) : '';
-  $('friends-empty').hidden = friends.length > 0;
-  $('friends-list').innerHTML = friends.map(f => {
-    const state = f.busy ? 'busy' : f.online ? 'on' : '';
-    const where = f.busy ? t('friend_busy') : f.online ? t('friend_online') : t('friend_offline');
-    const flame = f.streak > 0 ? ' · 🔥 ' + f.streak : '';
-    return `<div class="fr-row">
-      <span class="fr-dot ${state}"></span>
-      <span class="fr-info"><b>${esc(f.nick)}</b><small>${where} · ${f.points} ${t('save_ask_points')}${flame}</small></span>
-      <button class="fr-call" data-call="${esc(f.id)}"${f.online && !f.busy ? '' : ' disabled'}>${t('friend_call')}</button>
-      <button class="fr-del" data-del="${esc(f.id)}" aria-label="remove">✕</button>
-    </div>`;
-  }).join('');
+/* Nicknames are chosen by the people who wear them, and they go into the page
+   as HTML. Without this a nick with a < in it would be markup rather than a
+   name — and, worse, this helper was called from the friends list without ever
+   being written, so drawing a single friend threw and the list came out empty.
+   Anyone who had added even one friend saw a friends feature that did nothing:
+   564 friendships across the game, invisible to the people who made them. */
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (ch) =>
+  ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+
+/* The friends screen. Everything about friends is here: who they are, who
+   asked to be added, and the search for someone by the name they play under.
+
+   It used to be a block at the bottom of the profile, below every setting.
+   A player with ninety matches and five friends already added wrote that the
+   game had no friends list and no way to remove anyone — both were there, four
+   screens of scrolling down. */
+let friendRequests = [];
+let foundFriend = null;
+let callTarget = null;      // set while the settings dialog is being used to call someone
+
+function frRow(f) {
+  const state = f.busy ? 'busy' : f.online ? 'on' : '';
+  const where = f.busy ? t('friend_busy') : f.online ? t('friend_online') : t('friend_offline');
+  const flame = f.streak > 0 ? ' · 🔥 ' + f.streak : '';
+  return `<div class="fr-row">
+    <span class="fr-dot ${state}"></span>
+    <span class="fr-info"><b>${esc(f.nick)}</b><small>${where} · ${f.points} ${t('save_ask_points')}${flame}</small></span>
+    <button class="fr-call" data-call="${esc(f.id)}"${f.online && !f.busy ? '' : ' disabled'}>${t('friend_call')}</button>
+    <button class="fr-del" data-del="${esc(f.id)}" aria-label="remove">✕</button>
+  </div>`;
 }
 
-$('friends-list').addEventListener('click', (e) => {
+function renderFriends() {
+  const guest = !session;
+  $('fr-guest').hidden = !guest;
+  $('fr-find').hidden = guest;
+  $('fr-list').innerHTML = guest ? '' : friends.map(frRow).join('');
+  $('fr-count').textContent = guest || !friends.length ? '' : String(friends.length);
+  $('fr-empty').hidden = guest || friends.length > 0;
+
+  $('fr-requests-box').hidden = guest || friendRequests.length === 0;
+  $('fr-req-count').textContent = friendRequests.length ? String(friendRequests.length) : '';
+  $('fr-requests').innerHTML = friendRequests.map(r => `<div class="fr-row">
+    <span class="fr-dot"></span>
+    <span class="fr-info"><b>${esc(r.nick)}</b><small>${r.points} ${t('save_ask_points')}</small></span>
+    <button class="fr-call" data-yes="${esc(r.id)}">✓</button>
+    <button class="fr-del" data-no="${esc(r.id)}" aria-label="decline">✕</button>
+  </div>`).join('');
+
+  // the badge on the profile row, so an unanswered request is visible from
+  // outside this screen
+  const row = $('btn-open-friends');
+  if (row) row.textContent = friendRequests.length ? '🤝 ' + friendRequests.length : '🤝';
+}
+
+function renderFound() {
+  const box = $('fr-found');
+  if (foundFriend === null) { box.innerHTML = ''; return; }
+  if (!foundFriend) { box.innerHTML = `<p class="hint">${t('friends_not_found')}</p>`; return; }
+  const f = foundFriend;
+  const label = f.already ? t('friends_already') : f.pending ? t('friends_pending') : '＋ ' + t('friend_add');
+  box.innerHTML = `<div class="fr-row">
+    <span class="fr-dot ${f.online ? 'on' : ''}"></span>
+    <span class="fr-info"><b>${esc(f.nick)}</b><small>${f.points} ${t('save_ask_points')}</small></span>
+    <button class="fr-call" data-ask="${esc(f.id)}"${f.already || f.pending ? ' disabled' : ''}>${label}</button>
+  </div>`;
+}
+
+$('fr-list').addEventListener('click', (e) => {
   const call = e.target.closest('[data-call]');
-  if (call) {
-    wsSend({ t: 'friend_call', id: call.dataset.call,
-             mode: createCfg.mode, walls: Number(createCfg.walls), time: createCfg.time });
-    toast(t('friend_calling'));
-    return;
-  }
+  if (call) { openCallDialog(call.dataset.call); return; }
   const del = e.target.closest('[data-del]');
   if (del && confirm(t('friend_remove_ask'))) wsSend({ t: 'friend_remove', id: del.dataset.del });
 });
 
-function loadFriends() { if (session) wsSend({ t: 'friends' }); }
+$('fr-requests').addEventListener('click', (e) => {
+  const yes = e.target.closest('[data-yes]');
+  const no = e.target.closest('[data-no]');
+  const id = yes?.dataset.yes || no?.dataset.no;
+  if (!id) return;
+  wsSend({ t: 'friend_answer', id, yes: Boolean(yes) });
+  friendRequests = friendRequests.filter(r => r.id !== id);
+  renderFriends();
+});
+
+$('fr-found').addEventListener('click', (e) => {
+  const ask = e.target.closest('[data-ask]');
+  if (!ask || ask.disabled) return;
+  wsSend({ t: 'friend_request', id: ask.dataset.ask });
+  ask.disabled = true;
+  ask.textContent = t('friends_pending');
+});
+
+function searchFriend() {
+  const nick = $('fr-search').value.trim();
+  if (nick.length < 2) return;
+  foundFriend = null;
+  renderFound();
+  wsSend({ t: 'friend_search', nick });
+}
+$('fr-search-go').addEventListener('click', searchFriend);
+$('fr-search').addEventListener('keydown', (e) => { if (e.key === 'Enter') searchFriend(); });
+$('fr-back').addEventListener('click', () => show('screen-profile'));
+$('btn-open-friends').addEventListener('click', () => show('screen-friends'));
+
+/* Calling someone opens the same settings dialog as creating a room: they
+   asked for the mode to be their choice rather than whatever was played last. */
+function openCallDialog(id) {
+  callTarget = id;
+  openCreateDialog(true);
+  $('cr-create').textContent = t('friend_call');
+}
+
+function loadFriends() {
+  if (!session) { renderFriends(); return; }
+  wsSend({ t: 'friends' });
+  wsSend({ t: 'friend_requests' });
+}
 
 let callCode = '';
 $('btn-call-no').addEventListener('click', () => { $('overlay-call').hidden = true; callCode = ''; });
@@ -603,6 +690,25 @@ function handleWsMessage(msg) {
       friends = friends.filter(f => f.id !== msg.id);
       renderFriends();
       break;
+    case 'friend_found':
+      foundFriend = msg.found || false;   // false = looked and found nobody
+      renderFound();
+      break;
+    case 'friend_requested':
+      toast(t('friends_sent'));
+      break;
+    case 'friend_request_in':
+      // someone asked while we were here to see it
+      toast(`${msg.nick} ${t('friends_wants')}`);
+      loadFriends();
+      break;
+    case 'friend_requests':
+      friendRequests = msg.list || [];
+      renderFriends();
+      break;
+    case 'friend_answered':
+      if (msg.yes) loadFriends();
+      break;
     case 'friend_call': {
       // Someone is holding a room open for us; the code is the way in.
       callCode = msg.code || '';
@@ -691,7 +797,8 @@ function handleWsMessage(msg) {
       }
       break;
     case 'error':
-      if (msg.code === 'room_not_found') toast(t('err_room_not_found'));
+      if (msg.code === 'friends_full') toast(t('friends_full'));
+      else if (msg.code === 'room_not_found') toast(t('err_room_not_found'));
       else if (msg.code === 'room_full') toast(t('err_room_full'));
       else if (msg.code !== 'bad_move') toast(t('err_generic'));
       break;
@@ -744,13 +851,14 @@ function syncCreateDialog() {
 }
 function openCreateDialog(isPrivate) {
   createCfg = { mode: 'duel', walls: '10', time: '5', private: isPrivate };
+  $('cr-create').textContent = t('create_room');
   pickOpt('cr-mode', 'duel'); pickOpt('cr-walls', '10'); pickOpt('cr-time', '5');
   syncCreateDialog();
   $('overlay-create').hidden = false;
 }
-$('btn-create-room').addEventListener('click', () => openCreateDialog(false));
-$('btn-friend-create').addEventListener('click', () => openCreateDialog(true));
-$('cr-cancel').addEventListener('click', () => { $('overlay-create').hidden = true; });
+$('btn-create-room').addEventListener('click', () => { callTarget = null; openCreateDialog(false); });
+$('btn-friend-create').addEventListener('click', () => { callTarget = null; openCreateDialog(true); });
+$('cr-cancel').addEventListener('click', () => { $('overlay-create').hidden = true; callTarget = null; });
 $('cr-mode').addEventListener('click', (e) => {
   const b = e.target.closest('button'); if (!b) return;
   createCfg.mode = b.dataset.val; pickOpt('cr-mode', b.dataset.val); syncCreateDialog();
@@ -765,6 +873,13 @@ $('cr-time').addEventListener('click', (e) => {
 });
 $('cr-create').addEventListener('click', () => {
   $('overlay-create').hidden = true;
+  if (callTarget) {
+    wsSend({ t: 'friend_call', id: callTarget,
+             mode: createCfg.mode, walls: Number(createCfg.walls), time: createCfg.time });
+    toast(t('friend_calling'));
+    callTarget = null;
+    return;
+  }
   wsSend({
     t: 'create_room', private: createCfg.private,
     mode: createCfg.mode, walls: Number(createCfg.walls), time: createCfg.time,
