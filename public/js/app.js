@@ -1,7 +1,7 @@
 // WallRush client app: screens, board UI, online play (WebSocket), AI mode, auth.
 import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=119';
 import { aiMove } from './ai.js?v=119';
-import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=137';
+import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=138';
 import { rankOf, nextRank } from './ranks.js?v=119';
 import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=119';
 import { checkNick, nickOk, randomNick } from './nick.js?v=119';
@@ -355,6 +355,11 @@ function show(screenId) {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   $(screenId).classList.add('active');
   currentScreen = screenId;
+  // Every screen starts at its own beginning. The page scrolls as one, so
+  // opening the advertising page from halfway down the home screen used to
+  // land the reader halfway down that one too — straight into the prices,
+  // with the numbers they are supposed to read first left above them.
+  window.scrollTo(0, 0);
   const nav = $('bottom-nav');
   const playing = screenId === 'screen-game' || screenId === 'screen-waiting';
   nav.classList.toggle('hidden', playing);
