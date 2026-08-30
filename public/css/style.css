@@ -1214,3 +1214,11 @@ html[data-theme="dark"] .rv-bt { background: #262c42; }
 .pk-price i { font-size: 11px; font-style: normal; color: var(--green); font-weight: 600; }
 html[data-theme="dark"] .ads-live, html[data-theme="dark"] .pack { background: #171a28; }
 html[data-theme="dark"] .ads-flag { background: #262c42; }
+
+/* ---------- advertising enquiry form ---------- */
+#overlay-adreq .modal { text-align: left; }
+#overlay-adreq .cr-label { margin: 14px 0 6px; }
+#overlay-adreq .cr-opts { flex-wrap: wrap; }
+#overlay-adreq .input { margin-top: 8px; }
+#adreq-hint { margin: 6px 0 0; font-size: 12px; }
+#adreq-pack { appearance: none; -webkit-appearance: none; background-image: none; }

@@ -72,7 +72,7 @@
   <link rel="apple-touch-icon" href="icons/icon-192.png">
   <!-- Opens the connection to the ad host early. Costs one handshake and no
        download, and takes that handshake off the wait once Support is tapped. -->
-  <link rel="stylesheet" href="css/style.css?v=140">
+  <link rel="stylesheet" href="css/style.css?v=141">
   <!-- Are we inside somebody else's page? Every game portal forbids running
        your own ads inside theirs, and the ad scripts below start the moment
        the parser reaches them — long before any module could stop one. So the
@@ -697,14 +697,41 @@
     </div>
 
     <!-- Leaving a way to be reached. No payment: there is nothing here to
-         take money with yet, and a dead pay button loses the enquiry too. -->
+         take money with yet, and a dead pay button loses the enquiry too.
+
+         The first three enquiries came in as "Wathsapp", a bare phone number
+         with no country, and one usable email — so the form asks where first
+         and what to write there second, instead of one box that meant
+         different things to different people. -->
     <div class="overlay" id="overlay-adreq" hidden>
       <div class="modal">
         <div class="modal-emoji">📣</div>
         <h2 data-i18n="ads_req_title"></h2>
-        <p class="hint" id="adreq-pack"></p>
-        <input class="input" id="adreq-contact" maxlength="200" data-i18n-ph="ads_req_contact_ph" autocomplete="off">
-        <textarea class="input rate-text" id="adreq-about" rows="3" maxlength="500" data-i18n-ph="ads_req_about_ph"></textarea>
+
+        <p class="cr-label" data-i18n="ads_req_pack"></p>
+        <select class="input" id="adreq-pack">
+          <option value="banner-7">$19 · 7</option>
+        </select>
+
+        <p class="cr-label" data-i18n="ads_req_where"></p>
+        <div class="cr-opts" id="adreq-platform">
+          <button type="button" data-val="telegram" class="on">Telegram</button>
+          <button type="button" data-val="whatsapp">WhatsApp</button>
+          <button type="button" data-val="instagram">Instagram</button>
+          <button type="button" data-val="email" data-i18n="ads_req_email"></button>
+        </div>
+        <input class="input" id="adreq-contact" maxlength="200" autocomplete="off">
+        <p class="hint" id="adreq-hint"></p>
+
+        <p class="cr-label" data-i18n="ads_req_optional"></p>
+        <textarea class="input rate-text" id="adreq-about" rows="2" maxlength="500" data-i18n-ph="ads_req_about_ph"></textarea>
+
+        <div class="cr-opts" id="adreq-audience">
+          <button type="button" data-val="world" class="on" data-i18n="ads_req_world"></button>
+          <button type="button" data-val="own" data-i18n="ads_req_own_geo"></button>
+        </div>
+        <input class="input" id="adreq-geo" maxlength="120" autocomplete="off" data-i18n-ph="ads_req_geo_ph" hidden>
+
         <p class="hint" data-i18n="ads_req_promise"></p>
         <div class="modal-buttons">
           <button class="btn-big" id="adreq-send" data-i18n="ads_req_send"></button>
@@ -857,6 +884,7 @@
         <div class="rv-bars" id="rv-bars"></div>
       </div>
       <button class="btn-big" id="btn-leave-review" data-i18n="rate_leave"></button>
+      <p class="hint" id="rv-gate" hidden></p>
       <div class="rv-tabs" id="rv-tabs" hidden>
         <button data-f="new" class="on" data-i18n="rv_new"></button>
         <button data-f="text" data-i18n="rv_text"></button>
@@ -1014,7 +1042,7 @@
     <div id="toast" hidden></div>
   </div>
 
-  <script src="vendor/supabase.js?v=140" defer></script>
-  <script type="module" src="js/app.js?v=140"></script>
+  <script src="vendor/supabase.js?v=141" defer></script>
+  <script type="module" src="js/app.js?v=141"></script>
 </body>
 </html>

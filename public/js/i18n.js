@@ -120,6 +120,18 @@ export const I18N = {
     ads_promise: 'Размещение точно в срок мы гарантируем. Сколько людей придёт — честно не обещает никто, и мы не будем.',
     ads_leave: '📩 Оставить заявку',
     ads_req_title: 'Оставьте контакт',
+    ads_req_pack: 'Тариф',
+    ads_req_where: 'Куда с вами связаться',
+    ads_req_email: 'Почта',
+    ads_req_optional: 'Необязательно',
+    ads_req_world: '🌍 Весь мир',
+    ads_req_own_geo: 'Своя страна',
+    ads_req_geo_ph: 'Например: Иран, Индия, Нигерия',
+    ads_req_h_tg: 'Ник в Telegram, начиная с @',
+    ads_req_h_wa: 'Номер обязательно с кодом страны: +992, +7, +234…',
+    ads_req_h_ig: 'Ник в Instagram, начиная с @',
+    ads_req_h_mail: 'Адрес почты целиком',
+    ads_req_bad: '⚠️ Проверьте: так мы до вас не дозвонимся и не напишем',
     ads_req_contact_ph: 'Telegram, WhatsApp, Instagram или почта',
     ads_req_about_ph: 'Что рекламируем? (необязательно)',
     ads_req_promise: 'Мы напишем сами и обо всём договоримся. Оплата — после разговора.',
@@ -198,6 +210,8 @@ export const I18N = {
     rate_sorry: 'Жаль. Что не так?',
     rate_public_note: 'Можешь добавить пару слов — они появятся на странице отзывов.',
     rate_private_note: 'Это письмо придёт только владельцу игры. На сайте его никто не увидит.',
+    rate_bad_note: 'Напиши, что не так — отзыв появится на странице отзывов, и мы на него ответим.',
+    rate_gate: 'Отзыв можно оставить после 10 партий или с аккаунтом. Осталось партий: %n',
     rate_ph_good: 'Пара слов об игре (необязательно)',
     rate_ph_bad: 'Что сломалось или не понравилось?',
     rate_send: 'Отправить',
@@ -464,6 +478,18 @@ export const I18N = {
     ads_promise: 'We guarantee the placement, on time. Nobody can honestly promise how many people it brings, and we will not either.',
     ads_leave: '📩 Leave a request',
     ads_req_title: 'Leave a way to reach you',
+    ads_req_pack: 'Package',
+    ads_req_where: 'Where to reach you',
+    ads_req_email: 'Email',
+    ads_req_optional: 'Optional',
+    ads_req_world: '🌍 Worldwide',
+    ads_req_own_geo: 'Specific country',
+    ads_req_geo_ph: 'For example: Iran, India, Nigeria',
+    ads_req_h_tg: 'Your Telegram handle, starting with @',
+    ads_req_h_wa: 'Number with the country code: +998, +234, +1…',
+    ads_req_h_ig: 'Your Instagram handle, starting with @',
+    ads_req_h_mail: 'The full email address',
+    ads_req_bad: '⚠️ Please check — we cannot reach you with this',
     ads_req_contact_ph: 'Telegram, WhatsApp, Instagram or email',
     ads_req_about_ph: 'What are you advertising? (optional)',
     ads_req_promise: 'We will write to you and agree the details. Payment comes after that conversation.',
@@ -542,6 +568,8 @@ export const I18N = {
     rate_sorry: 'Sorry to hear it. What went wrong?',
     rate_public_note: 'Add a couple of words if you like — they go on the reviews page.',
     rate_private_note: 'This goes to the owner of the game only. Nobody sees it on the site.',
+    rate_bad_note: 'Tell us what went wrong — it goes on the reviews page, and we answer it there.',
+    rate_gate: 'Reviews need an account or ten matches played. Matches to go: %n',
     rate_ph_good: 'A couple of words about the game (optional)',
     rate_ph_bad: 'What broke, or what did you dislike?',
     rate_send: 'Send',
@@ -704,7 +732,7 @@ export const LANGS = [
 export const LANG_CODES = LANGS.map((l) => l.code);
 export const RTL = new Set(['fa']);
 
-const V = '140';
+const V = '141';
 
 // Loads a translation file on demand. Safe to call repeatedly and safe to fail:
 // if the request never lands, makeT keeps falling back to English.

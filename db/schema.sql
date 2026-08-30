@@ -246,7 +246,7 @@ create table if not exists reviews (
   stars       smallint not null check (stars between 1 and 5),
   body        text,
   lang        text,
-  is_public   boolean not null default false,   -- 4-5 stars: their words are printed
+  is_public   boolean not null default false,   -- 4-5 stars (kept for the admin's own reading)
   hidden      boolean not null default false,   -- moderation, or a foul word caught on the way in
   likes       int not null default 0,
   reply       text,                             -- the owner's answer, shown under the review
@@ -438,7 +438,9 @@ $$;
 create table if not exists ad_requests (
   id         bigserial primary key,
   pack       text,
-  contact    text not null,
+  platform   text,          -- telegram | whatsapp | instagram | email
+  contact    text not null, -- the handle, number or address for that platform
+  audience   text,          -- 'world', or the countries they asked for
   about      text,
   lang       text,
   device_id  text,

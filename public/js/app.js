@@ -1,7 +1,7 @@
 // WallRush client app: screens, board UI, online play (WebSocket), AI mode, auth.
 import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=119';
 import { aiMove } from './ai.js?v=119';
-import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=140';
+import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=141';
 import { rankOf, nextRank } from './ranks.js?v=119';
 import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=119';
 import { checkNick, nickOk, randomNick } from './nick.js?v=119';
@@ -2591,7 +2591,6 @@ $('sound-toggle').addEventListener('change', (e) => {
 /* ================= the advertising page =================
    Yesterday's real figures, fetched once when the page is opened. An
    advertiser decides on reach, and a rounded promise decides nothing. */
-let adsPack = '';
 
 async function loadAdsStats() {
   try {
@@ -2611,23 +2610,82 @@ async function loadAdsStats() {
   } catch { /* the page still works without them */ }
 }
 
+/* The enquiry form. The first three that arrived read "Wathsapp", a phone
+   number with no country code, and one usable email — one box asking for "a
+   contact" meant a different thing to each of them. So: where first, then what
+   to write there, with the placeholder and the check changing to match. */
+const ADREQ_PLATFORMS = {
+  telegram: { ph: '@nickname', hint: 'ads_req_h_tg', ok: (v) => /^@?[\w\d_]{4,}$/.test(v) || /t\.me\//i.test(v) },
+  whatsapp: { ph: '+998 90 123 45 67', hint: 'ads_req_h_wa', ok: (v) => /^\+\d[\d\s()-]{6,}$/.test(v) },
+  instagram: { ph: '@nickname', hint: 'ads_req_h_ig', ok: (v) => /^@?[\w\d._]{3,}$/.test(v) || /instagram\.com\//i.test(v) },
+  email: { ph: 'name@company.com', hint: 'ads_req_h_mail', ok: (v) => /^[^@\s]+@[^@\s.]+\.[^@\s]{2,}$/.test(v) },
+};
+let adreqPlatform = 'telegram';
+let adreqGeo = 'world';
+
+function packOptions(selected) {
+  const sel = $('adreq-pack');
+  sel.innerHTML = [...document.querySelectorAll('#ads-packs .pack')].map(b => {
+    const name = b.querySelector('.pk-name').textContent;
+    const days = b.querySelector('.pk-days').textContent;
+    const price = b.querySelector('.pk-price').textContent.trim().split(' ')[0];
+    return `<option value="${b.dataset.pack}">${price} · ${name} · ${days}</option>`;
+  }).join('');
+  if (selected) sel.value = selected;
+}
+
+function syncAdreqContact() {
+  const p = ADREQ_PLATFORMS[adreqPlatform];
+  $('adreq-contact').placeholder = p.ph;
+  $('adreq-contact').type = adreqPlatform === 'whatsapp' ? 'tel' : 'text';
+  $('adreq-hint').textContent = t(p.hint);
+}
+
+function openAdReq(pack) {
+  packOptions(pack);
+  adreqPlatform = 'telegram';
+  adreqGeo = 'world';
+  $('adreq-platform').querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.val === 'telegram'));
+  $('adreq-audience').querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.val === 'world'));
+  $('adreq-geo').hidden = true;
+  $('adreq-geo').value = '';
+  syncAdreqContact();
+  $('overlay-adreq').hidden = false;
+}
+
 $('ads-packs').addEventListener('click', (e) => {
   const b = e.target.closest('.pack');
-  if (!b) return;
-  adsPack = b.dataset.pack;
-  $('adreq-pack').textContent = b.querySelector('.pk-name').textContent + ' · ' +
-    b.querySelector('.pk-days').textContent + ' · ' + b.querySelector('.pk-price').textContent;
-  $('overlay-adreq').hidden = false;
+  if (b) openAdReq(b.dataset.pack);
 });
-$('ads-leave').addEventListener('click', () => {
-  adsPack = '';
-  $('adreq-pack').textContent = '';
-  $('overlay-adreq').hidden = false;
+$('ads-leave').addEventListener('click', () => openAdReq(null));
+$('adreq-platform').addEventListener('click', (e) => {
+  const b = e.target.closest('button[data-val]');
+  if (!b) return;
+  adreqPlatform = b.dataset.val;
+  $('adreq-platform').querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b));
+  syncAdreqContact();
+  $('adreq-contact').focus();
+});
+$('adreq-audience').addEventListener('click', (e) => {
+  const b = e.target.closest('button[data-val]');
+  if (!b) return;
+  adreqGeo = b.dataset.val;
+  $('adreq-audience').querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b));
+  $('adreq-geo').hidden = adreqGeo !== 'own';
+  if (adreqGeo === 'own') $('adreq-geo').focus();
 });
 $('adreq-cancel').addEventListener('click', () => { $('overlay-adreq').hidden = true; });
 $('adreq-send').addEventListener('click', async () => {
   const contact = $('adreq-contact').value.trim();
-  if (contact.length < 3) { $('adreq-contact').focus(); return; }
+  const p = ADREQ_PLATFORMS[adreqPlatform];
+  // A wrong contact is worse than none: we cannot reach them and they think
+  // they are waiting for an answer.
+  if (!p.ok(contact)) {
+    $('adreq-hint').textContent = t('ads_req_bad');
+    $('adreq-contact').focus();
+    return;
+  }
+  const audience = adreqGeo === 'own' ? ($('adreq-geo').value.trim() || 'world') : 'world';
   $('overlay-adreq').hidden = true;
   toast(t('ads_req_sent'));
   try {
@@ -2635,8 +2693,8 @@ $('adreq-send').addEventListener('click', async () => {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        pack: adsPack, contact, about: $('adreq-about').value.trim(),
-        device: deviceId, lang,
+        pack: $('adreq-pack').value, platform: adreqPlatform, contact,
+        about: $('adreq-about').value.trim(), audience, device: deviceId, lang,
       }),
     });
   } catch { /* they still have the telegram link */ }
@@ -2706,7 +2764,10 @@ $('daily-card').addEventListener('click', () => {
    Asked late on purpose. Three matches is enough to be asked about
    notifications, which is a promise about the future; an opinion about the
    game needs more of the game than that. */
-const RATE_AFTER_GAMES = 5;
+/* An account, or ten matches. Same rule the server enforces: a browser is
+   free, so one game was no barrier — play once here, write, open another
+   browser and write again. */
+const RATE_AFTER_GAMES = 10;
 let ratePicked = 0;
 let rateStandalone = false;   // opened from the reviews screen, not after a match
 
@@ -2715,7 +2776,7 @@ function rateAnswered() { return Boolean(localStorage.getItem('wr_rate_answered'
 // Returns true when it decided to ask, like the other two.
 function maybeAskRate(iWon) {
   if (!iWon || rateAnswered()) return false;
-  if (Number(localStorage.getItem('wr_games') || 0) < RATE_AFTER_GAMES) return false;
+  if (!session && Number(localStorage.getItem('wr_games') || 0) < RATE_AFTER_GAMES) return false;
   const shows = Number(localStorage.getItem('wr_rate_shows') || 0) + 1;
   if (shows > 2) return false;                       // two chances, then never again
   localStorage.setItem('wr_rate_shows', String(shows));
@@ -2756,7 +2817,7 @@ $('rate-stars').addEventListener('click', (e) => {
   // question for a bad one. Both can be sent with the box left empty.
   $('rate-emoji').textContent = good ? '🎉' : '🛠️';
   $('rate-title').textContent = good ? t('rate_thanks') : t('rate_sorry');
-  $('rate-sub').textContent = good ? t('rate_public_note') : t('rate_private_note');
+  $('rate-sub').textContent = good ? t('rate_public_note') : t('rate_bad_note');
   const box = $('rate-text');
   box.hidden = false;
   box.placeholder = good ? t('rate_ph_good') : t('rate_ph_bad');
@@ -2771,7 +2832,8 @@ async function sendReview() {
   localStorage.setItem('wr_rate_answered', '1');
   localStorage.setItem('wr_rate_stars', String(stars));
   $('overlay-rate').hidden = true;
-  toast(stars >= 4 ? t('rate_sent_public') : t('rate_sent_private'));
+  // every review goes on the page now, good or bad
+  toast(t('rate_sent_public'));
   try {
     await fetch('/api/review', {
       method: 'POST',
@@ -2832,7 +2894,13 @@ async function loadReviews() {
         </div>
       </div>`).join('');
     $('rv-empty').hidden = Boolean(r.rows && r.rows.length);
+    const played = Number(localStorage.getItem('wr_games') || 0);
+    const mayWrite = Boolean(session) || played >= RATE_AFTER_GAMES;
     $('btn-leave-review').textContent = rateAnswered() ? t('rate_change') : t('rate_leave');
+    $('btn-leave-review').disabled = !mayWrite;
+    // Say why the button is off rather than leaving a dead button on screen.
+    $('rv-gate').hidden = mayWrite;
+    $('rv-gate').textContent = t('rate_gate').replace('%n', Math.max(0, RATE_AFTER_GAMES - played));
   } catch {
     $('rv-empty').hidden = false;
   }

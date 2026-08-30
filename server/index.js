@@ -385,8 +385,13 @@ app.post('/api/ads/request', async (req, res) => {
   try {
     await supa.from('ad_requests').insert({
       pack: String(req.body?.pack || '').slice(0, 40) || null,
+      // where to write to them, kept apart from what to write: the first
+      // enquiries arrived as "Wathsapp" and as a phone number with no country
+      platform: ['telegram', 'whatsapp', 'instagram', 'email'].includes(String(req.body?.platform))
+        ? String(req.body.platform) : null,
       contact,
       about: String(req.body?.about || '').trim().slice(0, 500) || null,
+      audience: String(req.body?.audience || '').trim().slice(0, 120) || null,
       lang: String(req.body?.lang || '').slice(0, 8) || null,
       device_id: String(req.body?.device || '').slice(0, 64) || null,
     });
@@ -409,6 +414,7 @@ app.post('/api/ads/request', async (req, res) => {
    nothing counted that a visitor cannot read for themselves. */
 
 const REVIEW_MAX = 400;
+const REVIEW_MIN_GAMES = 10;   // for guests; an account needs none
 
 // Not a filter so much as a doorman: a handful of words that have no business
 // on a page anyone can open. A hit is hidden rather than dropped, so the
@@ -417,14 +423,14 @@ const FOUL = /(х[уy]й|пизд|\bеб[аеиуё]|бляд|\bсук[аи]\b|\
 
 const starRow = (n) => '★★★★★'.slice(0, n) + '☆☆☆☆☆'.slice(0, 5 - n);
 
-/* Every rating anyone gave is shown, one to five. The words are another
-   matter: four and five stars are printed, one to three arrive as a rating and
-   nothing more, because a complaint is a letter to us and gets answered rather
-   than displayed. A visitor still sees that the low rating exists and counts.
+/* Every rating and every word, one star to five. Complaints used to be held
+   back and answered privately; they are published now, because a page where
+   the bad reviews are missing is read as a page where they were removed, and
+   because an answer underneath a complaint is worth more than the complaint
+   is worth hiding.
 
-   That is also what keeps the page honest with search engines: they require
-   the average to be the average of what is actually on the page, and here it
-   is — every rating on the page, none held back. */
+   It is also what keeps the page honest with search engines: they require the
+   average to be the average of what is actually on the page. */
 async function readPublicReviews(limit = 400) {
   const { data } = await supa.from('reviews')
     .select('id, nick, stars, body, likes, reply, reply_at, created_at')
@@ -435,7 +441,7 @@ async function readPublicReviews(limit = 400) {
     id: r.id,
     nick: r.nick || 'Player',
     stars: r.stars,
-    body: r.stars >= 4 ? (r.body || '') : '',   // low ratings keep their words private
+    body: r.body || '',
     likes: r.likes || 0,
     reply: r.reply || '',
     at: r.created_at,
@@ -470,21 +476,29 @@ app.post('/api/review', async (req, res) => {
   const nick = String(req.body?.nick || '').trim().slice(0, 24) || null;
   const lang = String(req.body?.lang || '').slice(0, 8) || null;
   try {
-    // Only from someone who has played. A rating from a person who never saw
-    // a board says nothing, and the endpoint is public.
-    const { data: v } = await supa.from('visitors').select('games').eq('device_id', device).maybeSingle();
-    if (!v || (v.games || 0) < 1) return res.status(403).json({ error: 'no_games' });
+    // An account, or ten matches. A browser is free and a new one is a new
+    // device to us, so one game was no barrier at all: play once in Chrome,
+    // write, open another browser, write again. Ten matches makes a fake
+    // review cost an hour of play, and an account makes it cost a name.
+    // Measured for the day: of 178 real reviews only ten came from someone
+    // with fewer than ten matches and no account.
     const user = await verifyUser(bearer(req));
+    const { data: v } = await supa.from('visitors').select('games').eq('device_id', device).maybeSingle();
+    if (!user && (v?.games || 0) < REVIEW_MIN_GAMES) {
+      return res.status(403).json({ error: 'need_more_games', need: REVIEW_MIN_GAMES, have: v?.games || 0 });
+    }
+    const foul = Boolean(body && FOUL.test(body));
     const { error } = await supa.from('reviews').upsert({
       device_id: device,
       user_id: user ? user.id : null,
       nick, stars, body, lang,
+      // kept for the admin's sake: which side of the line the rating fell on
       is_public: stars >= 4,
-      hidden: Boolean(body && FOUL.test(body)),
+      hidden: foul,
       updated_at: new Date().toISOString(),
     }, { onConflict: 'device_id' });
     if (error) throw new Error(error.message);
-    res.json({ ok: true, published: stars >= 4 });
+    res.json({ ok: true, published: !foul });
   } catch (e) {
     console.error('review failed:', e.message);
     res.status(500).json({ error: 'failed' });
@@ -647,7 +661,7 @@ app.get('/reviews', async (req, res) => {
   <a class="play" href="/">Play WallRush</a>
   ${cards}
   <footer>
-    Ratings are left inside the game after a match, by the players themselves. Ratings of three stars and below are shown as ratings — their text goes to us privately so it can be answered and fixed, not displayed.<br>
+    Ratings are left inside the game after a match, by the players themselves — an account or ten matches played. Good and bad are both here, unedited; where we have answered, the answer is under the review.<br>
     Contact: <a href="https://t.me/Karoboev">@Karoboev</a> · <a href="mailto:ads@wallrush.online">ads@wallrush.online</a>
   </footer>
 </div>
@@ -661,6 +675,9 @@ app.get('/reviews', async (req, res) => {
 const ADMIN_KEY = cleanEnv(process.env.ADMIN_KEY) || 'karoboev777';
 
 // the ladder speaks six languages in the game; this page only needs one
+const PLATFORM_RU = {
+  telegram: '✈️ ', whatsapp: '📱 ', instagram: '📸 ', email: '✉️ ',
+};
 const TASK_RU = {
   play4: 'сыграть 4 партии', win2: 'выиграть 2 партии', walls12: 'поставить 12 стен',
   win_human: 'выиграть 2 партии у живых', win_thrifty: 'выиграть, потратив ≤3 стен',
@@ -1597,16 +1614,16 @@ ${rowsHtml || '<p class="note">Пока нет данных за этот пер
     const card = (r) => {
       const bad = r.stars <= 3;
       // every rating is on the page now; what differs is whether the words are
-      const state = r.hidden ? 'скрыт целиком' : bad ? 'оценка на сайте, текст только тут' : 'на сайте';
+      const state = r.hidden ? 'скрыт' : 'на сайте';
       return `<div class="pcard" style="align-items:flex-start;flex-wrap:wrap">
         <div class="pc-avatar" style="background:${bad ? 'var(--down)' : 'var(--up)'}">${r.stars}</div>
         <div class="pc-info">
           <b>${esc(r.nick || 'без ника')} <span class="note" style="font-weight:400">· ${state} · ${mskFmt(r.created_at)}${r.likes ? ' · ♥ ' + r.likes : ''}</span></b>
           <small>${r.body ? esc(r.body) : '<i>без текста, только оценка</i>'}</small>
           ${r.reply ? `<small style="color:var(--accent)"><b>Твой ответ:</b> ${esc(r.reply)}</small>` : ''}
-          ${r.stars >= 4 ? `<small><a href="/admin?key=${ADMIN_KEY}&view=reviews&${r.hidden ? 'show' : 'hide'}=${r.id}">${r.hidden ? '↩︎ вернуть на сайт' : '✕ убрать с сайта'}</a></small>` : ''}
+          <small><a href="/admin?key=${ADMIN_KEY}&view=reviews&${r.hidden ? 'show' : 'hide'}=${r.id}">${r.hidden ? '↩︎ вернуть на сайт' : '✕ убрать с сайта'}</a></small>
         </div>
-        ${r.stars >= 4 && r.body ? `<form class="rv-reply-form" method="get" action="/admin">
+        ${r.body ? `<form class="rv-reply-form" method="get" action="/admin">
           <input type="hidden" name="key" value="${ADMIN_KEY}">
           <input type="hidden" name="reply" value="${r.id}">
           <input class="search-box" name="text" maxlength="500" placeholder="${r.reply ? 'Изменить ответ…' : 'Ответить на отзыв…'}" value="${esc(r.reply || '')}" autocomplete="off">
@@ -1622,7 +1639,7 @@ ${rowsHtml || '<p class="note">Пока нет данных за этот пер
   ${statCard('⭐', 'Всего оценок', num(list.length))}
   ${statCard('✍️', 'С текстом', num(list.filter(r => r.body).length))}
 </div>
-<p class="note">На странице <a href="/reviews">wallrush.online/reviews</a> теперь видны <b>все оценки</b>, включая единицы, — поэтому средняя там настоящая. Разница только в тексте: слова из отзывов на 4–5 напечатаны, а жалобы на 1–3 остаются здесь, чтобы их можно было починить, а не выставить.</p>
+<p class="note">На странице <a href="/reviews">wallrush.online/reviews</a> видно <b>всё</b>: и оценки, и тексты, включая плохие. Писать может только тот, у кого есть аккаунт или сыграно 10+ партий. Любой отзыв можно убрать с сайта одним нажатием — но убирать стоит мат и спам, а не критику: страница без единой жалобы читается как подчищенная.</p>
 <p class="sect">Как распределились</p>
 ${bars}
 <p class="sect" style="margin-top:22px">😕 Недовольные (1–3) <span class="note" style="font-weight:400">— ${num(bad.length)}, наружу не попадают</span></p>
@@ -1635,7 +1652,7 @@ ${list.filter(r => r.stars >= 4).map(card).join('') || '<p class="note">Пока
        the answers land. Marking one done is a tick, not a delete: an enquiry
        that came to nothing is still worth being able to look back at. */
     const { data: reqs } = await supa.from('ad_requests')
-      .select('id, pack, contact, about, lang, handled, created_at')
+      .select('id, pack, platform, contact, about, audience, lang, handled, created_at')
       .order('created_at', { ascending: false }).limit(200);
     const list = reqs || [];
     const open = list.filter(r => !r.handled);
@@ -1643,8 +1660,8 @@ ${list.filter(r => r.stars >= 4).map(card).join('') || '<p class="note">Пока
     const card = (r) => `<div class="pcard" style="align-items:flex-start">
       <div class="pc-avatar" style="background:${r.handled ? 'var(--up)' : 'var(--accent)'}">${r.handled ? '✓' : '📣'}</div>
       <div class="pc-info">
-        <b>${esc(r.contact)} <span class="note" style="font-weight:400">· ${esc(r.pack || 'без пакета')} · ${mskFmt(r.created_at)}</span></b>
-        <small>${r.about ? esc(r.about) : '<i>ничего не написали</i>'}</small>
+        <b>${PLATFORM_RU[r.platform] || ''}${esc(r.contact)} <span class="note" style="font-weight:400">· ${esc(r.pack || 'без пакета')} · ${mskFmt(r.created_at)}</span></b>
+        <small>${r.about ? esc(r.about) : '<i>ничего не написали</i>'}${r.audience && r.audience !== 'world' ? ' · 🎯 ' + esc(r.audience) : ''}</small>
         <small><a href="/admin?key=${ADMIN_KEY}&view=ads&${r.handled ? 'unhandle' : 'handle'}=${r.id}">${r.handled ? '↩︎ вернуть в новые' : '✓ отметить обработанной'}</a></small>
       </div>
     </div>`;
