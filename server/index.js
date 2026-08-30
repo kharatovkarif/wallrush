@@ -10,6 +10,7 @@ import { RANKS } from '../public/js/ranks.js';
 import { checkNick } from '../public/js/nick.js';
 import { localDay } from '../public/js/streak.js';
 import { taskForDay } from '../public/js/daily.js';
+import { packById } from '../public/js/packs.js';
 import { initPush, pushPublicKey, saveSub, dropSub, pushTick } from './push.js';
 import { dbEnabled, dbStatus, dbDetail, cleanEnv, likeEscape, supa, verifyUser, getProfile, createProfile, claimGuestProgress, leaderboard, clearNickNotice, restoreStreak } from './db.js';
 
@@ -681,6 +682,27 @@ const GEO_RU = {
   world: 'весь мир', asia: 'Азия', europe: 'Европа', africa: 'Африка',
   mideast: 'Ближний Восток', latam: 'Латинская Америка', namerica: 'Северная Америка', cis: 'СНГ',
 };
+// Turn a stored contact into something tappable: the whole point of the
+// enquiry is to answer it, and copying a handle by hand is where that stops.
+function contactLink(platform, contact) {
+  const v = String(contact || '').trim();
+  if (!v) return '';
+  if (platform === 'email') return 'mailto:' + encodeURIComponent(v).replace(/%40/g, '@');
+  if (platform === 'whatsapp') {
+    const digits = v.replace(/\D/g, '');
+    return digits.length >= 7 ? 'https://wa.me/' + digits : '';
+  }
+  if (platform === 'telegram') {
+    if (/t\.me\//i.test(v)) return v.startsWith('http') ? v : 'https://' + v;
+    return 'https://t.me/' + encodeURIComponent(v.replace(/^@/, ''));
+  }
+  if (platform === 'instagram') {
+    if (/instagram\.com\//i.test(v)) return v.startsWith('http') ? v : 'https://' + v;
+    return 'https://instagram.com/' + encodeURIComponent(v.replace(/^@/, ''));
+  }
+  return '';
+}
+
 const PLATFORM_RU = {
   telegram: '✈️ ', whatsapp: '📱 ', instagram: '📸 ', email: '✉️ ',
 };
@@ -870,7 +892,15 @@ const ADMIN_CSS = `
   #admProg.on { opacity: 1; }
 
   /* ---------- 14-day chart you can drag your finger across ---------- */
-  .rv-reply-form{display:flex;gap:6px;width:100%;margin:8px 0 0}
+  .adreq{background:var(--card);border-radius:16px;padding:14px 16px;margin:0 0 10px;border:1px solid var(--line)}
+.adreq.done{opacity:.6}
+.ar-top{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:8px}
+.ar-top b{font-size:15px;line-height:1.3}
+.ar-price{font-size:20px;font-weight:800;color:var(--up);white-space:nowrap}
+.ar-line{font-size:13.5px;line-height:1.7;color:var(--ink)}
+.ar-line i{color:var(--dim);font-style:normal;display:inline-block;min-width:104px}
+.ar-write{font-weight:700}
+.rv-reply-form{display:flex;gap:6px;width:100%;margin:8px 0 0}
 .rv-reply-form .search-box{margin:0;flex:1}
 .rv-reply-go{border:0;border-radius:10px;padding:0 14px;background:var(--accent);color:#fff;font:inherit;font-size:13px;font-weight:600}
 .tchart { position: relative; margin: 4px 0 2px; touch-action: pan-y; user-select: none; -webkit-user-select: none; }
@@ -1663,21 +1693,33 @@ ${list.filter(r => r.stars >= 4).map(card).join('') || '<p class="note">Пока
     const list = reqs || [];
     const open = list.filter(r => !r.handled);
     const stats = await adsStats().catch(() => null);
-    const card = (r) => `<div class="pcard" style="align-items:flex-start">
-      <div class="pc-avatar" style="background:${r.handled ? 'var(--up)' : 'var(--accent)'}">${r.handled ? '✓' : '📣'}</div>
-      <div class="pc-info">
-        <b>${PLATFORM_RU[r.platform] || ''}${esc(r.contact)} <span class="note" style="font-weight:400">· ${esc(r.pack || 'без пакета')} · ${mskFmt(r.created_at)}</span></b>
-        <small>${r.site ? '<b>' + esc(r.site) + '</b> · ' : ''}${r.about ? esc(r.about) : '<i>без описания</i>'}${r.audience ? ' · 🎯 ' + esc(GEO_RU[r.audience] || r.audience) : ''}</small>
-        <small><a href="/admin?key=${ADMIN_KEY}&view=ads&${r.handled ? 'unhandle' : 'handle'}=${r.id}">${r.handled ? '↩︎ вернуть в новые' : '✓ отметить обработанной'}</a></small>
-      </div>
-    </div>`;
+    /* One enquiry, written out so it can be answered without decoding it.
+       It used to print the stored id — "social-4" — and nothing else: no
+       price, no what, and a contact you had to copy by hand. */
+    const card = (r) => {
+      const p = packById(r.pack);
+      const write = contactLink(r.platform, r.contact);
+      return `<div class="adreq${r.handled ? ' done' : ''}">
+        <div class="ar-top">
+          <b>${p ? esc(p.ru) : esc(r.pack || 'пакет не выбран')}</b>
+          <span class="ar-price">${p ? '$' + p.price : '—'}</span>
+        </div>
+        <div class="ar-line"><i>Написать:</i> ${write
+          ? `<a class="ar-write" href="${write}" target="_blank" rel="noopener">${PLATFORM_RU[r.platform] || ''}${esc(r.contact)}</a>`
+          : `${PLATFORM_RU[r.platform] || ''}${esc(r.contact)}`}</div>
+        <div class="ar-line"><i>Рекламируют:</i> ${r.site ? `<b>${esc(r.site)}</b>` : '<span class="note">не указали</span>'}${r.about ? ' — ' + esc(r.about) : ''}</div>
+        <div class="ar-line"><i>Аудитория:</i> ${esc(GEO_RU[r.audience] || r.audience || 'не указали')}</div>
+        <div class="ar-line"><i>Пришла:</i> ${mskFmt(r.created_at)} · язык ${esc(r.lang || '—')}</div>
+        <div class="ar-line"><a href="/admin?key=${ADMIN_KEY}&view=ads&${r.handled ? 'unhandle' : 'handle'}=${r.id}">${r.handled ? '↩︎ вернуть в новые' : '✓ ответил, убрать из новых'}</a></div>
+      </div>`;
+    };
     content = `<h2>Реклама</h2>
 <div class="grid2">
   ${statCard('📣', 'Новых заявок', num(open.length))}
   ${statCard('📋', 'Всего заявок', num(list.length))}
 </div>
 ${stats ? `<p class="note">На странице рекламы сейчас показано за <b>${esc(stats.day)}</b>: ${num(stats.people)} игроков, ${num(stats.games)} партий, ${num(stats.quietestHour)} человек в самый тихий час, ${num(stats.countriesTotal)} стран. Обновляется само раз в полчаса.</p>` : ''}
-<p class="sect">📬 Новые</p>
+<p class="sect">📬 Новые — ответь и отметь</p>
 ${open.map(card).join('') || '<p class="note">Пока никто не оставлял заявок.</p>'}
 ${list.some(r => r.handled) ? `<p class="sect" style="margin-top:22px">✓ Обработанные</p>${list.filter(r => r.handled).map(card).join('')}` : ''}`;
   } else if (view === 'days') {

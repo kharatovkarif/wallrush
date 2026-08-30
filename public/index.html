@@ -72,7 +72,7 @@
   <link rel="apple-touch-icon" href="icons/icon-192.png">
   <!-- Opens the connection to the ad host early. Costs one handshake and no
        download, and takes that handshake off the wait once Support is tapped. -->
-  <link rel="stylesheet" href="css/style.css?v=142">
+  <link rel="stylesheet" href="css/style.css?v=143">
   <!-- Are we inside somebody else's page? Every game portal forbids running
        your own ads inside theirs, and the ad scripts below start the moment
        the parser reaches them — long before any module could stop one. So the
@@ -318,43 +318,9 @@
 
         <!-- Prices, and a tap on one starts the conversation about it -->
         <h3 class="ads-h" data-i18n="ads_price_title"></h3>
-        <div class="packs" id="ads-packs">
-          <button class="pack" data-pack="banner-7">
-            <span class="pk-name" data-i18n="ads_p_banner"></span>
-            <span class="pk-days" data-i18n="ads_7days"></span>
-            <span class="pk-price">$19</span>
-          </button>
-          <button class="pack" data-pack="banner-30">
-            <span class="pk-name" data-i18n="ads_p_banner"></span>
-            <span class="pk-days" data-i18n="ads_30days"></span>
-            <span class="pk-price">$59 <i data-i18n="ads_save22"></i></span>
-          </button>
-          <button class="pack" data-pack="all-7">
-            <span class="pk-name" data-i18n="ads_p_all"></span>
-            <span class="pk-days" data-i18n="ads_7days"></span>
-            <span class="pk-price">$39</span>
-          </button>
-          <button class="pack" data-pack="all-30">
-            <span class="pk-name" data-i18n="ads_p_all"></span>
-            <span class="pk-days" data-i18n="ads_30days"></span>
-            <span class="pk-price">$119 <i data-i18n="ads_save24"></i></span>
-          </button>
-          <button class="pack" data-pack="social-1">
-            <span class="pk-name" data-i18n="ads_p_social"></span>
-            <span class="pk-days" data-i18n="ads_one_post"></span>
-            <span class="pk-price">$29</span>
-          </button>
-          <button class="pack" data-pack="social-4">
-            <span class="pk-name" data-i18n="ads_p_social"></span>
-            <span class="pk-days" data-i18n="ads_four_posts"></span>
-            <span class="pk-price">$89 <i data-i18n="ads_save23"></i></span>
-          </button>
-          <button class="pack pack-wide" data-pack="everything">
-            <span class="pk-name" data-i18n="ads_p_all_in"></span>
-            <span class="pk-days" data-i18n="ads_30days"></span>
-            <span class="pk-price">$199</span>
-          </button>
-        </div>
+        <!-- drawn from public/js/packs.js, so the prices here, the ones in
+             the form and the ones the admin page reads cannot drift apart -->
+        <div class="packs" id="ads-packs"></div>
         <p class="hint" data-i18n="ads_promise"></p>
 
         <div class="ads-cta">
@@ -1053,7 +1019,7 @@
     <div id="toast" hidden></div>
   </div>
 
-  <script src="vendor/supabase.js?v=142" defer></script>
-  <script type="module" src="js/app.js?v=142"></script>
+  <script src="vendor/supabase.js?v=143" defer></script>
+  <script type="module" src="js/app.js?v=143"></script>
 </body>
 </html>

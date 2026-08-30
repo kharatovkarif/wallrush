@@ -1,7 +1,8 @@
 // WallRush client app: screens, board UI, online play (WebSocket), AI mode, auth.
 import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=119';
 import { aiMove } from './ai.js?v=119';
-import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=142';
+import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=143';
+import { PACKS } from './packs.js?v=143';
 import { rankOf, nextRank } from './ranks.js?v=119';
 import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=119';
 import { checkNick, nickOk, randomNick } from './nick.js?v=119';
@@ -2592,7 +2593,19 @@ $('sound-toggle').addEventListener('change', (e) => {
    Yesterday's real figures, fetched once when the page is opened. An
    advertiser decides on reach, and a rounded promise decides nothing. */
 
+// The price cards, from the one list. Names and periods come from i18n, so
+// they read in the player's language; the prices are the same everywhere.
+function renderPacks() {
+  $('ads-packs').innerHTML = PACKS.map(p => `
+    <button class="pack${p.wide ? ' pack-wide' : ''}" data-pack="${p.id}">
+      <span class="pk-name">${esc(t(p.name))}</span>
+      <span class="pk-days">${esc(t(p.period))}</span>
+      <span class="pk-price">$${p.price}${p.save ? ` <i>${esc(t(p.save))}</i>` : ''}</span>
+    </button>`).join('');
+}
+
 async function loadAdsStats() {
+  renderPacks();
   try {
     const r = await (await fetch('/api/ads/stats')).json();
     if (!r || !r.people) return;
@@ -2626,12 +2639,8 @@ const ADREQ_PLATFORMS = {
 
 function packOptions(selected) {
   const sel = $('adreq-pack');
-  sel.innerHTML = [...document.querySelectorAll('#ads-packs .pack')].map(b => {
-    const name = b.querySelector('.pk-name').textContent;
-    const days = b.querySelector('.pk-days').textContent;
-    const price = b.querySelector('.pk-price').textContent.trim().split(' ')[0];
-    return `<option value="${b.dataset.pack}">${price} · ${name} · ${days}</option>`;
-  }).join('');
+  sel.innerHTML = PACKS.map(p =>
+    `<option value="${p.id}">$${p.price} · ${esc(t(p.name))} · ${esc(t(p.period))}</option>`).join('');
   if (selected) sel.value = selected;
 }
 
