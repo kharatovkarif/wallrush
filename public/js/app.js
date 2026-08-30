@@ -1,7 +1,7 @@
 // WallRush client app: screens, board UI, online play (WebSocket), AI mode, auth.
 import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=119';
 import { aiMove } from './ai.js?v=119';
-import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=141';
+import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=142';
 import { rankOf, nextRank } from './ranks.js?v=119';
 import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=119';
 import { checkNick, nickOk, randomNick } from './nick.js?v=119';
@@ -2610,18 +2610,19 @@ async function loadAdsStats() {
   } catch { /* the page still works without them */ }
 }
 
-/* The enquiry form. The first three that arrived read "Wathsapp", a phone
-   number with no country code, and one usable email — one box asking for "a
-   contact" meant a different thing to each of them. So: where first, then what
-   to write there, with the placeholder and the check changing to match. */
+/* The enquiry form. Everything that can be a list is a list: the first three
+   that arrived read "Wathsapp", a phone number with no country code, and one
+   usable email — a box you can type anything into gets anything typed into it.
+
+   Nothing is preselected for the contact. A default there would be answered by
+   accident, and an accidental answer is exactly how "Wathsapp" ended up in the
+   place where a phone number was supposed to go. */
 const ADREQ_PLATFORMS = {
   telegram: { ph: '@nickname', hint: 'ads_req_h_tg', ok: (v) => /^@?[\w\d_]{4,}$/.test(v) || /t\.me\//i.test(v) },
   whatsapp: { ph: '+998 90 123 45 67', hint: 'ads_req_h_wa', ok: (v) => /^\+\d[\d\s()-]{6,}$/.test(v) },
   instagram: { ph: '@nickname', hint: 'ads_req_h_ig', ok: (v) => /^@?[\w\d._]{3,}$/.test(v) || /instagram\.com\//i.test(v) },
   email: { ph: 'name@company.com', hint: 'ads_req_h_mail', ok: (v) => /^[^@\s]+@[^@\s.]+\.[^@\s]{2,}$/.test(v) },
 };
-let adreqPlatform = 'telegram';
-let adreqGeo = 'world';
 
 function packOptions(selected) {
   const sel = $('adreq-pack');
@@ -2635,18 +2636,21 @@ function packOptions(selected) {
 }
 
 function syncAdreqContact() {
-  const p = ADREQ_PLATFORMS[adreqPlatform];
-  $('adreq-contact').placeholder = p.ph;
-  $('adreq-contact').type = adreqPlatform === 'whatsapp' ? 'tel' : 'text';
-  $('adreq-hint').textContent = t(p.hint);
+  const p = ADREQ_PLATFORMS[$('adreq-platform').value];
+  const box = $('adreq-contact');
+  box.disabled = !p;
+  box.placeholder = p ? p.ph : '';
+  box.type = $('adreq-platform').value === 'whatsapp' ? 'tel' : 'text';
+  $('adreq-hint').textContent = p ? t(p.hint) : '';
 }
 
 function openAdReq(pack) {
   packOptions(pack);
-  adreqPlatform = 'telegram';
-  adreqGeo = 'world';
-  $('adreq-platform').querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.val === 'telegram'));
-  $('adreq-audience').querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.val === 'world'));
+  $('adreq-platform').value = '';
+  $('adreq-contact').value = '';
+  $('adreq-site').value = '';
+  $('adreq-about').value = '';
+  $('adreq-audience').value = 'world';
   $('adreq-geo').hidden = true;
   $('adreq-geo').value = '';
   syncAdreqContact();
@@ -2658,34 +2662,26 @@ $('ads-packs').addEventListener('click', (e) => {
   if (b) openAdReq(b.dataset.pack);
 });
 $('ads-leave').addEventListener('click', () => openAdReq(null));
-$('adreq-platform').addEventListener('click', (e) => {
-  const b = e.target.closest('button[data-val]');
-  if (!b) return;
-  adreqPlatform = b.dataset.val;
-  $('adreq-platform').querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b));
-  syncAdreqContact();
-  $('adreq-contact').focus();
-});
-$('adreq-audience').addEventListener('click', (e) => {
-  const b = e.target.closest('button[data-val]');
-  if (!b) return;
-  adreqGeo = b.dataset.val;
-  $('adreq-audience').querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b));
-  $('adreq-geo').hidden = adreqGeo !== 'own';
-  if (adreqGeo === 'own') $('adreq-geo').focus();
+$('adreq-platform').addEventListener('change', () => { syncAdreqContact(); $('adreq-contact').focus(); });
+$('adreq-audience').addEventListener('change', () => {
+  const own = $('adreq-audience').value === 'own';
+  $('adreq-geo').hidden = !own;
+  if (own) $('adreq-geo').focus();
 });
 $('adreq-cancel').addEventListener('click', () => { $('overlay-adreq').hidden = true; });
 $('adreq-send').addEventListener('click', async () => {
+  const platform = $('adreq-platform').value;
+  if (!platform) { $('adreq-hint').textContent = t('ads_req_pick_first'); $('adreq-platform').focus(); return; }
   const contact = $('adreq-contact').value.trim();
-  const p = ADREQ_PLATFORMS[adreqPlatform];
-  // A wrong contact is worse than none: we cannot reach them and they think
-  // they are waiting for an answer.
-  if (!p.ok(contact)) {
+  // A wrong contact is worse than none: we cannot reach them, and they are
+  // left thinking they are waiting for an answer.
+  if (!ADREQ_PLATFORMS[platform].ok(contact)) {
     $('adreq-hint').textContent = t('ads_req_bad');
     $('adreq-contact').focus();
     return;
   }
-  const audience = adreqGeo === 'own' ? ($('adreq-geo').value.trim() || 'world') : 'world';
+  const geo = $('adreq-audience').value;
+  const audience = geo === 'own' ? ($('adreq-geo').value.trim() || 'world') : geo;
   $('overlay-adreq').hidden = true;
   toast(t('ads_req_sent'));
   try {
@@ -2693,13 +2689,12 @@ $('adreq-send').addEventListener('click', async () => {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        pack: $('adreq-pack').value, platform: adreqPlatform, contact,
-        about: $('adreq-about').value.trim(), audience, device: deviceId, lang,
+        pack: $('adreq-pack').value, platform, contact,
+        site: $('adreq-site').value.trim(), about: $('adreq-about').value.trim(),
+        audience, device: deviceId, lang,
       }),
     });
   } catch { /* they still have the telegram link */ }
-  $('adreq-contact').value = '';
-  $('adreq-about').value = '';
 });
 
 /* ================= task of the day =================

@@ -440,7 +440,8 @@ create table if not exists ad_requests (
   pack       text,
   platform   text,          -- telegram | whatsapp | instagram | email
   contact    text not null, -- the handle, number or address for that platform
-  audience   text,          -- 'world', or the countries they asked for
+  site       text,          -- what they are advertising: a link or a name
+  audience   text,          -- 'world' | a region key | the countries they typed
   about      text,
   lang       text,
   device_id  text,

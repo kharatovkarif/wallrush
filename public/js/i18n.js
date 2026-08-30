@@ -124,6 +124,20 @@ export const I18N = {
     ads_req_where: 'Куда с вами связаться',
     ads_req_email: 'Почта',
     ads_req_optional: 'Необязательно',
+    ads_req_choose: '— выбрать —',
+    ads_req_pick_first: 'Сначала выберите, куда с вами связаться',
+    ads_req_what: 'Что рекламируем',
+    ads_req_what_ph: 'Ссылка или название',
+    ads_req_desc: 'Короткое описание',
+    ads_req_desc_ph: 'Пара слов о том, что рекламируем',
+    ads_req_audience: 'Какая аудитория нужна',
+    ads_geo_asia: 'Азия',
+    ads_geo_europe: 'Европа',
+    ads_geo_africa: 'Африка',
+    ads_geo_mideast: 'Ближний Восток',
+    ads_geo_latam: 'Латинская Америка',
+    ads_geo_namerica: 'Северная Америка',
+    ads_geo_cis: 'СНГ',
     ads_req_world: '🌍 Весь мир',
     ads_req_own_geo: 'Своя страна',
     ads_req_geo_ph: 'Например: Иран, Индия, Нигерия',
@@ -482,6 +496,20 @@ export const I18N = {
     ads_req_where: 'Where to reach you',
     ads_req_email: 'Email',
     ads_req_optional: 'Optional',
+    ads_req_choose: '— choose —',
+    ads_req_pick_first: 'First choose where to reach you',
+    ads_req_what: 'What are you advertising',
+    ads_req_what_ph: 'A link or a name',
+    ads_req_desc: 'Short description',
+    ads_req_desc_ph: 'A couple of words about it',
+    ads_req_audience: 'Which audience you need',
+    ads_geo_asia: 'Asia',
+    ads_geo_europe: 'Europe',
+    ads_geo_africa: 'Africa',
+    ads_geo_mideast: 'Middle East',
+    ads_geo_latam: 'Latin America',
+    ads_geo_namerica: 'North America',
+    ads_geo_cis: 'CIS',
     ads_req_world: '🌍 Worldwide',
     ads_req_own_geo: 'Specific country',
     ads_req_geo_ph: 'For example: Iran, India, Nigeria',
@@ -732,7 +760,7 @@ export const LANGS = [
 export const LANG_CODES = LANGS.map((l) => l.code);
 export const RTL = new Set(['fa']);
 
-const V = '141';
+const V = '142';
 
 // Loads a translation file on demand. Safe to call repeatedly and safe to fail:
 // if the request never lands, makeT keeps falling back to English.

@@ -390,6 +390,7 @@ app.post('/api/ads/request', async (req, res) => {
       platform: ['telegram', 'whatsapp', 'instagram', 'email'].includes(String(req.body?.platform))
         ? String(req.body.platform) : null,
       contact,
+      site: String(req.body?.site || '').trim().slice(0, 200) || null,
       about: String(req.body?.about || '').trim().slice(0, 500) || null,
       audience: String(req.body?.audience || '').trim().slice(0, 120) || null,
       lang: String(req.body?.lang || '').slice(0, 8) || null,
@@ -675,6 +676,11 @@ app.get('/reviews', async (req, res) => {
 const ADMIN_KEY = cleanEnv(process.env.ADMIN_KEY) || 'karoboev777';
 
 // the ladder speaks six languages in the game; this page only needs one
+// the admin reads one language; the form speaks six
+const GEO_RU = {
+  world: 'весь мир', asia: 'Азия', europe: 'Европа', africa: 'Африка',
+  mideast: 'Ближний Восток', latam: 'Латинская Америка', namerica: 'Северная Америка', cis: 'СНГ',
+};
 const PLATFORM_RU = {
   telegram: '✈️ ', whatsapp: '📱 ', instagram: '📸 ', email: '✉️ ',
 };
@@ -1652,7 +1658,7 @@ ${list.filter(r => r.stars >= 4).map(card).join('') || '<p class="note">Пока
        the answers land. Marking one done is a tick, not a delete: an enquiry
        that came to nothing is still worth being able to look back at. */
     const { data: reqs } = await supa.from('ad_requests')
-      .select('id, pack, platform, contact, about, audience, lang, handled, created_at')
+      .select('id, pack, platform, contact, site, about, audience, lang, handled, created_at')
       .order('created_at', { ascending: false }).limit(200);
     const list = reqs || [];
     const open = list.filter(r => !r.handled);
@@ -1661,7 +1667,7 @@ ${list.filter(r => r.stars >= 4).map(card).join('') || '<p class="note">Пока
       <div class="pc-avatar" style="background:${r.handled ? 'var(--up)' : 'var(--accent)'}">${r.handled ? '✓' : '📣'}</div>
       <div class="pc-info">
         <b>${PLATFORM_RU[r.platform] || ''}${esc(r.contact)} <span class="note" style="font-weight:400">· ${esc(r.pack || 'без пакета')} · ${mskFmt(r.created_at)}</span></b>
-        <small>${r.about ? esc(r.about) : '<i>ничего не написали</i>'}${r.audience && r.audience !== 'world' ? ' · 🎯 ' + esc(r.audience) : ''}</small>
+        <small>${r.site ? '<b>' + esc(r.site) + '</b> · ' : ''}${r.about ? esc(r.about) : '<i>без описания</i>'}${r.audience ? ' · 🎯 ' + esc(GEO_RU[r.audience] || r.audience) : ''}</small>
         <small><a href="/admin?key=${ADMIN_KEY}&view=ads&${r.handled ? 'unhandle' : 'handle'}=${r.id}">${r.handled ? '↩︎ вернуть в новые' : '✓ отметить обработанной'}</a></small>
       </div>
     </div>`;
