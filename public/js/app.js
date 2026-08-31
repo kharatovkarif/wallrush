@@ -1,8 +1,8 @@
 // WallRush client app: screens, board UI, online play (WebSocket), AI mode, auth.
 import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=119';
 import { aiMove } from './ai.js?v=119';
-import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=143';
-import { PACKS } from './packs.js?v=143';
+import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=144';
+import { PACKS } from './packs.js?v=144';
 import { rankOf, nextRank } from './ranks.js?v=119';
 import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=119';
 import { checkNick, nickOk, randomNick } from './nick.js?v=119';
@@ -172,14 +172,38 @@ function trafficSource() {
   return src;
 }
 
-function logVisit(game = false, installed = false) {
+/* The pass, and why there is a function for it.
+
+   Supabase issues an access token that lives one hour and quietly replaces it
+   after that. We read the session once at start-up and kept the object in a
+   variable, so from the second hour onwards every request carried an expired
+   pass. The game server checks the pass when a socket connects — and sockets
+   reconnect constantly on a phone — so a player who had been signed in all
+   morning was handed back to the game as a guest: points to the device,
+   streak to the device, "Rookie, 40 points" on a screen that had said 5 000.
+
+   getSession() renews the token when it is past its hour, so ask it every
+   time rather than trusting what we wrote down at breakfast. */
+async function freshToken() {
+  if (!supabase || !session) return null;
   try {
+    const { data } = await supabase.auth.getSession();
+    if (data?.session) session = data.session;
+  } catch { /* keep whatever we have and let the server decide */ }
+  return session?.access_token || null;
+}
+
+async function authHeaders() {
+  const tok = await freshToken();
+  return tok ? { Authorization: `Bearer ${tok}` } : {};
+}
+
+async function logVisit(game = false, installed = false) {
+  try {
+    const auth = await authHeaders();
     fetch('/api/visit', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(session ? { Authorization: `Bearer ${session.access_token}` } : {}),
-      },
+      headers: { 'Content-Type': 'application/json', ...auth },
       body: JSON.stringify({
         device: deviceId, nick: myNick(), game,
         // language + timezone → the owner sees who comes from where
@@ -213,6 +237,7 @@ let profile = null;       // {nick, wins, losses}
 let ws = null;
 let wsReady = false;
 let wsToken = sessionStorage.getItem('wr_ws_token') || null;
+let reauthTried = false;   // one retry per connection, never a loop
 
 // game context
 let game = null; // { mode:'ai'|'online', state, myIndex, oppNick, clocks, over }
@@ -592,6 +617,15 @@ function requestSync() {
   if (ws && ws.readyState === 1) wsSend({ t: 'sync' });
 }
 
+/* Introducing ourselves to the game server. This is where the pass matters
+   most: get it wrong and the player is a guest for the whole connection,
+   with their points going to the device instead of their account. */
+async function sendHello() {
+  const jwt = await freshToken();
+  wsSend({ t: 'hello', nick: myNick(), token: wsToken, device: deviceId,
+           tz: new Date().getTimezoneOffset(), jwt });
+}
+
 function watchdogTick() {
   if (!inLiveGame()) return;
   const quiet = Date.now() - lastMsgAt;
@@ -612,11 +646,11 @@ function watchdogTick() {
 function connectWs() {
   const proto = location.protocol === 'https:' ? 'wss' : 'ws';
   ws = new WebSocket(`${proto}://${location.host}/ws`);
-  ws.onopen = () => {
+  ws.onopen = async () => {
     reconnectDelay = 500;
     wsReady = true;
     lastMsgAt = Date.now();
-    wsSend({ t: 'hello', nick: myNick(), token: wsToken, device: deviceId, tz: new Date().getTimezoneOffset(), jwt: session?.access_token });
+    await sendHello();
     if (currentScreen === 'screen-rooms') wsSend({ t: 'lobby_sub' });
   };
   ws.onmessage = (ev) => {
@@ -643,6 +677,27 @@ function connectWs() {
 function handleWsMessage(msg) {
   switch (msg.t) {
     case 'hello_ok':
+      // The pass was sent and the server could not read it. Ask Supabase for a
+      // real one and introduce ourselves again — once, so a genuinely dead
+      // login cannot become a loop. Silence here is what turned people into
+      // guests: their points went to the device and nobody was told.
+      if (msg.authFailed && session && !reauthTried) {
+        reauthTried = true;
+        (async () => {
+          try { const { data } = await supabase.auth.refreshSession(); if (data?.session) session = data.session; }
+          catch { /* fall through to the honest message */ }
+          await sendHello();
+        })();
+        break;
+      }
+      if (msg.authFailed && session) {
+        // it really is gone — say so instead of quietly demoting them
+        session = null;
+        profile = null;
+        updateProfileUI();
+        toast(t('auth_lost'));
+      }
+      if (!msg.authFailed) reauthTried = false;
       wsToken = msg.token;
       sessionStorage.setItem('wr_ws_token', wsToken);
       $('online-count').textContent = msg.online;
@@ -2276,10 +2331,7 @@ async function claimStreak() {
   try {
     const res = await fetch('/api/streak/restore', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(session ? { Authorization: `Bearer ${session.access_token}` } : {}),
-      },
+      headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
       body: JSON.stringify({ device: deviceId, tz: new Date().getTimezoneOffset() }),
     });
     const data = await res.json();
@@ -2505,7 +2557,7 @@ $('btn-auth-submit').addEventListener('click', async () => {
 async function createProfileReq(nick) {
   const res = await fetch('/api/profile', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+    headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
     body: JSON.stringify({ nick, device: deviceId }),
   });
   const data = await res.json();
@@ -2523,7 +2575,13 @@ async function afterLogin() {
   const { data } = await supabase.auth.getSession();
   session = data.session;
   if (!session) return;
-  const res = await fetch('/api/profile', { headers: { Authorization: `Bearer ${session.access_token}` } });
+  // Tell the game server who this is before anything else can go wrong. It
+  // used to be the last line of this function, after the profile had been
+  // fetched — and when that fetch stumbled the function returned early, the
+  // socket never learned about the account, and every point won that evening
+  // went to the device instead.
+  await sendHello();
+  const res = await fetch('/api/profile', { headers: await authHeaders() });
   const body = await res.json();
   profile = body.profile;
   if (!profile) {
@@ -2542,7 +2600,7 @@ async function afterLogin() {
   updateProfileUI();
   showNickNotice();
   // re-identify on the game server with the account nick
-  wsSend({ t: 'hello', nick: myNick(), token: wsToken, device: deviceId, tz: new Date().getTimezoneOffset(), jwt: session.access_token });
+  await sendHello();
   loadFriends();
 }
 
@@ -2555,10 +2613,7 @@ function showNickNotice() {
     .replace('%old', old).replace('%new', profile.nick);
   $('overlay-nick-notice').hidden = false;
   profile.nick_notice = null;
-  fetch('/api/nick-notice/ack', {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${session.access_token}` },
-  }).catch(() => {});
+  authHeaders().then(h => fetch('/api/nick-notice/ack', { method: 'POST', headers: h })).catch(() => {});
 }
 $('btn-nick-notice-close').addEventListener('click', () => {
   $('overlay-nick-notice').hidden = true;
@@ -2569,7 +2624,7 @@ $('btn-logout').addEventListener('click', async () => {
   session = null;
   profile = null;
   updateProfileUI();
-  wsSend({ t: 'hello', nick: myNick(), token: wsToken, device: deviceId, tz: new Date().getTimezoneOffset() });
+  sendHello();
 });
 
 /* ================= settings ================= */
@@ -2841,10 +2896,7 @@ async function sendReview() {
   try {
     await fetch('/api/review', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(session ? { Authorization: `Bearer ${session.access_token}` } : {}),
-      },
+      headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
       body: JSON.stringify({ device: deviceId, stars, text, nick: myNick(), lang }),
     });
   } catch { /* the answer is not worth an error message to the player */ }
@@ -3338,7 +3390,12 @@ async function boot() {
       // bundled locally (public/vendor) — no CDN needed; esm.sh is only a fallback
       const mod = window.supabase || await import('https://esm.sh/@supabase/supabase-js@2');
       supabase = mod.createClient(config.supabaseUrl, config.supabaseAnonKey);
-      supabase.auth.onAuthStateChange((event) => {
+      supabase.auth.onAuthStateChange((event, s) => {
+        // Supabase renews the token every hour. Writing it down once at
+        // start-up and using that for the rest of the day is what made
+        // signed-in players look like guests.
+        if (event === 'SIGNED_OUT') session = null;
+        else if (s) session = s;
         if (event === 'PASSWORD_RECOVERY') {
           show('screen-profile');
           openAuthForm('reset');

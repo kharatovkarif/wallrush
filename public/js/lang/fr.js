@@ -349,6 +349,7 @@ export default {
   auth_error: 'E-mail ou mot de passe incorrect',
   connecting: 'Connexion…',
   conn_lost: 'Connexion perdue, reconnexion…',
+  auth_lost: 'Tu sembles déconnecté. Tes points sont intacts — reconnecte-toi',
   game_gone: 'La partie est terminée',
   how_title: 'Comment jouer',
   how_text: 'Amène ta bille de l\'autre côté avant ton adversaire. À chaque tour : tu déplaces ta bille OU tu poses un mur. Les murs ne se sautent pas. Si les billes sont côte à côte, tu peux sauter par-dessus celle de l\'adversaire. Tu ne peux jamais enfermer complètement un joueur : un chemin vers l\'objectif doit toujours rester. Chacun a 10 murs et 5 minutes par partie, avec 30 secondes maximum par coup.\n\nSeules les salles publiques comptent. Une victoire vaut 25 points, ou 40 face à un joueur de rang supérieur. Une défaite coûte 10 points, ou 20 face à un joueur de rang inférieur. Ton classement ne descend jamais sous zéro. Rangs : Débutant → Élève → Stratège → Maître des murs → Pro → Légende → GOAT 🐐.\n\nRien n\'est compté pour une partie de moins de six coups, et à partir de la quatrième revanche d\'affilée contre la même personne les points sont divisés par deux puis s\'arrêtent. Les parties avec un ami par code et l\'entraînement contre l\'IA n\'affectent pas le classement. Les 1500 premiers points de la journée sont gagnés en entier ; ensuite une victoire vaut la moitié, et passé 3000, un quart. Les défaites comptent toujours en entier.\n\nJoue chaque jour et ta flamme grandit 🔥. Tout cela, en plus détaillé, est dans les Règles.',

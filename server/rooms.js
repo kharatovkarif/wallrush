@@ -422,12 +422,19 @@ async function handleHello(client, msg) {
   let nick = String(msg.nick || '').slice(0, 16);
   if (checkNick(nick)) nick = randomNick(() => crypto.randomInt(0, 1e6) / 1e6);
   let userId = null;
+  // A pass that was sent and did not check out is worth saying out loud. It
+  // used to be swallowed: the player stayed signed in as far as their screen
+  // was concerned while every point they won went to the device instead of
+  // their account, and the first they knew of it was "Rookie, 40 points".
+  let authFailed = false;
   if (msg.jwt) {
     const user = await verifyUser(msg.jwt);
     if (user) {
       userId = user.id;
       const profile = await getProfile(user.id);
       if (profile?.nick) nick = profile.nick;
+    } else {
+      authFailed = true;
     }
   }
   client.nick = nick;
@@ -517,6 +524,7 @@ async function handleHello(client, msg) {
 
   send(client, {
     t: 'hello_ok', token: client.token, nick: client.nick, online: onlineCount(),
+    authFailed,
     points: client.points || 0, veteran: Boolean(client.veteran),
     streak: client.streak || 0, streakBest: client.streakBest || 0,
     streakToday: Boolean(client.streakToday),
