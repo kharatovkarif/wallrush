@@ -155,14 +155,33 @@ function startGame(room) {
   broadcastLobby();
 }
 
+/* How long the server waits past the limit before calling a move too late.
+
+   A player is charged for their connection twice. The message saying it is
+   their turn takes time to reach them, and their move takes the same time to
+   travel back — so someone who presses with a second still on their screen can
+   arrive after the deadline. The clock they see is honest about the first half
+   of that trip; nothing gave them back the second.
+
+   It used to be a flat 250ms, which is nothing on a mobile network. Now each
+   player gets their own round trip back, measured from the heartbeat, up to
+   two seconds. A fast connection sees no change. A slow one stops losing
+   games it played in time. Two extra seconds win nobody a match, so there is
+   nothing here to abuse. */
+const MOVE_GRACE_MIN = 250;
+const MOVE_GRACE_MAX = 2000;
+export const moveGrace = (rtt) =>
+  Math.min(MOVE_GRACE_MAX, Math.max(MOVE_GRACE_MIN, Math.round(rtt) || 0));
+
 function armMoveTimer(room) {
   clearTimeout(room.moveTimer);
   const p = room.state.turn;
   const ms = Math.min(MOVE_MS, room.bank[p]);
+  const grace = moveGrace(room.players[p]?.rtt);
   room.moveTimer = setTimeout(() => {
     const reason = room.bank[p] <= MOVE_MS ? 'timeout' : 'move_timeout';
     finish(room, 1 - p, reason);
-  }, ms + 250); // small grace for network latency
+  }, ms + grace);
 }
 
 // Private rooms are practice. Two friends sharing a code could otherwise trade
@@ -448,6 +467,7 @@ async function handleHello(client, msg) {
       client.streak = old.streak ?? client.streak;
       client.streakBest = old.streakBest ?? client.streakBest;
       client.tzOffset = old.tzOffset ?? client.tzOffset;
+      client.rtt = old.rtt || client.rtt;   // their connection did not change
       byToken.set(client.token, client);
       clients.delete(old.ws);
       const room = rooms.get(client.roomId);
@@ -588,7 +608,8 @@ export function attachWs(wss) {
   });
 
   wss.on('connection', (ws, req) => {
-    const client = { ws, token: null, nick: '', userId: null, roomId: null, inLobby: false, graceTimer: null, alive: true };
+    const client = { ws, token: null, nick: '', userId: null, roomId: null, inLobby: false,
+                     graceTimer: null, alive: true, rtt: 0, pingAt: 0 };
     // A browser always sends Origin on a WebSocket handshake; a script talking
     // to the socket directly usually does not, and the worst point farmers had
     // never loaded the page at all. Rather than refuse the connection — which
@@ -597,7 +618,16 @@ export function attachWs(wss) {
     client.fromPage = sameOrigin(req);
     clients.set(ws, client);
 
-    ws.on('pong', () => { client.alive = true; });
+    ws.on('pong', () => {
+      client.alive = true;
+      // the heartbeat doubles as a latency measure: smoothed, so one slow
+      // packet does not hand somebody five free seconds
+      if (client.pingAt) {
+        const sample = Date.now() - client.pingAt;
+        client.rtt = client.rtt ? Math.round(client.rtt * 0.6 + sample * 0.4) : sample;
+        client.pingAt = 0;
+      }
+    });
 
     ws.on('message', async (raw) => {
       let msg;
@@ -853,6 +883,7 @@ export function attachWs(wss) {
     for (const [ws, client] of clients) {
       if (!client.alive) { ws.terminate(); continue; }
       client.alive = false;
+      client.pingAt = Date.now();
       try { ws.ping(); } catch { /* ignore */ }
     }
   }, 8_000);
