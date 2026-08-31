@@ -4,7 +4,7 @@ import http from 'http';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { WebSocketServer } from 'ws';
-import { attachWs, realOnline } from './rooms.js';
+import { attachWs, realOnline, onlineUserIds } from './rooms.js';
 import { fakeOnline } from './bots.js';
 import { RANKS } from '../public/js/ranks.js';
 import { checkNick } from '../public/js/nick.js';
@@ -2038,5 +2038,5 @@ server.listen(PORT, () => {
   initPush();
   // Hourly, so every timezone gets its own evening. The tick decides who is
   // due; most hours it finds nobody and does nothing.
-  setInterval(() => pushTick(realOnline() + fakeOnline()), 60 * 60 * 1000);
+  setInterval(() => pushTick(realOnline() + fakeOnline(), onlineUserIds()), 60 * 60 * 1000);
 });

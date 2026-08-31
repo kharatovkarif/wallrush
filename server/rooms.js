@@ -79,6 +79,14 @@ function lobbyRooms() {
 
 // bots inflate the visible counter so the lobby always feels populated
 function onlineCount() { return clients.size + fakeOnline(); }
+// Who is signed in and connected right now. The evening notification uses it
+// to say "your friend is playing" only when they actually are.
+export function onlineUserIds() {
+  const ids = new Set();
+  for (const c of clients.values()) if (c.userId) ids.add(c.userId);
+  return ids;
+}
+
 export function realOnline() { return clients.size; } // for the owner's admin page
 
 function broadcastLobby() {
