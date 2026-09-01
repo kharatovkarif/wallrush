@@ -458,3 +458,21 @@ returns table(stars smallint, n bigint)
 language sql stable as $$
   select stars, count(*)::bigint from reviews where not hidden group by stars
 $$;
+
+-- ---------------------------------------------------------------------------
+-- Indexes deliberately NOT kept, and why. All three were dropped on 01.09.2026
+-- when the free tier stood at 74% of 500 MB; they were 120 MB between them and
+-- the database fell to 43%. Dropping an index removes no rows — if any of
+-- these is ever needed again it can be rebuilt from the table in one command.
+--
+--   visit_log_device_idx (device_id, at desc) — 79 MB, scanned 8 times ever.
+--     Built for the per-person page in /admin; that page reads visitor_days
+--     now (see admin_person_days above), so nothing looks the log up by device.
+--
+--   visit_log_pkey (id) — 32 MB, never scanned. The log is written and read by
+--     time; nothing addresses a row by its id.
+--
+--   human_matches_pkey (id) — 9 MB, never scanned. Same reason.
+--
+-- What remains is what is actually used: visit_log_at_idx and
+-- human_matches_at_idx, both scanned constantly by the dashboard.
