@@ -497,3 +497,60 @@ $$;
 --
 -- human_matches and the visit rollups stay: they hold no identifier at all,
 -- and they are how the dashboard knows whether anybody is playing.
+
+-- ---------------------------------------------------------------------------
+-- Who is allowed to reach the database directly (applied 1 Sep 2026)
+--
+-- The site hands every browser the anon key — that is how Supabase sign-in
+-- works, and the key is public by design. What is NOT by design is anything
+-- that key can reach. Four tables were sitting in the API schema with row
+-- level security switched off, which meant anyone who opened the page source
+-- could read, rewrite and delete all of them:
+--
+--   reviews         every review, every star, and the owner's replies
+--   review_likes
+--   daily_progress
+--   ad_requests     the advertisers' enquiries, contact details included
+--
+-- On top of that, every function in the public schema was callable with that
+-- same key. Most run as their owner (SECURITY DEFINER) and therefore ignore
+-- RLS by design, so friend_add, friend_remove and the whole admin_* reporting
+-- set were open to the internet. The revokes for these WERE written when the
+-- functions were created — but CREATE OR REPLACE resets a function's grants
+-- back to the PUBLIC default, and that is what undid them.
+--
+-- The fix, and the rule from here on:
+--
+--   * every table in `public` has RLS enabled and NO policies. The browser
+--     never reads a table directly — everything goes through the game server,
+--     which authenticates as service_role and has BYPASSRLS. So "on with no
+--     policies" shuts the public door and leaves the server's untouched.
+--   * every function in `public` is revoked from public/anon/authenticated and
+--     granted to service_role only.
+--   * profiles keeps a public read, because the leaderboard is public, but
+--     only on the columns that belong to the player. The anti-cheat marker
+--     (flagged) and the nickname notice are not among them.
+--   * every function has its search_path pinned, so names inside it cannot be
+--     resolved against a schema the caller chose.
+--
+-- AFTER ANY `create or replace function` IN THIS FILE, RE-RUN THIS:
+--
+--   do $$
+--   declare fn record;
+--   begin
+--     for fn in select p.oid::regprocedure as sig
+--               from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+--               where n.nspname = 'public' and p.prokind = 'f'
+--     loop
+--       execute format('revoke all on function %s from public, anon, authenticated', fn.sig);
+--       execute format('grant execute on function %s to service_role', fn.sig);
+--     end loop;
+--   end $$;
+--
+-- To check at any time that nothing has slipped: both of these must be 0.
+--
+--   select count(*) from pg_class c join pg_namespace n on n.oid=c.relnamespace
+--     where n.nspname='public' and c.relkind='r' and c.relrowsecurity = false;
+--   select count(*) from pg_proc p join pg_namespace n on n.oid=p.pronamespace
+--     where n.nspname='public' and p.prokind='f'
+--       and has_function_privilege('anon', p.oid, 'EXECUTE');
