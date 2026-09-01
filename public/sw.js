@@ -1,7 +1,7 @@
 // WallRush service worker: caches the app shell so the game opens instantly
 // and the AI mode keeps working offline. Pages go network-first (fresh
 // deploys land right away), versioned assets go cache-first.
-const V = '144';
+const V = '145';
 const CACHE = 'wr-' + V;
 const SHELL = [
   '/',
@@ -27,6 +27,10 @@ const SHELL = [
   '/manifest.json',
   '/icons/icon-192.png',
   '/icons/icon-512.png',
+  // the launcher crops home-screen icons to its own shape; these are drawn
+  // edge to edge with the mark inside the part that always survives
+  '/icons/icon-maskable-192.png',
+  '/icons/icon-maskable-512.png',
 ];
 
 self.addEventListener('install', (e) => {
