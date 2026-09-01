@@ -72,7 +72,7 @@
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
   <!-- Opens the connection to the ad host early. Costs one handshake and no
        download, and takes that handshake off the wait once Support is tapped. -->
-  <link rel="stylesheet" href="css/style.css?v=146">
+  <link rel="stylesheet" href="css/style.css?v=148">
   <!-- Are we inside somebody else's page? Every game portal forbids running
        your own ads inside theirs, and the ad scripts below start the moment
        the parser reaches them — long before any module could stop one. So the
@@ -366,7 +366,7 @@
           <div class="cr-opts" id="cr-mode">
             <button data-val="duel" class="on">⚔️ <span data-i18n="duel_title"></span></button>
             <button data-val="race">🏁 <span data-i18n="race_title"></span></button>
-            <button data-val="quad">👥 <span data-i18n="quad_title"></span></button>
+            <button data-val="quad">👥 <span data-i18n="quad_title"></span><i class="opt-new" data-i18n="badge_new"></i></button>
           </div>
           <p class="hint" id="cr-mode-hint"></p>
         </div>
@@ -1058,7 +1058,7 @@
     <div id="toast" hidden></div>
   </div>
 
-  <script src="vendor/supabase.js?v=146" defer></script>
-  <script type="module" src="js/app.js?v=146"></script>
+  <script src="vendor/supabase.js?v=148" defer></script>
+  <script type="module" src="js/app.js?v=148"></script>
 </body>
 </html>

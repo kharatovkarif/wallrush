@@ -1325,14 +1325,14 @@ html[data-theme="dark"] .ads-flag { background: #262c42; }
 .wt-count { font-size: 30px; font-weight: 900; letter-spacing: 1px; margin-bottom: 8px; }
 .wt-list { display: grid; gap: 6px; }
 .wt-seat {
-  display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-radius: 12px;
-  background: rgba(255,255,255,.07); font-weight: 700; text-align: left;
+  display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-radius: 14px;
+  background: var(--card); box-shadow: var(--shadow); font-weight: 700; text-align: left;
 }
 .wt-seat.empty {
-  background: transparent; border: 1px dashed rgba(255,255,255,.25);
+  background: transparent; box-shadow: none; border: 1px dashed var(--bezel);
   opacity: .6; font-weight: 500; justify-content: center;
 }
-.wt-seat small { margin-left: auto; opacity: .85; font-weight: 500; }
+.wt-seat small { opacity: .85; font-weight: 500; }
 
 /* the result, when there were four of them */
 .quad-result { display: grid; gap: 6px; margin: 10px 0 4px; }
@@ -1357,3 +1357,20 @@ html[data-theme="dark"] .ads-flag { background: #262c42; }
 .btn-danger:disabled { opacity: .45; }
 .del-list { text-align: left; margin: 6px 0 10px; padding-left: 20px; font-size: 14px; opacity: .85; }
 .del-list li { margin: 3px 0; }
+
+/* a mode nobody finds is wasted work: the newest one wears a small flag until
+   it stops being new */
+.opt-new {
+  font-style: normal; font-size: 9px; font-weight: 800; letter-spacing: .5px;
+  background: #21a35a; color: #fff; border-radius: 6px; padding: 1px 4px; margin-left: 4px;
+  vertical-align: middle; text-transform: uppercase;
+}
+/* an emoji that carries a name needs a plate to sit on */
+.emoji-pop.named {
+  font-size: 15px; font-weight: 700; padding: 4px 10px; border-radius: 12px;
+  background: rgba(20, 28, 52, .82); color: #fff;
+}
+.emoji-pop.named.blue { box-shadow: 0 0 0 2px #2f6df6; }
+.emoji-pop.named.red { box-shadow: 0 0 0 2px #e33d52; }
+.emoji-pop.named.yellow { box-shadow: 0 0 0 2px #f0b429; }
+.emoji-pop.named.green { box-shadow: 0 0 0 2px #21a35a; }

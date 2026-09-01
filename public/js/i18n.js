@@ -19,6 +19,7 @@ export const I18N = {
     rooms_empty: 'Открытых комнат нет — создай свою!',
     create_room: 'Создать комнату',
     waiting_opponent: 'Ждём соперника…',
+    waiting_players: 'Ждём игроков…',
     cancel: 'Отмена',
     join: 'Войти',
     friend_title: 'Игра с другом',
@@ -362,6 +363,7 @@ export const I18N = {
     race_rules: 'Гонка: оба стартуют снизу и бегут к финишу наверху.',
     race_rules: 'Новый режим: оба игрока стартуют с одной стороны и бегут к финишу наверху. Доска больше, у каждого по 15 стен. Кто первым добежит — тот и победил!',
     quad_title: '4 игрока',
+    badge_new: 'Новое',
     quad_rules: 'Четверо за столом: доска 11×11, каждый стартует со своей стороны, все бегут к золотой клетке в центре. По 7 стен, ход 30 секунд. Победитель один.',
     quad_turn_of: 'Ходит %s',
     quad_again: 'Новый стол',
@@ -420,6 +422,7 @@ export const I18N = {
     rooms_empty: 'No open rooms — create one!',
     create_room: 'Create room',
     waiting_opponent: 'Waiting for opponent…',
+    waiting_players: 'Waiting for players…',
     cancel: 'Cancel',
     join: 'Join',
     friend_title: 'Play with friend',
@@ -763,6 +766,7 @@ export const I18N = {
     race_rules: 'Race: both start at the bottom and race to the top.',
     race_rules: 'New mode: both players start on the same side and race to the finish at the top. Bigger board, 15 walls each. First to arrive wins!',
     quad_title: '4 players',
+    badge_new: 'New',
     quad_rules: 'A table of four: an 11×11 board, everyone starts on their own side and races for the golden cell in the middle. Seven walls each, 30 seconds a move. One winner.',
     quad_turn_of: '%s to move',
     quad_again: 'New table',
@@ -818,7 +822,7 @@ export const LANGS = [
 export const LANG_CODES = LANGS.map((l) => l.code);
 export const RTL = new Set(['fa']);
 
-const V = '146';
+const V = '148';
 
 // Loads a translation file on demand. Safe to call repeatedly and safe to fail:
 // if the request never lands, makeT keeps falling back to English.

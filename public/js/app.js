@@ -1,16 +1,16 @@
 // WallRush client app: screens, board UI, online play (WebSocket), AI mode, auth.
-import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=146';
-import { aiMove } from './ai.js?v=146';
-import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=146';
-import { PACKS } from './packs.js?v=146';
-import { rankOf, nextRank } from './ranks.js?v=146';
-import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=146';
-import { checkNick, nickOk, randomNick } from './nick.js?v=146';
+import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=148';
+import { aiMove } from './ai.js?v=148';
+import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=148';
+import { PACKS } from './packs.js?v=148';
+import { rankOf, nextRank } from './ranks.js?v=148';
+import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=148';
+import { checkNick, nickOk, randomNick } from './nick.js?v=148';
 import {
   embedded, initPortal, inPortal, portalAd, portalPlaying, portalHappy,
   portalLoaded, portalInviteCode, portalShowInvite, portalHideInvite, portalInstant,
   portalRoom, portalOnJoin, portalInviteLink, portalMuted, portalOnMute, portalUserName,
-} from './portal.js?v=146';
+} from './portal.js?v=148';
 
 /* ================= state ================= */
 const $ = (id) => document.getElementById(id);
@@ -282,7 +282,7 @@ function getAiWorker() {
   if (aiWorker === false) return null;
   if (!aiWorker) {
     try {
-      aiWorker = new Worker('js/ai-worker.js?v=146', { type: 'module' });
+      aiWorker = new Worker('js/ai-worker.js?v=148', { type: 'module' });
       aiWorker.onmessage = (e) => {
         const cb = aiPending.get(e.data.id);
         aiPending.delete(e.data.id);
@@ -725,7 +725,7 @@ function handleWsMessage(msg) {
       break;
     case 'room_created':
       // a table of four keeps its own waiting panel: names and empty chairs
-      $('waiting-table').hidden = msg.mode !== 'quad';
+      if (msg.mode === 'quad') $('waiting-table').hidden = false; else waitingForOne();
       $('waiting-code').hidden = !msg.code;
       if (msg.code) showInvite(msg.code);
       // Inside the portal the same code also goes to their invite button in
@@ -864,7 +864,7 @@ function handleWsMessage(msg) {
       if (msg.advanced && isMilestone(myStreak)) celebrateStreak(myStreak);
       break;
     case 'emoji':
-      showEmoji(msg.e);
+      showEmoji(msg.e, false, typeof msg.seat === 'number' ? msg.seat : null);
       vibrate(20);
       break;
     case 'rematch_offer':
@@ -878,11 +878,12 @@ function handleWsMessage(msg) {
     case 'opp_disconnected':
       // the clock stops while they are away, and the screen has to show that
       if (msg.clocks && game) game.clocks = { ...msg.clocks, recvAt: Date.now() };
-      toast(t('opp_disconnected'));
+      // "your opponent" means nothing when there are three of them
+      toast(isQuad() && msg.nick ? `${msg.nick}: ${t('opp_disconnected')}` : t('opp_disconnected'));
       break;
     case 'opp_reconnected':
       if (msg.clocks && game) game.clocks = { ...msg.clocks, recvAt: Date.now() };
-      toast(t('opp_reconnected'));
+      toast(isQuad() && msg.nick ? `${msg.nick}: ${t('opp_reconnected')}` : t('opp_reconnected'));
       break;
     case 'daily':
       renderDaily(msg);
@@ -946,11 +947,15 @@ function renderRooms(rooms) {
 }
 
 $('btn-online').addEventListener('click', () => show('screen-rooms'));
+function waitingForOne() {
+  $('waiting-table').hidden = true;
+  document.querySelector('#screen-waiting h2').textContent = t('waiting_opponent');
+}
 $('btn-quick').addEventListener('click', () => {
   wsSend({ t: 'quick' });
   show('screen-waiting');
   $('waiting-code').hidden = true;
-  $('waiting-table').hidden = true;
+  waitingForOne();
 });
 $('btn-friend').addEventListener('click', () => show('screen-friend'));
 
@@ -1041,6 +1046,8 @@ function renderWaitTable(msg) {
   const seats = msg.seats || 4;
   const players = msg.players || [];
   box.hidden = false;
+  // "waiting for an opponent" is the wrong sentence when three are missing
+  document.querySelector('#screen-waiting h2').textContent = t('waiting_players');
   $('waiting-count').textContent = `${players.length}/${seats}`;
   const list = $('waiting-players');
   list.innerHTML = '';
@@ -1049,10 +1056,10 @@ function renderWaitTable(msg) {
     const el = document.createElement('div');
     el.className = 'wt-seat' + (pl ? '' : ' empty');
     if (pl) {
-      el.innerHTML = '<span class="q-dot"></span><b></b><small></small>';
+      el.innerHTML = '<span class="q-dot"></span><small></small><b></b>';
       el.querySelector('.q-dot').className = 'q-dot ' + SEAT_COLORS[i];
-      el.querySelector('b').textContent = pl.nick;
       el.querySelector('small').textContent = rankIcon(pl.points || 0);
+      el.querySelector('b').textContent = pl.nick;
     } else {
       el.textContent = t('waiting_seat');
     }
@@ -2356,9 +2363,13 @@ document.querySelectorAll('#emoji-bar button').forEach(b =>
     showEmoji(b.dataset.emoji, true);
   }));
 
-function showEmoji(e, mine = false) {
+function showEmoji(e, mine = false, seat = null) {
   const pop = $('emoji-pop');
-  pop.textContent = e;
+  // Three people can send one. Without a name it is just a face appearing in
+  // the corner with no idea whose it is.
+  const who = (!mine && isQuad() && seat !== null) ? (game?.seats?.[seat]?.nick || '') : '';
+  pop.textContent = who ? `${who} ${e}` : e;
+  pop.className = 'emoji-pop' + (who ? ' named ' + seatColor(seat) : '');
   pop.style.right = mine ? '' : '8px';
   pop.style.left = mine ? '8px' : '';
   pop.style.top = mine ? '' : '8px';
