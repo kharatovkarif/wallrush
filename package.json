@@ -6,7 +6,7 @@
   "main": "server/index.js",
   "scripts": {
     "start": "node server/index.js",
-    "test": "node test/selfplay.mjs"
+    "test": "node test/selfplay.mjs && node test/quad.mjs"
   },
   "engines": {
     "node": ">=22"

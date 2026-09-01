@@ -17,6 +17,7 @@ export const DAILY_TASKS = [
   { id: 'win_thrifty', target: 1, reward: 40 },  // win using at most 3 walls
   { id: 'win3', target: 3, reward: 40 },
   { id: 'win_strong', target: 1, reward: 45 },   // beat someone rated above you
+  { id: 'quad_play', target: 2, reward: 40 },    // sit down at a table of four
 ];
 
 // day is 'YYYY-MM-DD' — the player's own local day, the same one the streak
@@ -31,7 +32,9 @@ export function taskForDay(day) {
      walls      — walls this player placed in the match
      myPoints   — their rating before the match
      oppPoints  — the opponent's rating
-     oppIsBot   — was the opponent one of ours                              */
+     oppIsBot   — was the opponent one of ours (at a table of four: were they
+                  ALL ours, so that one real person still counts as human)
+     quad       — was this the four-handed game                              */
 export function matchProgress(task, ctx) {
   switch (task.id) {
     case 'play4': return 1;
@@ -41,6 +44,10 @@ export function matchProgress(task, ctx) {
     case 'win_human': return ctx.won && !ctx.oppIsBot ? 1 : 0;
     case 'win_thrifty': return ctx.won && (ctx.walls || 0) <= 3 ? 1 : 0;
     case 'win_strong': return ctx.won && (ctx.oppPoints || 0) > (ctx.myPoints || 0) ? 1 : 0;
+    // Turning up is the whole task here: winning a table of four is a one in
+    // four proposition, and a task most people cannot finish teaches them to
+    // ignore the card.
+    case 'quad_play': return ctx.quad ? 1 : 0;
     default: return 0;
   }
 }

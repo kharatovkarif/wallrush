@@ -1,16 +1,16 @@
 // WallRush client app: screens, board UI, online play (WebSocket), AI mode, auth.
-import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=119';
-import { aiMove } from './ai.js?v=119';
-import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=145';
-import { PACKS } from './packs.js?v=145';
-import { rankOf, nextRank } from './ranks.js?v=119';
-import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=119';
-import { checkNick, nickOk, randomNick } from './nick.js?v=119';
+import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=146';
+import { aiMove } from './ai.js?v=146';
+import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=146';
+import { PACKS } from './packs.js?v=146';
+import { rankOf, nextRank } from './ranks.js?v=146';
+import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=146';
+import { checkNick, nickOk, randomNick } from './nick.js?v=146';
 import {
   embedded, initPortal, inPortal, portalAd, portalPlaying, portalHappy,
   portalLoaded, portalInviteCode, portalShowInvite, portalHideInvite, portalInstant,
   portalRoom, portalOnJoin, portalInviteLink, portalMuted, portalOnMute, portalUserName,
-} from './portal.js?v=119';
+} from './portal.js?v=146';
 
 /* ================= state ================= */
 const $ = (id) => document.getElementById(id);
@@ -282,7 +282,7 @@ function getAiWorker() {
   if (aiWorker === false) return null;
   if (!aiWorker) {
     try {
-      aiWorker = new Worker('js/ai-worker.js?v=119', { type: 'module' });
+      aiWorker = new Worker('js/ai-worker.js?v=146', { type: 'module' });
       aiWorker.onmessage = (e) => {
         const cb = aiPending.get(e.data.id);
         aiPending.delete(e.data.id);
@@ -724,6 +724,8 @@ function handleWsMessage(msg) {
       renderRooms(msg.rooms || []);
       break;
     case 'room_created':
+      // a table of four keeps its own waiting panel: names and empty chairs
+      $('waiting-table').hidden = msg.mode !== 'quad';
       $('waiting-code').hidden = !msg.code;
       if (msg.code) showInvite(msg.code);
       // Inside the portal the same code also goes to their invite button in
@@ -807,8 +809,44 @@ function handleWsMessage(msg) {
           game.award = msg.points;
           updateProfileUI();
         }
-        onGameOver(msg.winner === msg.you, msg.reason);
+        // the four-handed result carries the whole table: who won, and what
+        // became of each of the other three
+        game.result = { winner: msg.winner, out: msg.out || {} };
+        if (msg.players) game.seats = msg.players;
+        if (game.awaitingResult) {
+          // Knocked out earlier, so the result screen is already up with the
+          // half of the story we had. Fill in the rest where it stands.
+          game.awaitingResult = false;
+          renderQuadResult(msg.winner === msg.you);
+          showAward();
+          break;
+        }
+        onGameOver(msg.winner === msg.you, msg.yourReason || msg.reason);
       }
+      break;
+    case 'player_out':
+      if (game?.mode === 'online' && game.seats) {
+        if (msg.seat === game.myIndex) {
+          // My own seat. The other three play on, but my game is finished:
+          // waiting through someone else's match to be told I lost is not
+          // watching, it is being stuck. The result comes up now, and the
+          // points fill themselves in when the table finishes.
+          game.result = { winner: null, out: { [msg.seat]: msg.reason } };
+          game.awaitingResult = true;
+          onGameOver(false, msg.reason === 'left' ? 'left' : msg.reason);
+          break;
+        }
+        const how = msg.reason === 'left' ? t('out_left')
+          : msg.reason === 'resign' ? t('out_resigned') : t('out_time');
+        toast(`${game.seats[msg.seat]?.nick || ''} ${how}`);
+      }
+      break;
+    case 'room_wait':
+      renderWaitTable(msg);
+      break;
+    case 'room_closed':
+      toast(t('room_closed'));
+      show('screen-rooms');
       break;
     case 'streak':
       myStreak = msg.streak || 0;
@@ -884,18 +922,36 @@ function renderRooms(rooms) {
     // the rank sits with the nickname, so you know who you are about to face
     el.querySelector('b').textContent = `${rankIcon(room.points || 0)} ${room.nick}`;
     // show what kind of room it is: mode · walls · time
-    const modeLabel = room.mode === 'race' ? '🏁 ' + t('race_title') : '⚔️ ' + t('duel_title');
+    const modeLabel = room.mode === 'race' ? '🏁 ' + t('race_title')
+      : room.mode === 'quad' ? '👥 ' + t('quad_title')
+      : '⚔️ ' + t('duel_title');
     const timeLabel = room.time === '0' ? '∞' : room.time + t('min_short');
-    el.querySelector('small').textContent = `${rankName(room.points || 0)} · ${modeLabel} · ${room.walls}🧱 · ${timeLabel}`;
+    // A table of four is worth joining precisely because it is nearly full,
+    // so the count goes where the eye already is: on the button.
+    const seats = room.seats || 2;
+    el.querySelector('small').textContent = seats > 2
+      ? `${rankName(room.points || 0)} · ${modeLabel} · 11×11 · ${room.walls}🧱`
+      : `${rankName(room.points || 0)} · ${modeLabel} · ${room.walls}🧱 · ${timeLabel}`;
     const btn = el.querySelector('.btn-join');
-    btn.textContent = t('join');
-    btn.addEventListener('click', () => wsSend({ t: 'join_room', roomId: room.id }));
+    btn.textContent = seats > 2 ? `${t('join')} ${room.taken || 1}/${seats}` : t('join');
+    btn.addEventListener('click', () => {
+      wsSend({ t: 'join_room', roomId: room.id });
+      // A duel starts the moment you join, so the waiting screen would only
+      // flash. A table of four may still be a seat short, so it is where you
+      // wait — and the server's first room_wait fills it in.
+      if (seats > 2) { $('waiting-table').hidden = false; $('waiting-code').hidden = true; show('screen-waiting'); }
+    });
     list.appendChild(el);
   }
 }
 
 $('btn-online').addEventListener('click', () => show('screen-rooms'));
-$('btn-quick').addEventListener('click', () => { wsSend({ t: 'quick' }); show('screen-waiting'); $('waiting-code').hidden = true; });
+$('btn-quick').addEventListener('click', () => {
+  wsSend({ t: 'quick' });
+  show('screen-waiting');
+  $('waiting-code').hidden = true;
+  $('waiting-table').hidden = true;
+});
 $('btn-friend').addEventListener('click', () => show('screen-friend'));
 
 /* ---- create-room settings dialog: mode / walls / time ---- */
@@ -906,10 +962,15 @@ function pickOpt(groupId, val) {
 }
 function syncCreateDialog() {
   const race = createCfg.mode === 'race';
+  const quad = createCfg.mode === 'quad';
   // duel is always 10 walls; race lets you pick 10 or 15
   $('cr-walls').querySelector('[data-val="15"]').hidden = !race;
   if (!race && createCfg.walls === '15') { createCfg.walls = '10'; pickOpt('cr-walls', '10'); }
-  $('cr-mode-hint').textContent = race ? t('race_rules') : t('duel_rules');
+  // Seven walls and five minutes, always. There is nothing to choose, so
+  // rather than show two rows of dead buttons the rows go away.
+  $('cr-walls-row').hidden = quad;
+  $('cr-time-row').hidden = quad;
+  $('cr-mode-hint').textContent = quad ? t('quad_rules') : race ? t('race_rules') : t('duel_rules');
 }
 function openCreateDialog(isPrivate) {
   createCfg = { mode: 'duel', walls: '10', time: '5', private: isPrivate };
@@ -970,6 +1031,34 @@ function logEvent(kind) {
 // with nothing to read out or type in.
 const CODE_RE = /^[A-Z0-9]{4,8}$/;
 const roomLink = (code) => location.origin + '/#' + code;
+
+/* The four-handed waiting room: who is already sitting here, and how many
+   chairs are still empty. Drawn from what the server says rather than counted
+   locally, so it cannot drift from the room it describes. */
+function renderWaitTable(msg) {
+  const box = $('waiting-table');
+  if (!box) return;
+  const seats = msg.seats || 4;
+  const players = msg.players || [];
+  box.hidden = false;
+  $('waiting-count').textContent = `${players.length}/${seats}`;
+  const list = $('waiting-players');
+  list.innerHTML = '';
+  for (let i = 0; i < seats; i++) {
+    const pl = players[i];
+    const el = document.createElement('div');
+    el.className = 'wt-seat' + (pl ? '' : ' empty');
+    if (pl) {
+      el.innerHTML = '<span class="q-dot"></span><b></b><small></small>';
+      el.querySelector('.q-dot').className = 'q-dot ' + SEAT_COLORS[i];
+      el.querySelector('b').textContent = pl.nick;
+      el.querySelector('small').textContent = rankIcon(pl.points || 0);
+    } else {
+      el.textContent = t('waiting_seat');
+    }
+    list.appendChild(el);
+  }
+}
 
 let inviteCode = '';
 function showInvite(code) {
@@ -1074,7 +1163,7 @@ $('btn-how-close').addEventListener('click', () => { $('overlay-how').hidden = t
 const board = $('board');
 let geo = null; // {u, g, pad, size}
 let cellEls = [];
-let pawnEls = [null, null];
+let pawnEls = [];
 
 // board dimensions of the current game (race is bigger than the classic 9x9)
 function dims() {
@@ -1082,6 +1171,16 @@ function dims() {
   return { cols: s?.cols || 9, rows: s?.rows || 9 };
 }
 function isRace() { return game?.state?.mode === 'race'; }
+function isQuad() { return game?.state?.mode === 'quad'; }
+
+/* The four colours of the four-handed table, by seat: south, west, north,
+   east. A player's colour is their seat's, not their position on screen —
+   everyone sees themselves at the bottom, so screen position says nothing. */
+const SEAT_COLORS = ['blue', 'red', 'yellow', 'green'];
+function seatColor(i) {
+  if (isQuad()) return SEAT_COLORS[i] || 'blue';
+  return i === 0 ? 'blue' : 'red';
+}
 
 function computeGeo() {
   const { cols, rows } = dims();
@@ -1094,25 +1193,50 @@ function computeGeo() {
   geo = { size, height: u * uh, u, g, pad: g };
 }
 
-// view mapping: player 1 sees the board rotated 180° — but NOT in race mode,
-// where both players stand on the same (bottom) side
-function toView(r, c) {
-  if (game?.myIndex === 1 && !isRace()) {
-    const { cols, rows } = dims();
-    return { r: rows - 1 - r, c: cols - 1 - c };
-  }
-  return { r, c };
+/* ---- view mapping: everyone plays from the bottom of their own screen ----
+
+   In a duel that is a half turn for player 1. At a table of four it is a
+   quarter turn for the players sitting west and east, which is the one thing
+   here that is not its own inverse — so the way back is spelled out rather
+   than reused, and a wall dragged onto the board lands where the finger was.
+
+   Rotations are counted in quarter turns clockwise. Seat 0 (south) is already
+   at the bottom; west needs three, north two, east one. */
+const QUAD_TURNS = [0, 3, 2, 1];
+
+function viewTurns() {
+  if (isQuad()) return QUAD_TURNS[game?.myIndex] || 0;
+  return (game?.myIndex === 1 && !isRace()) ? 2 : 0;
 }
-function wallToView(w) {
-  if (game?.myIndex === 1 && !isRace()) {
-    const { cols, rows } = dims();
-    return { r: rows - 2 - w.r, c: cols - 2 - w.c, o: w.o };
-  }
-  return w;
+
+// one quarter turn clockwise, for a cell on an n x n board
+const cellCW = (r, c, n) => ({ r: c, c: n - 1 - r });
+// ...and for a wall slot, which lives on the (n-1) x (n-1) grid of crossings
+// and changes orientation as it turns
+const wallCW = (w, m) => ({ r: w.c, c: m - 1 - w.r, o: w.o === 'h' ? 'v' : 'h' });
+
+function spin(r, c, k) {
+  const { cols, rows } = dims();
+  if (!k) return { r, c };
+  // only square boards are ever turned by a quarter, so one size is enough
+  const n = k % 2 ? Math.max(cols, rows) : rows;
+  let p = { r, c };
+  for (let i = 0; i < k; i++) p = cellCW(p.r, p.c, n);
+  return p;
 }
-// inverse mappings equal the forward ones (180° rotation is an involution)
-const fromView = toView;
-const wallFromView = wallToView;
+function spinWall(w, k) {
+  if (!k) return w;
+  const { cols, rows } = dims();
+  const m = (k % 2 ? Math.max(cols, rows) : rows) - 1;
+  let p = { r: w.r, c: w.c, o: w.o };
+  for (let i = 0; i < k; i++) p = wallCW(p, m);
+  return p;
+}
+
+const toView = (r, c) => spin(r, c, viewTurns());
+const fromView = (r, c) => spin(r, c, (4 - viewTurns()) % 4);
+const wallToView = (w) => spinWall(w, viewTurns());
+const wallFromView = (w) => spinWall(w, (4 - viewTurns()) % 4);
 
 function cellXY(r, c) {
   return { x: geo.pad + c * (geo.u + geo.g), y: geo.pad + r * (geo.u + geo.g) };
@@ -1122,20 +1246,54 @@ function buildBoard() {
   const { cols, rows } = dims();
   // race board is taller than wide — cap width so the whole board fits on screen
   board.style.aspectRatio = `${cols * 1.3 + 0.3} / ${rows * 1.3 + 0.3}`;
-  board.style.maxWidth = isRace() ? 'min(80vw, 46dvh)' : 'min(87vw, 55dvh)';
+  board.style.maxWidth = isRace() ? 'min(80vw, 46dvh)'
+    : isQuad() ? 'min(94vw, 58dvh)' : 'min(87vw, 55dvh)';
   computeGeo();
   board.innerHTML = '';
   cellEls = [];
+  // The two end-zone captions belong to a game played up and down the board.
+  // At a table of four there is no "their end" to caption, and the rules they
+  // draw either side of the text were left hanging over an empty line.
+  $('zone-top').hidden = isQuad();
+  $('zone-bottom').hidden = isQuad();
 
   // competitor look: tinted end-zone bands under a thin pencil grid,
   // cells stay as invisible tap targets
   const bandH = geo.pad + geo.u + geo.g / 2;
-  for (const pos of ['top', 'bottom']) {
-    if (isRace() && pos === 'bottom') continue; // race: only the finish band on top
-    const b = document.createElement('div');
-    b.className = 'zone-band ' + pos;
-    b.style.cssText = (pos === 'top' ? 'top:0;' : 'bottom:0;') + `left:0;width:100%;height:${bandH}px`;
-    board.appendChild(b);
+  if (isQuad()) {
+    // Four homes and one finish. Each player's own side is tinted in their
+    // colour so a glance at the board says who came from where, and the cell
+    // everybody is running at is marked in gold.
+    const sides = ['bottom', 'left', 'top', 'right'];
+    for (let seat = 0; seat < 4; seat++) {
+      const turns = viewTurns();
+      // a quarter turn clockwise moves each side one place along, so a seat's
+      // side on my screen is its own plus however far my board is turned
+      const side = sides[(seat + turns) % 4];
+      const b = document.createElement('div');
+      b.className = `zone-band side-${side} ${SEAT_COLORS[seat]}`;
+      const thin = `${bandH}px`;
+      b.style.cssText = side === 'top' ? `top:0;left:0;width:100%;height:${thin}`
+        : side === 'bottom' ? `bottom:0;left:0;width:100%;height:${thin}`
+        : side === 'left' ? `left:0;top:0;height:100%;width:${thin}`
+        : `right:0;top:0;height:100%;width:${thin}`;
+      board.appendChild(b);
+    }
+    const g = game.state.goal || { r: (rows - 1) / 2, c: (cols - 1) / 2 };
+    const gv = toView(g.r, g.c);
+    const { x, y } = cellXY(gv.r, gv.c);
+    const goalEl = document.createElement('div');
+    goalEl.className = 'goal-cell';
+    goalEl.style.cssText = `left:${x}px;top:${y}px;width:${geo.u}px;height:${geo.u}px`;
+    board.appendChild(goalEl);
+  } else {
+    for (const pos of ['top', 'bottom']) {
+      if (isRace() && pos === 'bottom') continue; // race: only the finish band on top
+      const b = document.createElement('div');
+      b.className = 'zone-band ' + pos;
+      b.style.cssText = (pos === 'top' ? 'top:0;' : 'bottom:0;') + `left:0;width:100%;height:${bandH}px`;
+      board.appendChild(b);
+    }
   }
   for (let i = 1; i < Math.max(cols, rows); i++) {
     const at = geo.pad + i * (geo.u + geo.g) - geo.g / 2;
@@ -1165,7 +1323,7 @@ function buildBoard() {
       cellEls.push(el);
     }
   }
-  pawnEls = [0, 1].map(i => {
+  pawnEls = game.state.pawns.map(() => {
     const el = document.createElement('div');
     el.className = 'pawn';
     const d = geo.u * 0.82;
@@ -1205,8 +1363,8 @@ function renderGame() {
   board.querySelectorAll('.wall:not(.preview)').forEach(el => el.remove());
   s.walls.forEach((w, idx) => {
     const el = document.createElement('div');
-    // wall wears the color of whoever placed it (player 0 blue, player 1 red)
-    el.className = 'wall ' + (w.by === 0 ? 'blue' : w.by === 1 ? 'red' : '');
+    // wall wears the colour of whoever placed it
+    el.className = 'wall ' + (typeof w.by === 'number' ? seatColor(w.by) : '');
     if (idx < prevWallCount) el.classList.add('no-anim');
     const rect = wallRect(wallToView(w));
     el.style.cssText = `left:${rect.x}px;top:${rect.y}px;width:${rect.w}px;height:${rect.h}px`;
@@ -1216,11 +1374,16 @@ function renderGame() {
 
   const myTurn = s.turn === me && s.winner === null && !game.over;
 
-  // pawns: my pawn gets my color; glowing ring when it's my turn
-  pawnEls[me].className = 'pawn ' + myColor() + (myTurn ? ' glow' : '');
-  pawnEls[1 - me].className = 'pawn ' + oppColor();
-  positionPawn(0);
-  positionPawn(1);
+  // pawns: everyone in their seat's colour, a glowing ring on whoever is to
+  // move, and a knocked-out player simply is not on the board any more
+  s.pawns.forEach((_, i) => {
+    const dead = s.alive && s.alive[i] === false;
+    pawnEls[i].className = 'pawn ' + seatColor(i)
+      + (i === s.turn && s.winner === null && !game.over ? ' glow' : '')
+      + (dead ? ' gone' : '');
+    pawnEls[i].hidden = Boolean(dead);
+    if (!dead) positionPawn(i);
+  });
 
   // move hints are colored like my ball
   board.classList.toggle('my-blue', myColor() === 'blue');
@@ -1233,6 +1396,8 @@ function renderGame() {
     const isLegal = legal.some(m => m.r === lg.r && m.c === lg.c);
     el.classList.toggle('legal', isLegal);
   }
+
+  if (isQuad()) { renderQuadHud(); return; }
 
   // HUD — rank icons only during play; the number belongs on the result screen
   $('me-nick').textContent = myNick();
@@ -1274,8 +1439,56 @@ function renderGame() {
   }
 }
 
-function myColor() { return game.myIndex === 0 ? 'blue' : 'red'; }
-function oppColor() { return game.myIndex === 0 ? 'red' : 'blue'; }
+function myColor() { return seatColor(game.myIndex); }
+function oppColor() { return seatColor(1 - game.myIndex); }
+
+/* The four-handed strip: one small card per seat, in seat order, mine first so
+   my own walls and clock are always in the same place. A card shows the colour
+   you are, your name, your walls and your clock; the one on move is lit, and
+   an emptied seat is greyed out with the reason it emptied. */
+function renderQuadHud() {
+  const s = game.state;
+  const me = game.myIndex;
+  const row = $('quad-row');
+  if (!row) return;
+  const order = s.pawns.map((_, i) => i).sort((a, b) => (a === me ? -1 : b === me ? 1 : a - b));
+  if (row.dataset.built !== String(s.pawns.length)) {
+    row.innerHTML = '';
+    for (let k = 0; k < s.pawns.length; k++) {
+      const el = document.createElement('div');
+      el.className = 'q-pill';
+      el.innerHTML = '<span class="q-dot"></span><b class="q-nick"></b>' +
+        '<span class="q-walls"></span><span class="q-clock"></span>';
+      row.appendChild(el);
+    }
+    row.dataset.built = String(s.pawns.length);
+  }
+  order.forEach((seat, k) => {
+    const el = row.children[k];
+    const dead = s.alive && s.alive[seat] === false;
+    const active = seat === s.turn && s.winner === null && !game.over;
+    el.className = 'q-pill ' + seatColor(seat) + (active ? ' turn-active' : '') + (dead ? ' out' : '');
+    el.querySelector('.q-dot').className = 'q-dot ' + seatColor(seat);
+    const who = game.seats?.[seat];
+    el.querySelector('.q-nick').textContent = seat === me ? myNick() : (who?.nick || '???');
+    el.querySelector('.q-walls').textContent = dead ? '—' : s.left[seat] + ' 🧱';
+  });
+  $('dock-walls').textContent = s.left[me];
+  const myTurn = s.turn === me && s.winner === null && !game.over;
+  const canDrag = myTurn && s.left[me] > 0 && !(s.alive && s.alive[me] === false);
+  $('drag-h').classList.toggle('disabled', !canDrag);
+  $('drag-v').classList.toggle('disabled', !canDrag);
+  $('turn-banner').textContent = myTurn ? t('your_turn')
+    : t('quad_turn_of').replace('%s', game.seats?.[s.turn]?.nick || '');
+  // the board itself carries a rim in the colour of whoever is to move: with
+  // four people the name alone is too small a thing to notice
+  board.classList.remove(...SEAT_COLORS.map(c => 'rim-' + c));
+  if (s.winner === null && !game.over) board.classList.add('rim-' + seatColor(s.turn));
+  board.classList.toggle('my-blue', myColor() === 'blue');
+  board.classList.toggle('my-red', myColor() === 'red');
+  board.classList.toggle('my-yellow', myColor() === 'yellow');
+  board.classList.toggle('my-green', myColor() === 'green');
+}
 
 function applyChipBallColors() {
   document.querySelectorAll('.chip-ball').forEach(el => {
@@ -1318,6 +1531,26 @@ setInterval(() => {
   bank[active] = Math.max(0, bank[active] - elapsed);
   const moveLeft = Math.max(0, Math.min(ck.moveLimit - elapsed, bank[active]));
 
+  const myTurn = active === me;
+  if (isQuad()) {
+    const s = game.state;
+    const row = $('quad-row');
+    const order = s.pawns.map((_, i) => i).sort((a, b) => (a === me ? -1 : b === me ? 1 : a - b));
+    order.forEach((seat, k) => {
+      const el = row.children[k];
+      if (!el) return;
+      const clock = el.querySelector('.q-clock');
+      const dead = s.alive && s.alive[seat] === false;
+      clock.textContent = dead ? '—' : fmtClock(bank[seat]);
+      clock.classList.toggle('danger',
+        !dead && seat === active && (moveLeft <= 10_000 || bank[seat] <= 10_000));
+    });
+    $('turn-banner').textContent =
+      (myTurn ? t('your_turn') : t('quad_turn_of').replace('%s', game.seats?.[active]?.nick || ''))
+      + ` · ${Math.ceil(moveLeft / 1000)}s`;
+    return;
+  }
+
   // no-time rooms show ∞ — only the 30s per-move rule applies
   $('me-clock').textContent = ck.noTime ? '∞' : fmtClock(bank[me]);
   $('opp-clock').textContent = ck.noTime ? '∞' : fmtClock(bank[1 - me]);
@@ -1326,7 +1559,6 @@ setInterval(() => {
   $('me-clock').classList.toggle('danger', meDanger);
   $('opp-clock').classList.toggle('danger', oppDanger);
 
-  const myTurn = active === me;
   $('turn-banner').textContent =
     (myTurn ? t('your_turn') : t('opp_turn')) + ` · ${Math.ceil(moveLeft / 1000)}s`;
 }, 250);
@@ -1543,6 +1775,8 @@ function startAiGame(level = 'normal', boardMode = 'duel') {
   stopReplay();
   $('overlay-gameover').hidden = true;
   cancelWallPreview();
+  $('quad-row').hidden = true;
+  document.querySelector('.vs-row').hidden = false;
   logVisit(true);
   show('screen-game');
   buildBoard();
@@ -1583,11 +1817,14 @@ function startOnlineGame(msg) {
     // moves made while we were away never reached us; record where we came back
     if (JSON.stringify(last) !== JSON.stringify(msg.state)) kept.push(cloneState(msg.state));
   }
+  const quad = msg.state?.mode === 'quad';
+  const seats = msg.players || null;
   game = {
     mode: 'online',
     state: msg.state,
     myIndex: msg.you,
-    oppNick: msg.opp?.nick || '???',
+    seats,                       // every seat at the table, for the four-handed screen
+    oppNick: msg.opp?.nick || (quad ? t('quad_title') : '???'),
     oppId: msg.opp?.id || null,
     oppPoints: msg.opp?.points || 0,
     ranked: msg.ranked !== false,
@@ -1601,6 +1838,10 @@ function startOnlineGame(msg) {
   $('btn-rematch').style.display = '';
   $('rematch-status').hidden = true;
   cancelWallPreview();
+  // two-player strip or four-player strip, never both
+  $('quad-row').hidden = !quad;
+  document.querySelector('.vs-row').hidden = quad;
+  $('emoji-bar').hidden = false;
   // Only a real start counts as a game played. This runs on every resumed
   // game_start too — a reconnect, or the client asking for the position after
   // a tab switch — and each one was recording another game against the player
@@ -1639,12 +1880,33 @@ function onGameOver(iWon, reason) {
   const reasonKey = {
     goal: 'reason_goal', timeout: 'reason_timeout', move_timeout: 'reason_move_timeout',
     opponent_left: 'reason_opponent_left', resign: 'reason_resign',
+    last_standing: 'reason_last_standing', left: 'reason_you_left',
   }[reason] || 'reason_goal';
   setTimeout(() => {
     $('result-emoji').textContent = iWon ? '🏆' : '😔';
     $('result-title').textContent = iWon ? t('game_win') : t('game_lose');
     $('result-reason').textContent = t(reasonKey);
     document.querySelector('.win-modal').classList.toggle('lose', !iWon);
+    if (isQuad()) {
+      renderQuadResult(iWon);
+      document.querySelector('.result-stats').hidden = true;
+      $('quad-result').hidden = false;
+      // Nobody waits for three other people to agree to a rematch, so the
+      // button opens a fresh table instead of asking the old one to go again.
+      $('btn-rematch').textContent = t('quad_again');
+      showAward();
+      showStreakLine();
+      spawnConfetti(iWon);
+      $('rematch-status').hidden = true;
+      renderAddFriend();
+      $('overlay-gameover').hidden = false;
+      askAfterWin(iWon);
+      maybePortalAd();
+      return;
+    }
+    document.querySelector('.result-stats').hidden = false;
+    $('quad-result').hidden = true;
+    $('btn-rematch').textContent = t('rematch');
     // players strip
     $('rs-ball-me').className = 'rs-ball ' + myColor();
     $('rs-ball-opp').className = 'rs-ball ' + oppColor();
@@ -1665,6 +1927,47 @@ function onGameOver(iWon, reason) {
     maybePortalAd();
   }, 600);
   vibrate(iWon ? [40, 60, 40, 60, 80] : 60);
+}
+
+/* Who finished where, at a table of four. There are no second and third
+   places to report — one player reached the middle and three did not — so the
+   list says who won and, for each of the others, what happened to them. */
+function renderQuadResult(iWon) {
+  const box = $('quad-result');
+  const s = game.state;
+  const me = game.myIndex;
+  const winner = game.result?.winner ?? s.winner;
+  const out = game.result?.out || {};
+  // Still running: I am out, the other three are not. Nobody has won yet, so
+  // nobody is labelled a loser either.
+  const undecided = winner === null || winner === undefined;
+  const order = s.pawns.map((_, i) => i)
+    .sort((a, b) => (a === winner ? -1 : b === winner ? 1 : a === me ? -1 : b === me ? 1 : a - b));
+  box.innerHTML = '';
+  for (const seat of order) {
+    const row = document.createElement('div');
+    row.className = 'qr-row' + (seat === me ? ' mine' : '');
+    const nick = seat === me ? myNick() : (game.seats?.[seat]?.nick || '???');
+    const why = out[seat];
+    const stillIn = undecided && !why;
+    const note = seat === winner ? ''
+      : why === 'left' ? t('qr_left')
+      : why === 'resign' ? t('qr_resigned')
+      : (why === 'timeout' || why === 'move_timeout') ? t('qr_time')
+      : stillIn ? t('qr_playing')
+      : t('qr_lost');
+    row.innerHTML = '<span class="qr-dot"></span><b class="qr-nick"></b>' +
+      '<span class="qr-note"></span><span class="qr-tag"></span>';
+    row.querySelector('.qr-dot').className = 'qr-dot ' + seatColor(seat);
+    row.querySelector('.qr-nick').textContent = nick;
+    row.querySelector('.qr-note').textContent = note;
+    const tag = row.querySelector('.qr-tag');
+    const playing = undecided && !why;
+    tag.textContent = seat === winner ? 'WIN' : playing ? '…' : 'LOSS';
+    tag.className = 'qr-tag ' + (seat === winner ? 'win' : playing ? '' : 'loss');
+    box.appendChild(row);
+  }
+  $('result-emoji').textContent = iWon ? '🏆' : '😔';
 }
 
 // The points line under the result. This is the number people come back for,
@@ -1715,6 +2018,15 @@ function spawnConfetti(on) {
 $('btn-rematch').addEventListener('click', () => {
   if (!game) return;
   if (game.mode === 'ai') { startAiGame(game.aiLevel); return; }
+  if (isQuad()) {
+    $('overlay-gameover').hidden = true;
+    wsSend({ t: 'leave_room' });
+    wsSend({ t: 'create_room', private: false, mode: 'quad' });
+    $('waiting-table').hidden = false;
+    $('waiting-code').hidden = true;
+    show('screen-waiting');
+    return;
+  }
   wsSend({ t: 'rematch', yes: true });
   $('rematch-status').hidden = false;
   $('rematch-status').textContent = t('rematch_wait');
@@ -2617,6 +2929,54 @@ function showNickNotice() {
 }
 $('btn-nick-notice-close').addEventListener('click', () => {
   $('overlay-nick-notice').hidden = true;
+});
+
+/* ---- deleting an account ----
+   Two locks, because there is no undo: the word has to be typed, and the
+   server refuses the request without it as well. The word is not translated —
+   it is the same six letters in every language, so that what is typed and
+   what is checked can never drift apart in one of them. */
+const DELETE_WORD = 'DELETE';
+
+function openDelete() {
+  $('delete-confirm').value = '';
+  $('delete-msg').hidden = true;
+  $('btn-delete-go').disabled = true;
+  $('overlay-delete').hidden = false;
+}
+$('btn-delete-account').addEventListener('click', openDelete);
+$('btn-delete-cancel').addEventListener('click', () => { $('overlay-delete').hidden = true; });
+$('delete-confirm').addEventListener('input', (e) => {
+  $('btn-delete-go').disabled = e.target.value.trim().toUpperCase() !== DELETE_WORD;
+});
+$('btn-delete-go').addEventListener('click', async () => {
+  const btn = $('btn-delete-go');
+  btn.disabled = true;
+  try {
+    const r = await fetch('/api/account/delete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
+      body: JSON.stringify({ confirm: DELETE_WORD }),
+    });
+    if (!r.ok) throw new Error('failed');
+    // Everything of theirs is gone from the server; take the local copies too,
+    // or the next visit signs back in to an account that no longer exists.
+    try { if (supabase) await supabase.auth.signOut(); } catch { /* already gone */ }
+    session = null;
+    profile = null;
+    localStorage.removeItem('wr_nick');
+    sessionStorage.removeItem('wr_nick');
+    sessionStorage.removeItem('wr_ws_token');
+    $('overlay-delete').hidden = true;
+    updateProfileUI();
+    await sendHello();
+    toast(t('delete_done'));
+    show('screen-home');
+  } catch {
+    $('delete-msg').textContent = t('delete_failed');
+    $('delete-msg').hidden = false;
+    btn.disabled = false;
+  }
 });
 
 $('btn-logout').addEventListener('click', async () => {

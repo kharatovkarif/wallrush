@@ -72,7 +72,7 @@
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
   <!-- Opens the connection to the ad host early. Costs one handshake and no
        download, and takes that handshake off the wait once Support is tapped. -->
-  <link rel="stylesheet" href="css/style.css?v=145">
+  <link rel="stylesheet" href="css/style.css?v=146">
   <!-- Are we inside somebody else's page? Every game portal forbids running
        your own ads inside theirs, and the ad scripts below start the moment
        the parser reaches them — long before any module could stop one. So the
@@ -366,17 +366,18 @@
           <div class="cr-opts" id="cr-mode">
             <button data-val="duel" class="on">⚔️ <span data-i18n="duel_title"></span></button>
             <button data-val="race">🏁 <span data-i18n="race_title"></span></button>
+            <button data-val="quad">👥 <span data-i18n="quad_title"></span></button>
           </div>
           <p class="hint" id="cr-mode-hint"></p>
         </div>
-        <div class="cr-group">
+        <div class="cr-group" id="cr-walls-row">
           <p class="cr-label" data-i18n="walls_label"></p>
           <div class="cr-opts" id="cr-walls">
             <button data-val="10" class="on">10 🧱</button>
             <button data-val="15" hidden>15 🧱</button>
           </div>
         </div>
-        <div class="cr-group">
+        <div class="cr-group" id="cr-time-row">
           <p class="cr-label" data-i18n="time_label"></p>
           <div class="cr-opts" id="cr-time">
             <button data-val="0">∞ <span data-i18n="no_time"></span></button>
@@ -427,6 +428,13 @@
       <div class="waiting-box">
         <div class="spinner"></div>
         <h2 data-i18n="waiting_opponent"></h2>
+        <!-- A table of four says who is already sitting at it. Watching the
+             chairs fill is the difference between waiting and being stood up. -->
+        <div id="waiting-table" class="waiting-table" hidden>
+          <div class="wt-count" id="waiting-count">1/4</div>
+          <div class="wt-list" id="waiting-players"></div>
+          <p class="hint" data-i18n="waiting_quad_hint"></p>
+        </div>
         <!-- A link is what actually travels: dictating a six-character code
              loses most invitations before they are sent. -->
         <div id="waiting-code" class="code-box" hidden>
@@ -462,6 +470,10 @@
           <div class="chip-clock" id="opp-clock">5:00</div>
         </div>
       </div>
+
+      <!-- Four seats do not fit the VS strip, so they get their own row: one
+           small card each, mine always first. -->
+      <div class="quad-row" id="quad-row" hidden></div>
 
       <div class="board-wrap">
         <div class="zone-label zone-top" id="zone-top"></div>
@@ -507,6 +519,8 @@
             <b id="rs-nick-opp"></b><small id="rs-tag-opp"></small>
           </div>
         </div>
+        <!-- the whole table, when there were four of them -->
+        <div class="quad-result" id="quad-result" hidden></div>
         <!-- ladder result: the number people come back for -->
         <div class="pts-row" id="pts-row" hidden>
           <span class="pts-delta" id="pts-delta"></span>
@@ -528,6 +542,27 @@
           <button class="btn-big btn-outline" id="btn-to-menu" data-i18n="back_menu"></button>
         </div>
         <p id="rematch-status" class="hint" hidden></p>
+      </div>
+    </div>
+
+    <!-- ============ DELETE ACCOUNT (overlay) ============ -->
+    <div class="overlay" id="overlay-delete" hidden>
+      <div class="modal">
+        <h2 data-i18n="delete_account"></h2>
+        <p class="hint" data-i18n="delete_warn"></p>
+        <ul class="del-list">
+          <li data-i18n="delete_item_profile"></li>
+          <li data-i18n="delete_item_friends"></li>
+          <li data-i18n="delete_item_review"></li>
+          <li data-i18n="delete_item_login"></li>
+        </ul>
+        <p class="hint" data-i18n="delete_type"></p>
+        <input class="input" id="delete-confirm" autocomplete="off" spellcheck="false">
+        <p class="auth-msg" id="delete-msg" hidden></p>
+        <div class="modal-buttons">
+          <button class="btn-big btn-danger" id="btn-delete-go" data-i18n="delete_go" disabled></button>
+          <button class="btn-big btn-outline" id="btn-delete-cancel" data-i18n="cancel"></button>
+        </div>
       </div>
     </div>
 
@@ -939,6 +974,10 @@
 
       <div id="logged-box" class="auth-box" hidden>
         <button class="btn-big btn-outline" id="btn-logout" data-i18n="logout"></button>
+        <!-- The privacy policy says an account can be deleted. It has to be
+             possible from inside the game, or that is not a right, it is a
+             sentence in a document. -->
+        <button class="btn-link danger-link" id="btn-delete-account" data-i18n="delete_account"></button>
       </div>
 
       <div class="settings-box">
@@ -1019,7 +1058,7 @@
     <div id="toast" hidden></div>
   </div>
 
-  <script src="vendor/supabase.js?v=145" defer></script>
-  <script type="module" src="js/app.js?v=145"></script>
+  <script src="vendor/supabase.js?v=146" defer></script>
+  <script type="module" src="js/app.js?v=146"></script>
 </body>
 </html>

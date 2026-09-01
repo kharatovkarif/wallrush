@@ -361,7 +361,12 @@ function rotationTick() {
   // rooms that waited long enough disappear (the "player" went elsewhere)
   for (const room of botOpenRooms()) {
     const b = room.players[0];
-    if (now > b.openDeadline) api.leaveRoom(b, false);
+    if (now <= b.openDeadline) continue;
+    // A four-handed table somebody has already sat down at is not ours to
+    // clear away. Closing it under them would throw real players back to the
+    // lobby seconds after they chose a seat.
+    if (room.players.some(pl => !pl.isBot)) { b.openDeadline = now + 60_000; continue; }
+    api.leaveRoom(b, false);
   }
   // top up to the current target; bots create both kinds with varied settings,
   // like real players picking their favourite rules

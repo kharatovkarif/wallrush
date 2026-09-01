@@ -1229,3 +1229,131 @@ html[data-theme="dark"] .ads-flag { background: #262c42; }
                 background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6'%3E%3Cpath fill='%238b93af' d='M0 0h10L5 6z'/%3E%3C/svg%3E");
                 padding-right: 34px; }
 .input:disabled { opacity: .55; }
+
+/* ============ the four-handed table ============
+   Four colours, chosen so that no two are close for the commonest kinds of
+   colour blindness: blue and yellow read apart from red and green, and every
+   pawn also sits on its own tinted side of the board, so colour is never the
+   only thing telling you who is who. */
+:root {
+  --yellow: #f0b429;
+  --green: #21a35a;
+  --gold: #ffc93c;
+}
+
+.pawn.yellow { background: radial-gradient(circle at 31% 24%, #fff0c9 0%, #f8d271 22%, #f0b429 55%, #8a5f05 100%); }
+.pawn.green  { background: radial-gradient(circle at 31% 24%, #c8f4da 0%, #5fd095 22%, #21a35a 55%, #0c5730 100%); }
+.pawn.gone   { display: none; }
+
+.wall.yellow {
+  background: linear-gradient(180deg, #f8d271 0%, #f0b429 45%, #b07f0d 100%);
+  box-shadow: 0 5px 9px rgba(120, 85, 10, .45), inset 0 2px 2px rgba(255,255,255,.35);
+}
+.wall.green {
+  background: linear-gradient(180deg, #5fd095 0%, #21a35a 45%, #14663a 100%);
+  box-shadow: 0 5px 9px rgba(12, 80, 45, .45), inset 0 2px 2px rgba(255,255,255,.35);
+}
+#board.my-yellow .cell.legal::after { background: radial-gradient(circle at 32% 28%, #ffe9ac, #f0b429 65%, #a97c0c); }
+#board.my-green .cell.legal::after  { background: radial-gradient(circle at 32% 28%, #a8ecc7, #21a35a 65%, #12683a); }
+
+/* Whose move it is, said by the board itself. With four names on screen the
+   lit-up card is easy to miss; a rim around the board is not. */
+#board.rim-blue   { box-shadow: 0 0 0 3px rgba(47,109,246,.75); }
+#board.rim-red    { box-shadow: 0 0 0 3px rgba(227,61,82,.75); }
+#board.rim-yellow { box-shadow: 0 0 0 3px rgba(240,180,41,.8); }
+#board.rim-green  { box-shadow: 0 0 0 3px rgba(33,163,90,.75); }
+
+/* each player's own side, tinted; the middle cell, in gold */
+.zone-band.side-bottom { border-radius: 0 0 13px 13px; }
+.zone-band.side-top    { border-radius: 13px 13px 0 0; }
+.zone-band.side-left   { border-radius: 13px 0 0 13px; }
+.zone-band.side-right  { border-radius: 0 13px 13px 0; }
+.zone-band.side-bottom.blue   { background: linear-gradient(0deg,   rgba(47,109,246,.28), transparent 70%); box-shadow: inset 0 -3px 0 rgba(47,109,246,.85); }
+.zone-band.side-top.blue      { background: linear-gradient(180deg, rgba(47,109,246,.28), transparent 70%); box-shadow: inset 0 3px 0 rgba(47,109,246,.85); }
+.zone-band.side-left.blue     { background: linear-gradient(90deg,  rgba(47,109,246,.28), transparent 70%); box-shadow: inset 3px 0 0 rgba(47,109,246,.85); }
+.zone-band.side-right.blue    { background: linear-gradient(270deg, rgba(47,109,246,.28), transparent 70%); box-shadow: inset -3px 0 0 rgba(47,109,246,.85); }
+.zone-band.side-bottom.red    { background: linear-gradient(0deg,   rgba(227,61,82,.28), transparent 70%); box-shadow: inset 0 -3px 0 rgba(227,61,82,.85); }
+.zone-band.side-top.red       { background: linear-gradient(180deg, rgba(227,61,82,.28), transparent 70%); box-shadow: inset 0 3px 0 rgba(227,61,82,.85); }
+.zone-band.side-left.red      { background: linear-gradient(90deg,  rgba(227,61,82,.28), transparent 70%); box-shadow: inset 3px 0 0 rgba(227,61,82,.85); }
+.zone-band.side-right.red     { background: linear-gradient(270deg, rgba(227,61,82,.28), transparent 70%); box-shadow: inset -3px 0 0 rgba(227,61,82,.85); }
+.zone-band.side-bottom.yellow { background: linear-gradient(0deg,   rgba(240,180,41,.30), transparent 70%); box-shadow: inset 0 -3px 0 rgba(240,180,41,.9); }
+.zone-band.side-top.yellow    { background: linear-gradient(180deg, rgba(240,180,41,.30), transparent 70%); box-shadow: inset 0 3px 0 rgba(240,180,41,.9); }
+.zone-band.side-left.yellow   { background: linear-gradient(90deg,  rgba(240,180,41,.30), transparent 70%); box-shadow: inset 3px 0 0 rgba(240,180,41,.9); }
+.zone-band.side-right.yellow  { background: linear-gradient(270deg, rgba(240,180,41,.30), transparent 70%); box-shadow: inset -3px 0 0 rgba(240,180,41,.9); }
+.zone-band.side-bottom.green  { background: linear-gradient(0deg,   rgba(33,163,90,.28), transparent 70%); box-shadow: inset 0 -3px 0 rgba(33,163,90,.85); }
+.zone-band.side-top.green     { background: linear-gradient(180deg, rgba(33,163,90,.28), transparent 70%); box-shadow: inset 0 3px 0 rgba(33,163,90,.85); }
+.zone-band.side-left.green    { background: linear-gradient(90deg,  rgba(33,163,90,.28), transparent 70%); box-shadow: inset 3px 0 0 rgba(33,163,90,.85); }
+.zone-band.side-right.green   { background: linear-gradient(270deg, rgba(33,163,90,.28), transparent 70%); box-shadow: inset -3px 0 0 rgba(33,163,90,.85); }
+
+.goal-cell {
+  position: absolute; z-index: 1; pointer-events: none; border-radius: 8px;
+  background: radial-gradient(circle at 50% 45%, rgba(255,201,60,.55), rgba(255,201,60,.18) 70%, transparent);
+  box-shadow: inset 0 0 0 2px rgba(255,201,60,.9);
+  animation: goalPulse 2.4s ease-in-out infinite;
+}
+@keyframes goalPulse { 50% { box-shadow: inset 0 0 0 2px rgba(255,201,60,.5); } }
+
+/* the four seat cards. Small on purpose: four of these plus a bigger board
+   have to share a phone screen with the wall dock. */
+.quad-row { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; padding: 0 10px 6px; }
+.q-pill {
+  display: flex; align-items: center; gap: 6px; padding: 5px 8px; border-radius: 12px;
+  background: rgba(255,255,255,.06); color: #fff; font-size: 13px; min-width: 0;
+  border: 2px solid transparent;
+}
+.q-pill.blue   { background: linear-gradient(160deg, #33549c, #24407e); }
+.q-pill.red    { background: linear-gradient(160deg, #d8404d, #b32538); }
+.q-pill.yellow { background: linear-gradient(160deg, #b98a15, #8a6608); }
+.q-pill.green  { background: linear-gradient(160deg, #1d8a4d, #14663a); }
+.q-pill.turn-active { border-color: #fff; box-shadow: 0 4px 12px rgba(20,35,80,.35); }
+.q-pill.out { opacity: .42; filter: grayscale(.7); }
+.q-nick { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 700; }
+.q-walls { opacity: .9; font-size: 12px; white-space: nowrap; }
+.q-clock {
+  background: rgba(0,0,0,.28); border-radius: 8px; padding: 1px 6px;
+  font-variant-numeric: tabular-nums; font-size: 12px;
+}
+.q-clock.danger { background: rgba(255,90,90,.55); animation: pulse 1s infinite; }
+.q-dot { width: 12px; height: 12px; border-radius: 50%; flex: 0 0 auto; box-shadow: inset -2px -3px 4px rgba(0,0,0,.35); }
+.q-dot.blue   { background: var(--blue); }
+.q-dot.red    { background: var(--red); }
+.q-dot.yellow { background: var(--yellow); }
+.q-dot.green  { background: var(--green); }
+
+/* the waiting table: chairs, taken and empty */
+.waiting-table { margin: 14px 0 6px; width: 100%; max-width: 320px; }
+.wt-count { font-size: 30px; font-weight: 900; letter-spacing: 1px; margin-bottom: 8px; }
+.wt-list { display: grid; gap: 6px; }
+.wt-seat {
+  display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-radius: 12px;
+  background: rgba(255,255,255,.07); font-weight: 700; text-align: left;
+}
+.wt-seat.empty {
+  background: transparent; border: 1px dashed rgba(255,255,255,.25);
+  opacity: .6; font-weight: 500; justify-content: center;
+}
+.wt-seat small { margin-left: auto; opacity: .85; font-weight: 500; }
+
+/* the result, when there were four of them */
+.quad-result { display: grid; gap: 6px; margin: 10px 0 4px; }
+.qr-row {
+  display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-radius: 12px;
+  background: rgba(120,140,190,.10); font-size: 14px;
+}
+.qr-row.mine { background: rgba(120,140,190,.22); }
+.qr-dot { width: 12px; height: 12px; border-radius: 50%; flex: 0 0 auto; }
+.qr-dot.blue { background: var(--blue); } .qr-dot.red { background: var(--red); }
+.qr-dot.yellow { background: var(--yellow); } .qr-dot.green { background: var(--green); }
+.qr-nick { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.qr-note { opacity: .65; font-size: 12px; white-space: nowrap; }
+.qr-tag { font-weight: 800; font-size: 12px; letter-spacing: .5px; }
+.qr-tag.win { color: var(--green); }
+.qr-tag.loss { color: var(--red); }
+
+/* deleting an account: a link, not a button, and never the same colour as
+   anything you press by habit */
+.danger-link { color: #d8404d; margin-top: 6px; }
+.btn-danger { background: #d8404d; color: #fff; border: none; }
+.btn-danger:disabled { opacity: .45; }
+.del-list { text-align: left; margin: 6px 0 10px; padding-left: 20px; font-size: 14px; opacity: .85; }
+.del-list li { margin: 3px 0; }

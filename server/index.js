@@ -12,7 +12,7 @@ import { localDay } from '../public/js/streak.js';
 import { taskForDay } from '../public/js/daily.js';
 import { packById } from '../public/js/packs.js';
 import { initPush, pushPublicKey, saveSub, dropSub, pushTick } from './push.js';
-import { dbEnabled, dbStatus, dbDetail, cleanEnv, likeEscape, supa, verifyUser, getProfile, createProfile, claimGuestProgress, leaderboard, clearNickNotice, restoreStreak } from './db.js';
+import { dbEnabled, dbStatus, dbDetail, cleanEnv, likeEscape, supa, verifyUser, getProfile, createProfile, claimGuestProgress, leaderboard, clearNickNotice, restoreStreak, deleteAccount } from './db.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -80,6 +80,22 @@ app.post('/api/nick-notice/ack', async (req, res) => {
   const user = await verifyUser(bearer(req));
   if (!user) return res.status(401).json({ error: 'unauthorized' });
   await clearNickNotice(user.id);
+  res.json({ ok: true });
+});
+
+/* Delete my account, and mean it.
+
+   Asked for twice, because it cannot be taken back: the client confirms, and
+   the request has to carry the word as well, so a mis-tap or a stray script
+   cannot empty somebody's account for them. Everything else is decided from
+   the token — a person can only ever delete themselves. */
+app.post('/api/account/delete', async (req, res) => {
+  if (!dbEnabled) return res.status(503).json({ error: 'db_off' });
+  const user = await verifyUser(bearer(req));
+  if (!user) return res.status(401).json({ error: 'unauthorized' });
+  if (req.body?.confirm !== 'DELETE') return res.status(400).json({ error: 'not_confirmed' });
+  const done = await deleteAccount(user.id);
+  if (!done) return res.status(500).json({ error: 'delete_failed' });
   res.json({ ok: true });
 });
 

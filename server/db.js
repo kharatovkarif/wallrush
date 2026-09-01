@@ -290,6 +290,59 @@ export async function recordHumanMatch(mode) {
 /* One four-handed game is one win and three losses, written once per person.
    Feeding it through recordResult as three separate duels would have credited
    the winner with three wins for a single game. */
+/* Erase an account, for real.
+
+   The privacy policy promises that a player can have their account deleted,
+   and until now the only way to exercise that was to message somebody on
+   Telegram and hope. A promise a person cannot act on themselves is not a
+   right, and both app stores treat it as a requirement rather than a courtesy.
+
+   What goes: the profile and everything hanging off it — the friendships in
+   both directions, pending requests either way, their review and the likes on
+   it, the daily-task row — and finally the sign-in itself, so the address can
+   never be used to get back in.
+
+   What stays: the anonymous visit counts, with the link to this person cut.
+   Those rows carry no name and no address once user_id is gone, and they are
+   how the game knows whether anybody is playing at all. Finished games stay
+   too: they are somebody else's history as much as this player's, and a
+   leaderboard that silently rewrites itself is worse for everyone. */
+export async function deleteAccount(userId) {
+  if (!dbEnabled || !userId) return false;
+  try {
+    // reviews first: the likes point at them
+    const { data: mine } = await supa.from('reviews').select('id').eq('user_id', userId);
+    for (const r of mine || []) {
+      await supa.from('review_likes').delete().eq('review_id', r.id);
+    }
+    await supa.from('reviews').delete().eq('user_id', userId);
+    await supa.from('friends').delete().eq('user_id', userId);
+    await supa.from('friends').delete().eq('friend_id', userId);
+    await supa.from('friend_requests').delete().eq('from_id', userId);
+    await supa.from('friend_requests').delete().eq('to_id', userId);
+    await supa.from('daily_progress').delete().eq('key', 'u:' + userId);
+    // Push subscriptions are filed under the device, not the account, and a
+    // subscription is a way to reach this person on their phone. Look up the
+    // devices this account signed in from and take those with it.
+    const { data: devs } = await supa.from('visitors').select('device_id').eq('user_id', userId);
+    for (const d of devs || []) {
+      if (d.device_id) await supa.from('push_subs').delete().eq('device_id', d.device_id);
+    }
+    // the device rows lose the person, and keep the counting
+    await supa.from('visitors').update({ user_id: null, last_nick: null }).eq('user_id', userId);
+    await supa.from('profiles').delete().eq('id', userId);
+    const { error } = await supa.auth.admin.deleteUser(userId);
+    if (error) {
+      console.error('deleteAccount: auth user survived:', error.message);
+      return false;
+    }
+    return true;
+  } catch (e) {
+    console.error('deleteAccount failed:', e.message);
+    return false;
+  }
+}
+
 export async function recordQuadResult(winnerUserId, loserUserIds = []) {
   if (!dbEnabled) return;
   try {

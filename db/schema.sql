@@ -476,3 +476,24 @@ $$;
 --
 -- What remains is what is actually used: visit_log_at_idx and
 -- human_matches_at_idx, both scanned constantly by the dashboard.
+
+-- ---------------------------------------------------------------------------
+-- Deleting an account (server/db.js -> deleteAccount)
+--
+-- No new tables: erasure is a set of deletes across the ones already here, in
+-- an order the foreign keys allow. Written down because the privacy policy
+-- promises exactly this list, and the two must not drift apart.
+--
+--   review_likes   ... by review_id, for every review the user wrote
+--   reviews        ... user_id = <uid>
+--   friends        ... user_id = <uid> and friend_id = <uid>  (both directions)
+--   friend_requests... from_id  = <uid> and to_id     = <uid>
+--   daily_progress ... key = 'u:' || <uid>
+--   push_subs      ... by device_id, for every device this account signed in on
+--                      (push_subs has no user_id of its own)
+--   visitors       ... user_id -> null, last_nick -> null   (kept, anonymous)
+--   profiles       ... id = <uid>
+--   auth.users     ... supa.auth.admin.deleteUser(<uid>)
+--
+-- human_matches and the visit rollups stay: they hold no identifier at all,
+-- and they are how the dashboard knows whether anybody is playing.
