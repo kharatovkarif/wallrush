@@ -280,9 +280,25 @@ export async function claimGuestProgress(userId, deviceId) {
 export async function recordHumanMatch(mode) {
   if (!dbEnabled) return;
   try {
-    await supa.from('human_matches').insert({ mode: mode === 'race' ? 'race' : 'duel' });
+    const known = mode === 'race' || mode === 'quad' ? mode : 'duel';
+    await supa.from('human_matches').insert({ mode: known });
   } catch (e) {
     console.error('recordHumanMatch failed:', e.message);
+  }
+}
+
+/* One four-handed game is one win and three losses, written once per person.
+   Feeding it through recordResult as three separate duels would have credited
+   the winner with three wins for a single game. */
+export async function recordQuadResult(winnerUserId, loserUserIds = []) {
+  if (!dbEnabled) return;
+  try {
+    if (winnerUserId) await supa.rpc('add_result', { uid: winnerUserId, is_win: true });
+    for (const uid of loserUserIds) {
+      if (uid) await supa.rpc('add_result', { uid, is_win: false });
+    }
+  } catch (e) {
+    console.error('recordQuadResult failed:', e.message);
   }
 }
 

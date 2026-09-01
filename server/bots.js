@@ -4,6 +4,7 @@
 // (variable delays), chat with emojis, sometimes resign lost games and
 // respond to rematch offers.
 import { aiMove } from '../public/js/ai.js';
+import { ai4Move, quadTension } from '../public/js/ai4.js';
 import { distToGoal, goalRow } from '../public/js/engine.js';
 import { seedBots, growBots, botPoints } from './db.js';
 
@@ -62,6 +63,9 @@ const ROSTER = [
 // Bots are supposed to feel like real people: competent racers, never wandering.
 // Even the "easy" personas play at least the normal level, so nobody looks dumb.
 const SKILL_LEVEL = { easy: 'normal', normal: 'normal', hard: 'hard', ace: 'hardcore' };
+// The four-handed brain is a different animal — judgement rather than search —
+// so the personas map onto its own three levels.
+const QUAD_SKILL = { easy: 'easy', normal: 'normal', hard: 'hard', ace: 'hard' };
 const SKILL_WINP = { easy: 0.48, normal: 0.52, hard: 0.62, ace: 0.72 };
 
 let api = null;          // hooks into rooms.js, set by initBots
@@ -116,8 +120,10 @@ function makeBot(p) {
 }
 
 function stateKey(s) {
-  return `${s.pawns[0].r},${s.pawns[0].c}|${s.pawns[1].r},${s.pawns[1].c}|${s.left[0]},${s.left[1]}`;
+  return s.pawns.map(p => `${p.r},${p.c}`).join('|') + '|' + s.left.join(',');
 }
+
+const isQuadState = (s) => (s?.mode || 'duel') === 'quad';
 
 function clearBotTimers(bot) {
   clearTimeout(bot.thinkTimer);
@@ -163,6 +169,13 @@ function onMsg(bot, msg) {
     case 'game_over': {
       clearBotTimers(bot);
       const room = api.rooms.get(bot.roomId);
+      if (room && (room.mode || 'duel') === 'quad') {
+        // nobody is offered a rematch at a table of four, so just drift off
+        bot.leaveTimer = setTimeout(() => {
+          if (bot.roomId) api.leaveRoom(bot, false);
+        }, 4000 + Math.random() * 9000);
+        break;
+      }
       const opp = room ? room.players.find(pl => pl !== bot) : null;
       const vsBot = Boolean(opp?.isBot);
       if (vsBot) {
@@ -213,7 +226,8 @@ function onMsg(bot, msg) {
       }, 1000 + Math.random() * 1500);
       break;
     }
-    // room_created / opp_disconnected / emoji / errors need no reaction
+    case 'player_out': break;   // somebody left the table; the next state says the rest
+    // room_created / room_wait / opp_disconnected / errors need no reaction
   }
 }
 
@@ -222,6 +236,7 @@ function onMsg(bot, msg) {
 // only real decisions (a live blocking chance, a tight finish) get a real pause.
 function moveTension(room, idx) {
   const s = room.state;
+  if (isQuadState(s)) return quadTension(s, idx);
   const cols = s.cols || 9, rows = s.rows || 9;
   const myD = distToGoal(s.walls, goalRow(idx, s), cols, rows)[s.pawns[idx].r * cols + s.pawns[idx].c];
   const oppD = distToGoal(s.walls, goalRow(1 - idx, s), cols, rows)[s.pawns[1 - idx].r * cols + s.pawns[1 - idx].c];
@@ -263,12 +278,16 @@ function scheduleThink(bot) {
   d *= bot.p.speed;
   // race games are longer, so people play them snappier overall
   if (room.state.mode === 'race') d *= 0.7;
+  // Three people are waiting on every move here, not one. Bots that ponder
+  // turn a four-handed game into a queue, so they answer briskly.
+  if (isQuadState(room.state)) d *= 0.55;
   // the very first move comes quickly — nobody ponders move one
   if (room.state.walls.length === 0 && room.state.pawns.every(p2 => p2.r === 0 || p2.r >= (room.state.rows || 9) - 1)) {
     d = Math.min(d, 700 + Math.random() * 1000);
   }
   // never flag: stay well inside the bank and the 30s move cap
-  if (room.bank) d = Math.max(400, Math.min(d, room.bank[idx] - 5000, room.state.mode === 'race' ? 8000 : 12_000));
+  const cap = isQuadState(room.state) ? 6000 : room.state.mode === 'race' ? 8000 : 12_000;
+  if (room.bank) d = Math.max(400, Math.min(d, room.bank[idx] - 5000, cap));
 
   bot.thinkTimer = setTimeout(() => doMove(bot), d);
 }
@@ -283,6 +302,19 @@ function doMove(bot) {
   // changed without them. Wait and re-check.
   if (room.paused) { bot.thinkTimer = setTimeout(() => doMove(bot), 1000); return; }
   const state = JSON.parse(JSON.stringify(room.state));
+
+  if (isQuadState(state)) {
+    // Nobody resigns a four-handed game: there are still two other people to
+    // finish ahead of, and an empty seat spoils the table for them.
+    let mv = null;
+    try {
+      mv = ai4Move(state, QUAD_SKILL[bot.p.skill] || 'normal');
+    } catch (e) {
+      console.error('quad bot move failed:', e.message);
+    }
+    if (mv) api.handleMove(bot, { move: mv });
+    return;
+  }
 
   // hopeless and out of walls? some personalities just resign
   if (bot.p.resigner && state.left[idx] === 0) {
@@ -336,14 +368,30 @@ function rotationTick() {
   if (botOpenRooms().length < rotTarget && Math.random() < 0.75) {
     const b = pickIdle();
     if (b) {
-      const mode = Math.random() < 0.35 ? 'race' : 'duel';
+      const roll = Math.random();
+      const mode = roll < 0.2 ? 'quad' : roll < 0.5 ? 'race' : 'duel';
       api.createRoom(b, false, {
         mode,
         walls: mode === 'race' ? (Math.random() < 0.6 ? 15 : 10) : 10,
         time: ['5', '5', '3', '0'][Math.floor(Math.random() * 4)],
       });
-      b.openDeadline = now + 12_000 + Math.random() * 35_000;
+      // A table of four has to fill or it just sits there looking dead, so a
+      // bot's own table waits longer than a duel room before it gives up.
+      b.openDeadline = now + (mode === 'quad' ? 60_000 + Math.random() * 60_000
+                                              : 12_000 + Math.random() * 35_000);
     }
+  }
+  // Seats at a waiting four-handed table fill in gradually, whoever opened it.
+  // This is what puts a live "2/4 · 3/4" in the lobby instead of a row that
+  // never changes, and it is how a real player's table gets its last seat.
+  for (const room of api.rooms.values()) {
+    if (room.status !== 'open' || room.code) continue;
+    if ((room.mode || 'duel') !== 'quad') continue;
+    if (room.players.length >= 4) continue;
+    const waited = now - (room.openedAt || 0);
+    if (waited < 12_000 || Math.random() > 0.2) continue;
+    const b = pickIdle();
+    if (b) api.joinRoom(b, room);
   }
   // once in a while a bot joins another bot's room and they REALLY play:
   // watchers see the room fill up and start, and the leaderboard grows
@@ -358,6 +406,28 @@ function rotationTick() {
 function retarget() {
   rotTarget = 1 + Math.floor(Math.random() * 3); // 1..3 rooms
   setTimeout(retarget, 30_000 + Math.random() * 60_000);
+}
+
+/* ---------- filling a four-handed table ---------- */
+/* Three empty seats and one person looking at them. Bots arrive the way people
+   would — one at a time, spread out, never all at once on the same beat — and
+   only as many as the room still needs. A private room is left alone far
+   longer: it was opened for particular friends, and a bot taking their seat
+   before they have read the invitation is worse than an empty chair. */
+export function fillQuadRoom(room) {
+  if (!room || (room.mode || 'duel') !== 'quad') return;
+  const first = room.code ? 90_000 : 15_000;
+  const gap = room.code ? 30_000 : 10_000;
+  for (let k = 0; k < 3; k++) {
+    const delay = first + k * gap + (Math.random() * 8000 - 3000);
+    setTimeout(() => {
+      const live = api.rooms.get(room.id);
+      if (!live || live.status !== 'open') return;
+      if (live.players.length >= 4) return;
+      const b = pickIdle();
+      if (b) api.joinRoom(b, live);
+    }, Math.max(4000, delay));
+  }
 }
 
 /* ---------- users waiting for an opponent ---------- */

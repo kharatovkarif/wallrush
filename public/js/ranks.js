@@ -35,3 +35,20 @@ export function pointsDelta(myPoints, oppPoints, won) {
   if (won) return opp > me ? 40 : 25;
   return opp < me ? -20 : -10;
 }
+
+/* The four-handed game pays differently, because it is a different bet: you
+   are up against three people, not one, so the win is worth more and each of
+   the three losses costs less than a duel loss would.
+
+   `field` is the rating of the strongest opponent at the table — beating a
+   table with someone above you in it is the harder win.
+
+   Walking out mid-game costs nearly twice a played-out loss. Three people are
+   left staring at an empty seat, and that has to be worth avoiding. */
+export function quadPointsDelta(myPoints, fieldPoints, outcome) {
+  const me = rankIndex(myPoints);
+  const field = rankIndex(fieldPoints);
+  if (outcome === 'win') return field > me ? 55 : 40;
+  if (outcome === 'quit') return field < me ? -30 : -25;
+  return field < me ? -20 : -15;
+}

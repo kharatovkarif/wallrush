@@ -1,7 +1,7 @@
 // WallRush online rooms: lobby, matches, clocks, reconnect, rematch, emoji.
 // Server is authoritative: it validates every move with the shared engine.
-import { initialState, applyMove } from '../public/js/engine.js';
-import { pointsDelta } from '../public/js/ranks.js';
+import { initialState, applyMove, eliminate, isAlive, aliveCount, playersIn } from '../public/js/engine.js';
+import { pointsDelta, quadPointsDelta } from '../public/js/ranks.js';
 import { streakState, canRestore, pendingStreak, freeRestore, localDay } from '../public/js/streak.js';
 import { checkNick, randomNick } from '../public/js/nick.js';
 import {
@@ -9,14 +9,25 @@ import {
   getPoints, addPoints, addBotPoints, touchStreak,
   friendAdd, friendRemove, friendList, dailyState, dailyBump,
   friendFind, friendCount, friendRequestAdd, friendRequestAccept, friendRequestDecline, friendRequestsIn,
+  recordQuadResult,
 } from './db.js';
 import { taskForDay, matchProgress } from '../public/js/daily.js';
-import { initBots, fakeOnline, notifyUserWaiting } from './bots.js';
+import { initBots, fakeOnline, notifyUserWaiting, fillQuadRoom } from './bots.js';
 import crypto from 'crypto';
 
 const BANK_MS = 300_000;      // 5:00 per player per game
 const MOVE_MS = 30_000;       // max per move
 const GRACE_MS = 30_000;      // reconnect window
+
+// The four-handed table. Everything about it is fixed: an 11x11 board, four
+// seats, seven walls each, the same clock as everywhere else. There is nothing
+// to choose, so the room has no settings.
+const QUAD_SEATS = 4;
+const isQuad = (room) => (room?.mode || 'duel') === 'quad';
+const seatsOf = (room) => (isQuad(room) ? QUAD_SEATS : 2);
+// Who else is at the table — one person in a duel, three in the four-handed
+// game. Written this way so every broadcast reads the same in both.
+const others = (room, idx) => room.players.filter((_, i) => i !== idx);
 // A ceiling rather than a price: a list nobody can scroll is no use to
 // anyone, and past a hundred names it is a directory, not friends.
 const FRIEND_MAX = 100;
@@ -71,6 +82,9 @@ function lobbyRooms() {
       list.push({
         id: room.id, nick: room.players[0].nick, points: room.players[0].points || 0,
         mode: room.mode || 'duel', walls: room.walls || 10, time: room.time || '5',
+        // a four-handed room is worth joining at 3/4 and pointless at 4/4, so
+        // the list has to say which it is
+        seats: seatsOf(room), taken: room.players.length,
       });
     }
   }
@@ -135,31 +149,54 @@ function stateMsg(room) {
   return { t: 'state', state: room.state, clocks: clockPayload(room) };
 }
 
+// Who is at the table, in seat order. The duel keeps its `opp` field so that
+// nothing on the two-player path had to change; the four-handed screen draws
+// itself from this list.
+function seatList(room) {
+  return room.players.map((pl, i) => ({
+    seat: i,
+    nick: pl.nick,
+    points: pl.points || 0,
+    id: pl.userId || null,
+    bot: Boolean(pl.isBot),
+  }));
+}
+
+function startMsg(room, i, extra = {}) {
+  const pl = room.players[i];
+  const msg = {
+    t: 'game_start',
+    you: i,
+    state: room.state,
+    clocks: clockPayload(room),
+    players: seatList(room),
+    me: { points: pl.points || 0, veteran: Boolean(pl.veteran) },
+    ranked: isRanked(room),
+    ...extra,
+  };
+  if (!isQuad(room)) {
+    const o = room.players[1 - i];
+    // so the winner can offer to add them as a friend
+    msg.opp = { nick: o.nick, points: o.points || 0, id: o.userId || null };
+  }
+  return msg;
+}
+
 function startGame(room) {
+  const n = seatsOf(room);
   room.state = initialState(room.mode || 'duel', { walls: room.walls });
-  room.state.turn = crypto.randomInt(2); // random first move
+  room.state.turn = crypto.randomInt(n); // random first move
   // no-time rooms get a huge bank that never runs out — only the 30s move cap
   const bankMs = room.noTime ? 8_640_000_000 : (room.bankMs || BANK_MS);
-  room.bank = [bankMs, bankMs];
+  room.bank = new Array(n).fill(bankMs);
   room.status = 'playing';
   room.played = (room.played || 0) + 1;
   room.moves = 0;
-  room.rematch = [false, false];
+  room.out = {};            // seat -> why they are no longer playing
+  room.rematch = new Array(n).fill(false);
   room.turnStarted = Date.now();
   armMoveTimer(room);
-  room.players.forEach((pl, i) => {
-    send(pl, {
-      t: 'game_start',
-      you: i,
-      state: room.state,
-      clocks: clockPayload(room),
-      opp: { nick: room.players[1 - i].nick, points: room.players[1 - i].points || 0,
-             // so the winner can offer to add them as a friend
-             id: room.players[1 - i].userId || null },
-      me: { points: pl.points || 0, veteran: Boolean(pl.veteran) },
-      ranked: isRanked(room),
-    });
-  });
+  room.players.forEach((pl, i) => send(pl, startMsg(room, i)));
   broadcastLobby();
 }
 
@@ -188,8 +225,35 @@ function armMoveTimer(room) {
   const grace = moveGrace(room.players[p]?.rtt);
   room.moveTimer = setTimeout(() => {
     const reason = room.bank[p] <= MOVE_MS ? 'timeout' : 'move_timeout';
-    finish(room, 1 - p, reason);
+    // A duel ends here. At a table of four the game does not stop because one
+    // person stopped: that seat is emptied and the other three play on.
+    if (isQuad(room)) knockOut(room, p, reason);
+    else finish(room, 1 - p, reason);
   }, ms + grace);
+}
+
+/* Empty a seat. The pawn comes off the board, the walls that player built stay
+   where they are — the others have been playing around them — and the turn
+   moves on to whoever is next. When only one player is left, that is the win.
+
+   reason: 'move_timeout' | 'timeout' | 'resign' | 'left' */
+function knockOut(room, idx, reason) {
+  if (room.status !== 'playing' || !isAlive(room.state, idx)) return;
+  room.out = room.out || {};
+  room.out[idx] = reason;
+  eliminate(room.state, idx);
+  clearTimeout(room.moveTimer);
+  for (const pl of room.players) {
+    send(pl, { t: 'player_out', seat: idx, reason, left: aliveCount(room.state) });
+  }
+  if (room.state.winner !== null) {
+    for (const pl of room.players) send(pl, stateMsg(room));
+    finish(room, room.state.winner, 'last_standing');
+    return;
+  }
+  room.turnStarted = Date.now();
+  if (!room.paused) armMoveTimer(room);
+  for (const pl of room.players) send(pl, stateMsg(room));
 }
 
 // Private rooms are practice. Two friends sharing a code could otherwise trade
@@ -248,17 +312,23 @@ async function bumpDaily(room, pl, won) {
   if (pl.isBot || !pl.ws) return;
   // A match decided in a handful of moves is a machine farming, not a game.
   // Points already refuse to count those, and so does the task.
-  if ((room.moves || 0) < MIN_RANKED_MOVES) return;
+  if ((room.moves || 0) < (isQuad(room) ? MIN_QUAD_MOVES : MIN_RANKED_MOVES)) return;
   const day = localDay(pl.tzOffset || 0);
   const task = taskForDay(day);
   const idx = room.players.indexOf(pl);
-  const opp = room.players[1 - idx];
+  // "beat someone above you" and "beat a person, not a bot" both need one
+  // opponent to point at. In a duel that is the other player; at a table of
+  // four it is the strongest of the three, and the table counts as human if
+  // any real person was sitting at it.
+  const rest = others(room, idx);
+  const opp = rest.reduce((a, b) => ((b.points || 0) > (a?.points || 0) ? b : a), rest[0]);
   const inc = matchProgress(task, {
     won,
     walls: (room.state.walls || []).filter(w => w.by === idx).length,
     myPoints: pl.points || 0,
     oppPoints: opp?.points || 0,
-    oppIsBot: Boolean(opp?.isBot),
+    oppIsBot: rest.every(o => o.isBot),
+    quad: isQuad(room),
   });
   if (!inc) return;
   const st = await dailyBump({ userId: pl.userId, deviceId: pl.deviceId }, day, task.id, inc, task.target);
@@ -283,6 +353,41 @@ function persistPoints(pl, delta) {
 // Updates the in-memory totals straight away so the game_over message is
 // already correct, and writes to the database in the background.
 const MIN_RANKED_MOVES = 6;
+
+/* A four-handed game pays one winner and charges three losers. The winner's
+   number is measured against the strongest player at the table — winning a
+   table with a higher-ranked player in it is the harder thing to do — and each
+   loser is charged against the winner. Walking out costs more than losing.
+
+   Six moves is enough to know a duel was played; at a table of four it is not
+   even two moves each, so that floor is raised in step with the seats. */
+const MIN_QUAD_MOVES = 16;
+
+function awardQuadPoints(room, winnerIdx) {
+  const n = room.players.length;
+  const deltas = new Array(n).fill(0);
+  if (!isRanked(room)) return deltas;
+  if ((room.moves || 0) < MIN_QUAD_MOVES) return deltas;
+  const w = room.players[winnerIdx];
+  if (w.fromPage === false) return deltas;   // won from outside the game itself
+  const field = Math.max(...room.players.map((pl, i) => (i === winnerIdx ? 0 : pl.points || 0)));
+  const dw = quadPointsDelta(w.points || 0, field, 'win');
+  w.points = (w.points || 0) + dw;
+  deltas[winnerIdx] = dw;
+  persistPoints(w, dw);
+  for (let i = 0; i < n; i++) {
+    if (i === winnerIdx) continue;
+    const pl = room.players[i];
+    const why = room.out?.[i];
+    const outcome = (why === 'left' || why === 'resign') ? 'quit' : 'loss';
+    const before = pl.points || 0;
+    const raw = quadPointsDelta(before, w.points || 0, outcome);
+    pl.points = Math.max(0, before + raw);   // a beginner never digs a hole
+    deltas[i] = pl.points - before;          // report what was really lost
+    persistPoints(pl, deltas[i]);
+  }
+  return deltas;
+}
 
 function awardPoints(room, w, l) {
   const deltas = [0, 0];
@@ -310,13 +415,24 @@ async function finish(room, winnerIdx, reason) {
   room.status = 'over';
   clearTimeout(room.moveTimer);
   for (const pl of room.players) clearTimeout(pl.graceTimer);
-  const w = room.players[winnerIdx], l = room.players[1 - winnerIdx];
-  const deltas = awardPoints(room, w, l);
+  const quad = isQuad(room);
+  const w = room.players[winnerIdx];
+  const losers = others(room, winnerIdx);
+  const deltas = quad ? awardQuadPoints(room, winnerIdx)
+                      : awardPoints(room, w, room.players[1 - winnerIdx]);
   room.players.forEach((pl, i) => {
     const payload = {
       t: 'game_over', winner: winnerIdx, you: i, reason,
       points: { delta: deltas[i], total: pl.points || 0, ranked: isRanked(room) },
     };
+    if (quad) {
+      // At a table of four the headline reason is how the game ended; each
+      // player also needs to know why THEY are no longer in it, which may be
+      // something else entirely.
+      payload.out = { ...(room.out || {}) };
+      payload.yourReason = room.out?.[i] || (i === winnerIdx ? 'goal' : reason);
+      payload.players = seatList(room);
+    }
     if (!pl.isBot) keepResult(pl.token, payload);
     send(pl, payload);
   });
@@ -337,14 +453,18 @@ async function finish(room, winnerIdx, reason) {
   }
   // The task of the day follows the result rather than holding it up.
   bumpDaily(room, w, true);
-  bumpDaily(room, l, false);
-  if (w.userId || l.userId) {
-    await recordResult(w.userId || null, l.userId || null);
+  for (const pl of losers) bumpDaily(room, pl, false);
+  if (quad) {
+    if (w.userId || losers.some(pl => pl.userId)) {
+      await recordQuadResult(w.userId || null, losers.map(pl => pl.userId || null));
+    }
+  } else if (w.userId || losers[0].userId) {
+    await recordResult(w.userId || null, losers[0].userId || null);
   }
   if (w.isBot) recordBotResult(w.nick, true);
-  if (l.isBot) recordBotResult(l.nick, false);
-  // both sides are real people → a genuine human-vs-human match
-  if (!w.isBot && !l.isBot) recordHumanMatch(room.mode || 'duel');
+  for (const pl of losers) if (pl.isBot) recordBotResult(pl.nick, false);
+  // real people on every seat → a genuine human-vs-human match
+  if (!w.isBot && losers.every(pl => !pl.isBot)) recordHumanMatch(room.mode || 'duel');
 }
 
 function destroyRoom(room) {
@@ -357,6 +477,20 @@ function destroyRoom(room) {
   broadcastLobby();
 }
 
+/* The four-handed waiting room. Everyone sitting in it sees the same thing —
+   who is already here and how many seats are left — so it is one message sent
+   to all of them rather than a count each client works out for itself. */
+function sendRoomWait(room) {
+  if (!isQuad(room) || room.status !== 'open') return;
+  const msg = {
+    t: 'room_wait',
+    seats: seatsOf(room),
+    players: room.players.map(pl => ({ nick: pl.nick, points: pl.points || 0, bot: Boolean(pl.isBot) })),
+    code: room.code || null,
+  };
+  for (const pl of room.players) send(pl, msg);
+}
+
 function leaveRoom(client, notifyOpp = true) {
   const room = rooms.get(client.roomId);
   client.roomId = null;
@@ -364,35 +498,60 @@ function leaveRoom(client, notifyOpp = true) {
   const idx = room.players.indexOf(client);
   if (idx === -1) return;
   if (room.status === 'open') {
+    // A four-handed room is still filling up. Someone who came and changed
+    // their mind simply frees the seat; only the person who opened it can
+    // take the room away with them.
+    if (isQuad(room) && idx > 0) {
+      room.players.splice(idx, 1);
+      sendRoomWait(room);
+      broadcastLobby();
+      return;
+    }
+    for (const pl of room.players) {
+      if (pl !== client && pl.roomId === room.id) {
+        pl.roomId = null;
+        send(pl, { t: 'room_closed' });
+      }
+    }
     destroyRoom(room);
     return;
   }
   if (room.status === 'playing') {
-    finish(room, 1 - idx, 'opponent_left');
-  } else if (room.status === 'over' && notifyOpp) {
+    // Leaving a live game of four empties that seat; the other three play on.
+    if (isQuad(room)) knockOut(room, idx, 'left');
+    else finish(room, 1 - idx, 'opponent_left');
+  } else if (room.status === 'over' && notifyOpp && !isQuad(room)) {
     const opp = room.players[1 - idx];
     if (opp.roomId === room.id) send(opp, { t: 'rematch_declined' });
   }
-  // keep room until both leave
+  // keep room until everyone leaves
   if (room.players.every(p => p.roomId !== room.id)) destroyRoom(room);
 }
 
 function joinRoom(client, room) {
   if (room.status !== 'open') { send(client, { t: 'error', code: 'room_full' }); return; }
-  if (room.players[0] === client) return;
+  if (room.players.includes(client)) return;
+  if (room.players.length >= seatsOf(room)) { send(client, { t: 'error', code: 'room_full' }); return; }
+  if (client.roomId && client.roomId !== room.id) leaveRoom(client, false);
   room.players.push(client);
   client.roomId = room.id;
   client.inLobby = false;
-  startGame(room);
+  if (room.players.length >= seatsOf(room)) { startGame(room); return; }
+  // still short of a full table: show everyone who is here so far
+  sendRoomWait(room);
+  broadcastLobby();
 }
 
-// opts: {mode:'duel'|'race', walls, time:'0'|'3'|'5'}
-// duel is always 10 walls; race offers 10 or 15; time '0' = no bank, 30s/move
+// opts: {mode:'duel'|'race'|'quad', walls, time:'0'|'3'|'5'}
+// duel is always 10 walls; race offers 10 or 15; time '0' = no bank, 30s/move.
+// The four-handed table has nothing to choose: 7 walls, five minutes, always.
 function createRoom(client, isPrivate, opts = {}) {
   if (client.roomId) leaveRoom(client, false);
-  const mode = opts.mode === 'race' ? 'race' : 'duel';
-  const walls = mode === 'race' ? (Number(opts.walls) === 10 ? 10 : 15) : 10;
-  const time = ['0', '3', '5'].includes(String(opts.time)) ? String(opts.time) : '5';
+  const mode = ['race', 'quad'].includes(opts.mode) ? opts.mode : 'duel';
+  const quad = mode === 'quad';
+  const walls = quad ? 7 : mode === 'race' ? (Number(opts.walls) === 10 ? 10 : 15) : 10;
+  const time = quad ? '5'
+    : ['0', '3', '5'].includes(String(opts.time)) ? String(opts.time) : '5';
   const room = {
     id: rid(),
     code: isPrivate ? roomCode() : null,
@@ -406,12 +565,14 @@ function createRoom(client, isPrivate, opts = {}) {
     state: null,
     bank: null,
     moveTimer: null,
-    rematch: [false, false],
+    rematch: new Array(quad ? QUAD_SEATS : 2).fill(false),
     turnStarted: 0,
+    openedAt: Date.now(),
   };
   rooms.set(room.id, room);
   client.roomId = room.id;
-  send(client, { t: 'room_created', roomId: room.id, code: room.code });
+  send(client, { t: 'room_created', roomId: room.id, code: room.code, mode, seats: seatsOf(room) });
+  if (quad) sendRoomWait(room);
   broadcastLobby();
 }
 
@@ -492,21 +653,15 @@ async function handleHello(client, msg) {
           room.players[idx] = client;
           clearTimeout(old.graceTimer);
           if (room.status === 'playing') {
-            resumeClock(room);   // both are here again, so time counts again
-            send(client, {
-              t: 'game_start',
-              you: idx,
-              state: room.state,
-              clocks: clockPayload(room),
-              opp: { nick: room.players[1 - idx].nick, points: room.players[1 - idx].points || 0,
-                    id: room.players[1 - idx].userId || null },
-              me: { points: client.points || 0, veteran: Boolean(client.veteran) },
-              ranked: isRanked(room),
-              resumed: true,
-            });
-            // the one who waited needs the restarted clock too, or their screen
+            resumeClock(room);   // everyone is here again, so time counts again
+            send(client, startMsg(room, idx, { resumed: true }));
+            // the ones who waited need the restarted clock too, or their screen
             // keeps counting down a turn the server has already given back
-            send(room.players[1 - idx], { t: 'opp_reconnected', clocks: clockPayload(room) });
+            for (const o of others(room, idx)) {
+              send(o, { t: 'opp_reconnected', seat: idx, nick: client.nick, clocks: clockPayload(room) });
+            }
+          } else if (room.status === 'open') {
+            sendRoomWait(room);
           }
         }
       }
@@ -574,6 +729,9 @@ function handleMove(client, msg) {
 function handleRematch(client, msg) {
   const room = rooms.get(client.roomId);
   if (!room || room.status !== 'over') return;
+  // Four people all agreeing to go again is a wait nobody sits through. The
+  // four-handed result screen offers a fresh table instead of a rematch.
+  if (isQuad(room)) { leaveRoom(client, false); return; }
   const idx = room.players.indexOf(client);
   if (idx === -1) return;
   if (!msg.yes) {
@@ -601,7 +759,7 @@ function handleEmoji(client, msg) {
   if (!room || room.status === 'open') return;
   const idx = room.players.indexOf(client);
   if (idx === -1) return;
-  send(room.players[1 - idx], { t: 'emoji', e: msg.e });
+  for (const o of others(room, idx)) send(o, { t: 'emoji', e: msg.e, seat: idx });
 }
 
 export function attachWs(wss) {
@@ -618,9 +776,13 @@ export function attachWs(wss) {
       const room = rooms.get(client.roomId);
       if (room && room.status === 'playing') {
         const idx = room.players.indexOf(client);
-        if (idx !== -1) finish(room, 1 - idx, 'resign');
+        if (idx === -1) return;
+        if (isQuad(room)) knockOut(room, idx, 'resign');
+        else finish(room, 1 - idx, 'resign');
       }
     },
+    sendRoomWait,
+    seatsOf,
   });
 
   wss.on('connection', (ws, req) => {
@@ -656,13 +818,14 @@ export function attachWs(wss) {
             send(client, { t: 'lobby', rooms: lobbyRooms(), online: onlineCount() });
             break;
           case 'lobby_unsub': client.inLobby = false; break;
-          case 'create_room':
+          case 'create_room': {
             createRoom(client, Boolean(msg.private), { mode: msg.mode, walls: msg.walls, time: msg.time });
-            // a bot will come knocking if nobody joins the public room
-            if (!msg.private && !client.isBot) {
-              notifyUserWaiting(rooms.get(client.roomId), 8000 + Math.random() * 22_000);
-            }
+            const fresh = rooms.get(client.roomId);
+            if (client.isBot) break;
+            if (isQuad(fresh)) fillQuadRoom(fresh);      // three seats to fill
+            else if (!msg.private) notifyUserWaiting(fresh, 8000 + Math.random() * 22_000);
             break;
+          }
           case 'join_room': {
             const room = rooms.get(String(msg.roomId || ''));
             if (!room || room.code) send(client, { t: 'error', code: 'room_not_found' });
@@ -841,17 +1004,7 @@ export function attachWs(wss) {
             }
             const idx = room.players.indexOf(client);
             if (idx === -1) { send(client, { t: 'no_game' }); break; }
-            send(client, {
-              t: 'game_start',
-              you: idx,
-              state: room.state,
-              clocks: clockPayload(room),
-              opp: { nick: room.players[1 - idx].nick, points: room.players[1 - idx].points || 0,
-                    id: room.players[1 - idx].userId || null },
-              me: { points: client.points || 0, veteran: Boolean(client.veteran) },
-              ranked: isRanked(room),
-              resumed: true,
-            });
+            send(client, startMsg(room, idx, { resumed: true, out: { ...(room.out || {}) } }));
             break;
           }
           case 'rematch': handleRematch(client, msg); break;
@@ -860,7 +1013,9 @@ export function attachWs(wss) {
             const room = rooms.get(client.roomId);
             if (room && room.status === 'playing') {
               const idx = room.players.indexOf(client);
-              if (idx !== -1) finish(room, 1 - idx, 'resign');
+              if (idx === -1) break;
+              if (isQuad(room)) knockOut(room, idx, 'resign');
+              else finish(room, 1 - idx, 'resign');
             }
             break;
           }
@@ -877,12 +1032,21 @@ export function attachWs(wss) {
       if (!room) { if (client.token) byToken.delete(client.token); return; }
       const idx = room.players.indexOf(client);
       if (room.status === 'playing' && idx !== -1) {
-        // give them GRACE_MS to reconnect (token survives in byToken)
-        pauseClock(room);
-        send(room.players[1 - idx], { t: 'opp_disconnected', grace: GRACE_MS, clocks: clockPayload(room) });
+        // give them GRACE_MS to reconnect (token survives in byToken).
+        // A duel has nothing to do but wait. At a table of four the game only
+        // stops if the missing player is the one on move — freezing three
+        // people because a fourth, who was not even on turn, dropped their
+        // connection is how a room empties.
+        if (!isQuad(room) || room.state?.turn === idx) pauseClock(room);
+        for (const o of others(room, idx)) {
+          send(o, { t: 'opp_disconnected', seat: idx, nick: client.nick, grace: GRACE_MS, clocks: clockPayload(room) });
+        }
         client.graceTimer = setTimeout(() => {
           byToken.delete(client.token);
-          if (room.status === 'playing') finish(room, 1 - idx, 'opponent_left');
+          if (room.status === 'playing') {
+            if (isQuad(room)) knockOut(room, idx, 'left');
+            else finish(room, 1 - idx, 'opponent_left');
+          }
           if (room.players.every(p => clients.get(p.ws) !== p)) destroyRoom(room);
         }, GRACE_MS);
       } else {
