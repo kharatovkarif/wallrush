@@ -449,3 +449,12 @@ create table if not exists ad_requests (
   created_at timestamptz not null default now()
 );
 create index if not exists ad_requests_new_idx on ad_requests (created_at desc);
+
+-- Totals for the reviews page, counted in the database rather than from
+-- however many rows a page happened to fetch: the page said 382 and the game
+-- said 300, and both were reading the same list through different limits.
+create or replace function review_stats()
+returns table(stars smallint, n bigint)
+language sql stable as $$
+  select stars, count(*)::bigint from reviews where not hidden group by stars
+$$;

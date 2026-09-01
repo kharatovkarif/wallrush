@@ -433,6 +433,22 @@ const starRow = (n) => '★★★★★'.slice(0, n) + '☆☆☆☆☆'.slice(0
 
    It is also what keeps the page honest with search engines: they require the
    average to be the average of what is actually on the page. */
+/* The totals, counted by the database rather than by however many rows we
+   happened to fetch. They used to come out of the same query that fills the
+   list, so "382 ratings" on the page and "300" in the game were the same
+   number seen through two different limits. */
+async function reviewStats() {
+  const { data } = await supa.rpc('review_stats');
+  const rows = data || [];
+  const count = rows.reduce((a, r) => a + Number(r.n || 0), 0);
+  const sum = rows.reduce((a, r) => a + Number(r.n || 0) * Number(r.stars), 0);
+  const spread = [5, 4, 3, 2, 1].map(n => {
+    const c = Number(rows.find(r => Number(r.stars) === n)?.n || 0);
+    return { stars: n, count: c, pct: count ? Math.round(100 * c / count) : 0 };
+  });
+  return { count, avg: count ? Math.round(10 * sum / count) / 10 : 0, spread };
+}
+
 async function readPublicReviews(limit = 400) {
   const { data } = await supa.from('reviews')
     .select('id, nick, stars, body, likes, reply, reply_at, created_at')
@@ -448,13 +464,7 @@ async function readPublicReviews(limit = 400) {
     reply: r.reply || '',
     at: r.created_at,
   }));
-  const count = rows.length;
-  const avg = count ? rows.reduce((s, r) => s + r.stars, 0) / count : 0;
-  const spread = [5, 4, 3, 2, 1].map(n => {
-    const c = rows.filter(r => r.stars === n).length;
-    return { stars: n, count: c, pct: count ? Math.round(100 * c / count) : 0 };
-  });
-  return { rows, count, avg: Math.round(avg * 10) / 10, spread };
+  return rows;
 }
 
 // Sorting and filtering, shared by the page and the game so both offer the
@@ -511,7 +521,7 @@ app.post('/api/review', async (req, res) => {
 app.get('/api/reviews', async (req, res) => {
   if (!dbEnabled) return res.json({ count: 0, avg: 0, spread: [], rows: [] });
   try {
-    const { rows, count, avg, spread } = await readPublicReviews(300);
+    const [rows, { count, avg, spread }] = await Promise.all([readPublicReviews(300), reviewStats()]);
     const f = String(req.query.f || 'new');
     const device = String(req.query.device || '');
     // which of these the asker has already liked, so the heart comes back
@@ -554,8 +564,11 @@ app.post('/api/review/like', async (req, res) => {
 
 // The page for search engines and for anyone who wants to read before playing.
 app.get('/reviews', async (req, res) => {
-  let rows = [], count = 0, avg = 0, spread = [];
-  try { ({ rows, count, avg, spread } = await readPublicReviews(400)); } catch { /* show the page anyway */ }
+  let rows = [];
+  let { count, avg, spread } = { count: 0, avg: 0, spread: [] };
+  try {
+    [rows, { count, avg, spread }] = await Promise.all([readPublicReviews(400), reviewStats()]);
+  } catch { /* show the page anyway */ }
   const f = ['new', 'old', 'text', 'good', 'bad', 'liked'].includes(String(req.query.f)) ? String(req.query.f) : 'new';
   const shown = sortReviews(rows, f).slice(0, 120);
   const withText = rows.filter(r => r.body);
@@ -1634,14 +1647,22 @@ ${rowsHtml || '<p class="note">Пока нет данных за этот пер
        the whole point of asking. Two averages, deliberately: the one visitors
        see (four and five stars, the ones printed on /reviews) and the real one
        across every rating given. */
-    const { data: all } = await supa.from('reviews')
-      .select('id, nick, stars, body, lang, is_public, hidden, likes, reply, created_at, device_id')
-      .order('created_at', { ascending: false }).limit(300);
+    // The numbers are counted by the database; the list below it is the last
+    // 300, which is all anyone reads. Counting from the list is what made this
+    // page say 300 when there were 382.
+    const [{ data: all }, stats] = await Promise.all([
+      supa.from('reviews')
+        .select('id, nick, stars, body, lang, is_public, hidden, likes, reply, created_at, device_id')
+        .order('created_at', { ascending: false }).limit(300),
+      reviewStats(),
+    ]);
     const list = all || [];
-    const shown = list.filter(r => r.is_public && !r.hidden);
-    const trueAvg = list.length ? list.reduce((a, r) => a + r.stars, 0) / list.length : 0;
-    const shownAvg = shown.length ? shown.reduce((a, r) => a + r.stars, 0) / shown.length : 0;
-    const byStar = [5, 4, 3, 2, 1].map(n => [n, list.filter(r => r.stars === n).length]);
+    const total = stats.count;
+    const trueAvg = stats.avg;
+    const goodCount = stats.spread.filter(x => x.stars >= 4).reduce((a, x) => a + x.count, 0);
+    const goodSum = stats.spread.filter(x => x.stars >= 4).reduce((a, x) => a + x.count * x.stars, 0);
+    const shownAvg = goodCount ? goodSum / goodCount : 0;
+    const byStar = stats.spread.map(x => [x.stars, x.count]);
     const maxStar = Math.max(1, ...byStar.map(([, n]) => n));
     const bars = byStar.map(([n, c]) => `<div class="geo">
       <div class="top"><span class="name">${'★'.repeat(n)}</span><span class="pct">${num(c)}</span></div>
@@ -1672,12 +1693,13 @@ ${rowsHtml || '<p class="note">Пока нет данных за этот пер
 <div class="grid2">
   ${statCard('🌐', 'Средняя на сайте', trueAvg ? trueAvg.toFixed(1) : '—')}
   ${statCard('🙂', 'Средняя по хорошим', shownAvg ? shownAvg.toFixed(1) : '—')}
-  ${statCard('⭐', 'Всего оценок', num(list.length))}
-  ${statCard('✍️', 'С текстом', num(list.filter(r => r.body).length))}
+  ${statCard('⭐', 'Всего оценок', num(total))}
+  ${statCard('✍️', 'С текстом', num(list.filter(r => r.body).length) + (total > list.length ? ' из 300' : ''))}
 </div>
 <p class="note">На странице <a href="/reviews">wallrush.online/reviews</a> видно <b>всё</b>: и оценки, и тексты, включая плохие. Писать может только тот, у кого есть аккаунт или сыграно 10+ партий. Любой отзыв можно убрать с сайта одним нажатием — но убирать стоит мат и спам, а не критику: страница без единой жалобы читается как подчищенная.</p>
 <p class="sect">Как распределились</p>
 ${bars}
+${total > list.length ? `<p class="note">Цифры выше — по всем ${num(total)} оценкам. Списки ниже — последние ${num(list.length)}.</p>` : ''}
 <p class="sect" style="margin-top:22px">😕 Недовольные (1–3) <span class="note" style="font-weight:400">— ${num(bad.length)}, наружу не попадают</span></p>
 ${bad.map(card).join('') || '<p class="note">Пока никто не жаловался.</p>'}
 <p class="sect" style="margin-top:22px">🙂 Довольные (4–5)</p>
