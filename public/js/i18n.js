@@ -368,6 +368,11 @@ export const I18N = {
     quad_turn_of: 'Ходит %s',
     quad_away: '%s пропал, ждём 30 секунд',
     quad_back: '%s вернулся',
+    blocked_wall: 'Здесь стена — её только обойти',
+    blocked_behind: 'За соперником стена — обойди его сбоку',
+    blocked_two: 'Через двоих сразу нельзя, пока есть другой ход',
+    blocked_pawn: 'Здесь стоит соперник',
+    blocked_round: 'Обойти сбоку можно, только если перепрыгнуть нельзя',
     quad_again: 'Новый стол',
     waiting_quad_hint: 'Игра начнётся, когда за столом соберутся четверо',
     waiting_seat: 'Свободное место',
@@ -773,6 +778,11 @@ export const I18N = {
     quad_turn_of: '%s to move',
     quad_away: '%s has gone quiet — 30 seconds to come back',
     quad_back: '%s is back',
+    blocked_wall: 'A wall is in the way — you have to go round it',
+    blocked_behind: 'There is a wall behind them — step round the side',
+    blocked_two: 'You cannot jump two at once while another move exists',
+    blocked_pawn: 'Somebody is standing there',
+    blocked_round: 'Going round the side is only for when you cannot jump over',
     quad_again: 'New table',
     waiting_quad_hint: 'The game starts once all four seats are taken',
     waiting_seat: 'Empty seat',
@@ -826,7 +836,7 @@ export const LANGS = [
 export const LANG_CODES = LANGS.map((l) => l.code);
 export const RTL = new Set(['fa']);
 
-const V = '150';
+const V = '151';
 
 // Loads a translation file on demand. Safe to call repeatedly and safe to fail:
 // if the request never lands, makeT keeps falling back to English.

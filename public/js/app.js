@@ -1,16 +1,16 @@
 // WallRush client app: screens, board UI, online play (WebSocket), AI mode, auth.
-import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=150';
-import { aiMove } from './ai.js?v=150';
-import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=150';
-import { PACKS } from './packs.js?v=150';
-import { rankOf, nextRank } from './ranks.js?v=150';
-import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=150';
-import { checkNick, nickOk, randomNick } from './nick.js?v=150';
+import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, wallBetween, N } from './engine.js?v=151';
+import { aiMove } from './ai.js?v=151';
+import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=151';
+import { PACKS } from './packs.js?v=151';
+import { rankOf, nextRank } from './ranks.js?v=151';
+import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=151';
+import { checkNick, nickOk, randomNick } from './nick.js?v=151';
 import {
   embedded, initPortal, inPortal, portalAd, portalPlaying, portalHappy,
   portalLoaded, portalInviteCode, portalShowInvite, portalHideInvite, portalInstant,
   portalRoom, portalOnJoin, portalInviteLink, portalMuted, portalOnMute, portalUserName,
-} from './portal.js?v=150';
+} from './portal.js?v=151';
 
 /* ================= state ================= */
 const $ = (id) => document.getElementById(id);
@@ -285,7 +285,7 @@ function getAiWorker() {
   if (aiWorker === false) return null;
   if (!aiWorker) {
     try {
-      aiWorker = new Worker('js/ai-worker.js?v=150', { type: 'module' });
+      aiWorker = new Worker('js/ai-worker.js?v=151', { type: 'module' });
       aiWorker.onmessage = (e) => {
         const cb = aiPending.get(e.data.id);
         aiPending.delete(e.data.id);
@@ -1406,6 +1406,7 @@ function renderGame() {
     const el = document.createElement('div');
     // wall wears the colour of whoever placed it
     el.className = 'wall ' + (typeof w.by === 'number' ? seatColor(w.by) : '');
+    el.dataset.w = `${w.r},${w.c},${w.o}`;   // so it can be pointed at
     if (idx < prevWallCount) el.classList.add('no-anim');
     const rect = wallRect(wallToView(w));
     el.style.cssText = `left:${rect.x}px;top:${rect.y}px;width:${rect.w}px;height:${rect.h}px`;
@@ -1701,15 +1702,95 @@ document.addEventListener('touchcancel', () => { if (dragWall) cancelWallPreview
 window.addEventListener('mousemove', (e) => { if (dragWall) updateDragPreview(e.clientX, e.clientY, false); });
 window.addEventListener('mouseup', () => { if (dragWall) finishDrag(); });
 
+/* ---- why can I not go there? ----
+
+   A player taps the square they want and nothing happens. On an 11x11 board
+   on a phone the walls are thin, and a wall lying right against a piece reads
+   as no wall at all — so people conclude the pieces are blocking them and the
+   game is broken. It is not: it is a wall, and the game never said so.
+
+   Tap a square you cannot reach and the thing in the way says so itself: the
+   wall flashes red, or the piece does. Only for squares near enough to be a
+   real question — a tap across the board is not one. */
+let blameTimer = null;
+function blame(el) {
+  if (!el) return false;
+  el.classList.add('blocking');
+  clearTimeout(blameTimer);
+  blameTimer = setTimeout(() => {
+    board.querySelectorAll('.blocking').forEach(e => e.classList.remove('blocking'));
+  }, 900);
+  return true;
+}
+function blameWall(w) {
+  const v = wallToView(w);
+  return blame(board.querySelector(`.wall[data-w="${v.r},${v.c},${v.o}"]`) ||
+               board.querySelector(`.wall[data-w="${w.r},${w.c},${w.o}"]`));
+}
+function blamePawn(i) { return blame(pawnEls[i]); }
+
+let lastSaid = 0;
+function sayOnce(key) {
+  if (Date.now() - lastSaid < 2500) return;   // one explanation at a time
+  lastSaid = Date.now();
+  toast(t(key));
+}
+
+function explainBlocked(r, c) {
+  const s = game?.state;
+  if (!s) return;
+  const me = s.pawns[game.myIndex];
+  const dr = r - me.r, dc = c - me.c;
+  const steps = Math.abs(dr) + Math.abs(dc);
+  if (!steps || steps > 2) return;            // too far away to be a question
+  const at = (rr, cc) => s.pawns.findIndex((p, i) =>
+    (!s.alive || s.alive[i] !== false) && p.r === rr && p.c === cc);
+
+  // one square away: either a wall on that very edge, or somebody standing there
+  if (steps === 1) {
+    const w = wallBetween(s.walls, me.r, me.c, r, c);
+    if (w) { blameWall(w); sayOnce('blocked_wall'); return; }
+    const who = at(r, c);
+    if (who !== -1) { blamePawn(who); sayOnce('blocked_pawn'); return; }
+    return;
+  }
+
+  // straight over somebody: the near edge, the far edge, or a second piece
+  if (dr === 0 || dc === 0) {
+    const mr = me.r + dr / 2, mc = me.c + dc / 2;
+    const near = wallBetween(s.walls, me.r, me.c, mr, mc);
+    if (near) { blameWall(near); sayOnce('blocked_wall'); return; }
+    if (at(mr, mc) === -1) return;            // nobody to jump over — nothing to explain
+    const far = wallBetween(s.walls, mr, mc, r, c);
+    if (far) { blameWall(far); sayOnce('blocked_behind'); return; }
+    const behind = at(r, c);
+    if (behind !== -1) { blamePawn(behind); sayOnce('blocked_two'); return; }
+    return;
+  }
+
+  // diagonally: the step round somebody, refused because the way past is open
+  // (you may only go round when you cannot go over) or because a wall is there
+  const side = at(me.r + dr, me.c) !== -1 ? { r: me.r + dr, c: me.c }
+             : at(me.r, me.c + dc) !== -1 ? { r: me.r, c: me.c + dc } : null;
+  if (!side) return;
+  const w1 = wallBetween(s.walls, me.r, me.c, side.r, side.c);
+  if (w1) { blameWall(w1); sayOnce('blocked_wall'); return; }
+  const w2 = wallBetween(s.walls, side.r, side.c, r, c);
+  if (w2) { blameWall(w2); sayOnce('blocked_wall'); return; }
+  sayOnce('blocked_round');
+}
+
 // tap a highlighted cell → move the ball
 function tapCell(target) {
   if (!isMyTurn() || dragWall) return false;
   const cell = target?.closest?.('.cell');
-  if (cell && cell.classList.contains('legal')) {
-    const lg = fromView(+cell.dataset.vr, +cell.dataset.vc);
+  if (!cell) return false;
+  const lg = fromView(+cell.dataset.vr, +cell.dataset.vc);
+  if (cell.classList.contains('legal')) {
     submitMove({ type: 'pawn', r: lg.r, c: lg.c });
     return true;
   }
+  explainBlocked(lg.r, lg.c);
   return false;
 }
 

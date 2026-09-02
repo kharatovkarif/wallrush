@@ -1374,3 +1374,15 @@ html[data-theme="dark"] .ads-flag { background: #262c42; }
 .emoji-pop.named.red { box-shadow: 0 0 0 2px #e33d52; }
 .emoji-pop.named.yellow { box-shadow: 0 0 0 2px #f0b429; }
 .emoji-pop.named.green { box-shadow: 0 0 0 2px #21a35a; }
+
+/* "why can I not go there": the thing in the way says so itself */
+.wall.blocking, .pawn.blocking {
+  animation: blockingFlash .9s ease;
+  box-shadow: 0 0 0 3px rgba(227, 61, 82, .9), 0 0 14px 4px rgba(227, 61, 82, .5);
+  z-index: 8;
+}
+@keyframes blockingFlash {
+  0%, 100% { filter: none; }
+  15%, 55% { filter: brightness(1.5) saturate(1.6); }
+  35%      { filter: brightness(.9); }
+}

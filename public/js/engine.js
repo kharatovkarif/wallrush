@@ -133,6 +133,25 @@ export function isBlocked(walls, r1, c1, r2, c2) {
   return false;
 }
 
+/* Which wall is standing between two neighbouring cells — the wall itself,
+   not just the fact of it. isBlocked answers "can I go", this answers "what is
+   stopping me", which is what a player who tapped and nothing happened wants
+   to know. Returns null when the way is clear. */
+export function wallBetween(walls, r1, c1, r2, c2) {
+  if (r1 === r2) {
+    const c = Math.min(c1, c2);
+    for (const w of walls) {
+      if (w.o === 'v' && w.c === c && (w.r === r1 || w.r === r1 - 1)) return w;
+    }
+  } else {
+    const r = Math.min(r1, r2);
+    for (const w of walls) {
+      if (w.o === 'h' && w.r === r && (w.c === c1 || w.c === c1 - 1)) return w;
+    }
+  }
+  return null;
+}
+
 const DIRS = [[-1, 0], [1, 0], [0, -1], [0, 1]];
 
 /* Legal pawn destinations for player p.
