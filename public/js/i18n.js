@@ -366,6 +366,8 @@ export const I18N = {
     badge_new: 'Новое',
     quad_rules: 'Четверо за столом: доска 11×11, каждый стартует со своей стороны, все бегут к золотой клетке в центре. По 7 стен, ход 30 секунд. Победитель один.',
     quad_turn_of: 'Ходит %s',
+    quad_away: '%s пропал, ждём 30 секунд',
+    quad_back: '%s вернулся',
     quad_again: 'Новый стол',
     waiting_quad_hint: 'Игра начнётся, когда за столом соберутся четверо',
     waiting_seat: 'Свободное место',
@@ -769,6 +771,8 @@ export const I18N = {
     badge_new: 'New',
     quad_rules: 'A table of four: an 11×11 board, everyone starts on their own side and races for the golden cell in the middle. Seven walls each, 30 seconds a move. One winner.',
     quad_turn_of: '%s to move',
+    quad_away: '%s has gone quiet — 30 seconds to come back',
+    quad_back: '%s is back',
     quad_again: 'New table',
     waiting_quad_hint: 'The game starts once all four seats are taken',
     waiting_seat: 'Empty seat',
@@ -822,7 +826,7 @@ export const LANGS = [
 export const LANG_CODES = LANGS.map((l) => l.code);
 export const RTL = new Set(['fa']);
 
-const V = '149';
+const V = '150';
 
 // Loads a translation file on demand. Safe to call repeatedly and safe to fail:
 // if the request never lands, makeT keeps falling back to English.

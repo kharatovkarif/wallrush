@@ -360,6 +360,8 @@ export default {
   badge_new: 'Nouveau',
   quad_rules: 'Table de quatre : plateau 11×11, chacun part de son côté et court vers la case dorée du centre. 7 murs chacun, 30 secondes par coup. Un seul gagnant.',
   quad_turn_of: 'Au tour de %s',
+  quad_away: '%s a disparu — 30 secondes pour revenir',
+  quad_back: '%s est de retour',
   quad_again: 'Nouvelle table',
   waiting_quad_hint: 'La partie commence quand les quatre places sont prises',
   waiting_seat: 'Place libre',

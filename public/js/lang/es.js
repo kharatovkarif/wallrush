@@ -360,6 +360,8 @@ export default {
   badge_new: 'Nuevo',
   quad_rules: 'Mesa de cuatro: tablero 11×11, cada uno sale de su lado y corre hacia la casilla dorada del centro. 7 muros cada uno, 30 segundos por jugada. Solo hay un ganador.',
   quad_turn_of: 'Juega %s',
+  quad_away: '%s se ha caído: 30 segundos para volver',
+  quad_back: '%s ha vuelto',
   quad_again: 'Nueva mesa',
   waiting_quad_hint: 'La partida empieza cuando se ocupen las cuatro sillas',
   waiting_seat: 'Silla libre',

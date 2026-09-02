@@ -360,6 +360,8 @@ export default {
   badge_new: 'Yeni',
   quad_rules: 'Dört kişilik masa: 11×11 tahta, herkes kendi kenarından başlar ve ortadaki altın kareye koşar. Kişi başı 7 duvar, hamle başına 30 saniye. Tek kazanan.',
   quad_turn_of: 'Sıra %s',
+  quad_away: '%s bağlantısı koptu — dönmek için 30 saniye',
+  quad_back: '%s geri döndü',
   quad_again: 'Yeni masa',
   waiting_quad_hint: 'Dört sandalye de dolunca oyun başlar',
   waiting_seat: 'Boş yer',

@@ -1,16 +1,16 @@
 // WallRush client app: screens, board UI, online play (WebSocket), AI mode, auth.
-import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=149';
-import { aiMove } from './ai.js?v=149';
-import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=149';
-import { PACKS } from './packs.js?v=149';
-import { rankOf, nextRank } from './ranks.js?v=149';
-import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=149';
-import { checkNick, nickOk, randomNick } from './nick.js?v=149';
+import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, N } from './engine.js?v=150';
+import { aiMove } from './ai.js?v=150';
+import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=150';
+import { PACKS } from './packs.js?v=150';
+import { rankOf, nextRank } from './ranks.js?v=150';
+import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=150';
+import { checkNick, nickOk, randomNick } from './nick.js?v=150';
 import {
   embedded, initPortal, inPortal, portalAd, portalPlaying, portalHappy,
   portalLoaded, portalInviteCode, portalShowInvite, portalHideInvite, portalInstant,
   portalRoom, portalOnJoin, portalInviteLink, portalMuted, portalOnMute, portalUserName,
-} from './portal.js?v=149';
+} from './portal.js?v=150';
 
 /* ================= state ================= */
 const $ = (id) => document.getElementById(id);
@@ -56,8 +56,11 @@ let portalMute = false;
 // move sounds, like a chess clock (WebAudio, no files needed):
 // pawn = short high "tick", wall = lower wooden "knock"
 let audioCtx = null;
-function tick(mine, wall = false) {
+// soft = somebody else's move, three seats away from mattering to me yet:
+// audible, so the table feels alive, but not the sound that means "your turn"
+function tick(mine, wall = false, soft = false) {
   if (!soundOn || portalMute) return;
+  const vol = soft ? 0.35 : 1;
   try {
     audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
     if (audioCtx.state === 'suspended') audioCtx.resume();
@@ -69,7 +72,7 @@ function tick(mine, wall = false) {
       o.frequency.setValueAtTime(mine ? 340 : 270, t0);
       o.frequency.exponentialRampToValueAtTime(mine ? 180 : 140, t0 + 0.1); // falling thud
       g.gain.setValueAtTime(0.0001, t0);
-      g.gain.exponentialRampToValueAtTime(0.3, t0 + 0.006);
+      g.gain.exponentialRampToValueAtTime(0.3 * vol, t0 + 0.006);
       g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.14);
       o.connect(g).connect(audioCtx.destination);
       o.start(t0);
@@ -78,7 +81,7 @@ function tick(mine, wall = false) {
       o.type = 'triangle';
       o.frequency.value = mine ? 660 : 500; // my move rings higher than theirs
       g.gain.setValueAtTime(0.0001, t0);
-      g.gain.exponentialRampToValueAtTime(0.22, t0 + 0.008);
+      g.gain.exponentialRampToValueAtTime(0.22 * vol, t0 + 0.008);
       g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.09);
       o.connect(g).connect(audioCtx.destination);
       o.start(t0);
@@ -282,7 +285,7 @@ function getAiWorker() {
   if (aiWorker === false) return null;
   if (!aiWorker) {
     try {
-      aiWorker = new Worker('js/ai-worker.js?v=149', { type: 'module' });
+      aiWorker = new Worker('js/ai-worker.js?v=150', { type: 'module' });
       aiWorker.onmessage = (e) => {
         const cb = aiPending.get(e.data.id);
         aiPending.delete(e.data.id);
@@ -674,7 +677,14 @@ function connectWs() {
   }
 }
 
+// Messages that belong to one table. If we have since sat down at another,
+// they are somebody else's game and must not touch this one — a late result
+// from the old table used to end the new one on screen.
+const TABLE_NEWS = ['state', 'player_out', 'opp_disconnected', 'opp_reconnected',
+                    'emoji', 'game_over', 'room_wait', 'rematch_offer', 'rematch_declined'];
+
 function handleWsMessage(msg) {
+  if (msg.room && game?.roomId && msg.room !== game.roomId && TABLE_NEWS.includes(msg.t)) return;
   switch (msg.t) {
     case 'hello_ok':
       // The pass was sent and the server could not read it. Ask Supabase for a
@@ -791,15 +801,33 @@ function handleWsMessage(msg) {
       break;
     case 'state':
       if (game?.mode === 'online') {
-        // turn passed to me ⇒ this state carries the opponent's move
-        const oppMoved = msg.state.turn === game.myIndex && game.state?.turn !== game.myIndex;
-        const oppWalled = msg.state.walls.length > (game.state?.walls.length ?? 0);
+        /* The sound used to fire on "the turn has reached me", which in a
+           duel is the same thing as "my opponent moved" — but at a table of
+           four it is only ever the player who goes immediately before me, and
+           because everyone sees themselves at the bottom, that player is
+           always the one drawn on the right. Two of the three were silent.
+
+           So: a move is a move, and the board says so. What still has to
+           carry is whose turn it is now, or the sound stops meaning anything
+           — hence a quieter click for somebody else's move and the fuller
+           one, with a buzz, when the turn lands on me. */
+        const before = game.state;
+        const wallAdded = msg.state.walls.length > (before?.walls.length ?? 0);
+        const someoneMoved = Boolean(before) && (wallAdded ||
+          msg.state.pawns.some((p, i) => before.pawns[i] &&
+            (p.r !== before.pawns[i].r || p.c !== before.pawns[i].c)));
+        const myTurnNow = msg.state.turn === game.myIndex && before?.turn !== game.myIndex;
         game.state = msg.state;
         game.clocks = { ...msg.clocks, recvAt: Date.now() };
-        recordSnapshot(msg.state); // server states cover both players' moves
+        recordSnapshot(msg.state); // server states cover every player's move
         cancelWallPreview();
         renderGame();
-        if (oppMoved) { vibrate(12); tick(false, oppWalled); }
+        // my own move already made its sound the instant I tapped, and the
+        // board has not changed since, so this cannot double it
+        if (someoneMoved) {
+          if (myTurnNow) { vibrate(12); tick(false, wallAdded); }
+          else tick(false, wallAdded, true);
+        }
       }
       break;
     case 'game_over':
@@ -836,6 +864,7 @@ function handleWsMessage(msg) {
           onGameOver(false, msg.reason === 'left' ? 'left' : msg.reason);
           break;
         }
+        if (game.over) break;   // my own game is over; the rest is not my table
         const how = msg.reason === 'left' ? t('out_left')
           : msg.reason === 'resign' ? t('out_resigned') : t('out_time');
         toast(`${game.seats[msg.seat]?.nick || ''} ${how}`);
@@ -878,12 +907,17 @@ function handleWsMessage(msg) {
     case 'opp_disconnected':
       // the clock stops while they are away, and the screen has to show that
       if (msg.clocks && game) game.clocks = { ...msg.clocks, recvAt: Date.now() };
-      // "your opponent" means nothing when there are three of them
-      toast(isQuad() && msg.nick ? `${msg.nick}: ${t('opp_disconnected')}` : t('opp_disconnected'));
+      // "your opponent has gone quiet" says nothing when there are three of
+      // them — and once my own game is finished, none of it is my business
+      if (!game?.over) {
+        toast(isQuad() && msg.nick ? t('quad_away').replace('%s', msg.nick) : t('opp_disconnected'));
+      }
       break;
     case 'opp_reconnected':
       if (msg.clocks && game) game.clocks = { ...msg.clocks, recvAt: Date.now() };
-      toast(isQuad() && msg.nick ? `${msg.nick}: ${t('opp_reconnected')}` : t('opp_reconnected'));
+      if (!game?.over) {
+        toast(isQuad() && msg.nick ? t('quad_back').replace('%s', msg.nick) : t('opp_reconnected'));
+      }
       break;
     case 'daily':
       renderDaily(msg);
@@ -1828,6 +1862,7 @@ function startOnlineGame(msg) {
   const seats = msg.players || null;
   game = {
     mode: 'online',
+    roomId: msg.room || null,    // so a late message from another table is ignored
     state: msg.state,
     myIndex: msg.you,
     seats,                       // every seat at the table, for the four-handed screen

@@ -75,6 +75,23 @@ function send(client, msg) {
   }
 }
 
+/* A table's news goes only to the people still sitting at it.
+
+   Leaving a four-handed game does not take you out of room.players — the seat
+   numbers are positions in that array, and the game is still being played by
+   the others, so nothing may shift. But the player who walked away kept being
+   sent everything that happened afterwards: the other three's moves, who else
+   dropped out, and finally the result of a game they were no longer in. On
+   their screen, sitting at a NEW table, that arrived as somebody else's
+   opponent disconnecting and somebody else's defeat.
+
+   Membership is the test, not presence in the array. */
+const stillHere = (room, pl) => Boolean(pl) && pl.roomId === room.id;
+function tell(room, pl, msg) {
+  if (!stillHere(room, pl)) return;
+  send(pl, msg);
+}
+
 /* Work that runs on a timer has nobody to report to. Left bare, one throw
    inside a setTimeout takes the whole game server with it and every live match
    in memory goes with it. These two say what happened and let the rest keep
@@ -163,7 +180,7 @@ function resumeClock(room) {
 }
 
 function stateMsg(room) {
-  return { t: 'state', state: room.state, clocks: clockPayload(room) };
+  return { t: 'state', room: room.id, state: room.state, clocks: clockPayload(room) };
 }
 
 // Who is at the table, in seat order. The duel keeps its `opp` field so that
@@ -183,6 +200,7 @@ function startMsg(room, i, extra = {}) {
   const pl = room.players[i];
   const msg = {
     t: 'game_start',
+    room: room.id,
     you: i,
     state: room.state,
     clocks: clockPayload(room),
@@ -261,16 +279,16 @@ function knockOut(room, idx, reason) {
   eliminate(room.state, idx);
   clearTimeout(room.moveTimer);
   for (const pl of room.players) {
-    send(pl, { t: 'player_out', seat: idx, reason, left: aliveCount(room.state) });
+    tell(room, pl, { t: 'player_out', room: room.id, seat: idx, reason, left: aliveCount(room.state) });
   }
   if (room.state.winner !== null) {
-    for (const pl of room.players) send(pl, stateMsg(room));
+    for (const pl of room.players) tell(room, pl, stateMsg(room));
     guard('finish', () => finish(room, room.state.winner, 'last_standing'));
     return;
   }
   room.turnStarted = Date.now();
   if (!room.paused) armMoveTimer(room);
-  for (const pl of room.players) send(pl, stateMsg(room));
+  for (const pl of room.players) tell(room, pl, stateMsg(room));
 }
 
 // Private rooms are practice. Two friends sharing a code could otherwise trade
@@ -439,7 +457,7 @@ async function finish(room, winnerIdx, reason) {
                       : awardPoints(room, w, room.players[1 - winnerIdx]);
   room.players.forEach((pl, i) => {
     const payload = {
-      t: 'game_over', winner: winnerIdx, you: i, reason,
+      t: 'game_over', room: room.id, winner: winnerIdx, you: i, reason,
       points: { delta: deltas[i], total: pl.points || 0, ranked: isRanked(room) },
     };
     if (quad) {
@@ -451,7 +469,7 @@ async function finish(room, winnerIdx, reason) {
       payload.players = seatList(room);
     }
     if (!pl.isBot) keepResult(pl.token, payload);
-    send(pl, payload);
+    tell(room, pl, payload);
   });
   // The streak needs a database round trip, so it follows the result rather
   // than holding it up — the result overlay only appears after 600ms anyway.
@@ -502,11 +520,12 @@ function sendRoomWait(room) {
   if (!isQuad(room) || room.status !== 'open') return;
   const msg = {
     t: 'room_wait',
+    room: room.id,
     seats: seatsOf(room),
     players: room.players.map(pl => ({ nick: pl.nick, points: pl.points || 0, bot: Boolean(pl.isBot) })),
     code: room.code || null,
   };
-  for (const pl of room.players) send(pl, msg);
+  for (const pl of room.players) tell(room, pl, msg);
 }
 
 function leaveRoom(client, notifyOpp = true) {
@@ -676,7 +695,7 @@ async function handleHello(client, msg) {
             // the ones who waited need the restarted clock too, or their screen
             // keeps counting down a turn the server has already given back
             for (const o of others(room, idx)) {
-              send(o, { t: 'opp_reconnected', seat: idx, nick: client.nick, clocks: clockPayload(room) });
+              tell(room, o, { t: 'opp_reconnected', room: room.id, seat: idx, nick: client.nick, clocks: clockPayload(room) });
             }
           } else if (room.status === 'open') {
             sendRoomWait(room);
@@ -732,7 +751,7 @@ function handleMove(client, msg) {
     room.state.walls[room.state.walls.length - 1].by = idx; // for wall colors on clients
   }
   if (room.state.winner !== null) {
-    for (const pl of room.players) send(pl, stateMsg(room));
+    for (const pl of room.players) tell(room, pl, stateMsg(room));
     guard('finish', () => finish(room, room.state.winner, 'goal'));
     return;
   }
@@ -741,7 +760,7 @@ function handleMove(client, msg) {
   // 30s move limit must not start running against a player who is not there
   // to see the move. resumeClock() arms it when they are back.
   if (!room.paused) armMoveTimer(room);
-  for (const pl of room.players) send(pl, stateMsg(room));
+  for (const pl of room.players) tell(room, pl, stateMsg(room));
 }
 
 function handleRematch(client, msg) {
@@ -777,7 +796,7 @@ function handleEmoji(client, msg) {
   if (!room || room.status === 'open') return;
   const idx = room.players.indexOf(client);
   if (idx === -1) return;
-  for (const o of others(room, idx)) send(o, { t: 'emoji', e: msg.e, seat: idx });
+  for (const o of others(room, idx)) tell(room, o, { t: 'emoji', room: room.id, e: msg.e, seat: idx });
 }
 
 export function attachWs(wss) {
@@ -1057,7 +1076,7 @@ export function attachWs(wss) {
         // connection is how a room empties.
         if (!isQuad(room) || room.state?.turn === idx) pauseClock(room);
         for (const o of others(room, idx)) {
-          send(o, { t: 'opp_disconnected', seat: idx, nick: client.nick, grace: GRACE_MS, clocks: clockPayload(room) });
+          tell(room, o, { t: 'opp_disconnected', room: room.id, seat: idx, nick: client.nick, grace: GRACE_MS, clocks: clockPayload(room) });
         }
         client.graceTimer = setTimeout(() => guard('grace-expired', () => {
           byToken.delete(client.token);
