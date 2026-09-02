@@ -7,6 +7,7 @@ import { aiMove } from '../public/js/ai.js';
 import { ai4Move, quadTension } from '../public/js/ai4.js';
 import { distToGoal, goalRow } from '../public/js/engine.js';
 import { seedBots, growBots, botPoints } from './db.js';
+import { guard } from './rooms.js';
 
 // skill: 'easy' | 'normal' | 'hard' | 'ace' (ace = the real engine, capped budget)
 // speed: multiplier on think time (0.6 = snappy player, 1.4 = slow thinker)
@@ -83,7 +84,7 @@ function refreshFake() {
   const base = 26 + wave * 10;
   fakeCount = Math.max(14, Math.min(42, Math.round(base + (Math.random() * 8 - 4))));
   if (api) api.broadcastLobby();
-  setTimeout(refreshFake, 45_000 + Math.random() * 75_000);
+  setTimeout(() => guard('online-counter', refreshFake), 45_000 + Math.random() * 75_000);
 }
 
 /* ---------- virtual clients ---------- */
@@ -133,10 +134,10 @@ function clearBotTimers(bot) {
 }
 
 function sendEmoji(bot, e, delay) {
-  setTimeout(() => {
+  setTimeout(() => guard('bot-emoji', () => {
     const room = api.rooms.get(bot.roomId);
     if (room) api.handleEmoji(bot, { e });
-  }, delay);
+  }), delay);
 }
 
 function onMsg(bot, msg) {
@@ -289,7 +290,7 @@ function scheduleThink(bot) {
   const cap = isQuadState(room.state) ? 6000 : room.state.mode === 'race' ? 8000 : 12_000;
   if (room.bank) d = Math.max(400, Math.min(d, room.bank[idx] - 5000, cap));
 
-  bot.thinkTimer = setTimeout(() => doMove(bot), d);
+  bot.thinkTimer = setTimeout(() => guard('bot-move', () => doMove(bot)), d);
 }
 
 function doMove(bot) {
@@ -425,13 +426,13 @@ export function fillQuadRoom(room) {
   const gap = room.code ? 30_000 : 10_000;
   for (let k = 0; k < 3; k++) {
     const delay = first + k * gap + (Math.random() * 8000 - 3000);
-    setTimeout(() => {
+    setTimeout(() => guard('quad-fill', () => {
       const live = api.rooms.get(room.id);
       if (!live || live.status !== 'open') return;
       if (live.players.length >= 4) return;
       const b = pickIdle();
       if (b) api.joinRoom(b, live);
-    }, Math.max(4000, delay));
+    }), Math.max(4000, delay));
   }
 }
 
@@ -440,13 +441,13 @@ export function fillQuadRoom(room) {
 // or falls through quick-match into a fresh room (short wait).
 export function notifyUserWaiting(room, delayMs) {
   if (!room || room.code) return;
-  setTimeout(() => {
+  setTimeout(() => guard('bot-joins-waiting-room', () => {
     const live = api.rooms.get(room.id);
     if (!live || live.status !== 'open' || live.players.length !== 1) return;
     if (live.players[0].isBot) return;
     const b = pickIdle();
     if (b) api.joinRoom(b, live);
-  }, delayMs);
+  }), delayMs);
 }
 
 /* ---------- boot ---------- */
@@ -461,8 +462,8 @@ export function initBots(hooks) {
     const map = await botPoints();
     for (const b of bots) if (map.has(b.nick)) b.points = map.get(b.nick);
   };
-  loadPoints();
-  setInterval(loadPoints, 30 * 60 * 1000);
+  guard('bot-points', loadPoints);
+  setInterval(() => guard('bot-points', loadPoints), 30 * 60 * 1000);
 
   // leaderboard lives its own life: every hour a slice of bots "plays a
   // session" — active by day, busiest in the MSK evening, asleep at night.
@@ -476,11 +477,11 @@ export function initBots(hooks) {
     else w = 1;
     growBots(winp, 0.07 * w);
   };
-  setTimeout(growthTick, 10 * 60 * 1000); // first pass shortly after boot
-  setInterval(growthTick, 60 * 60 * 1000);
+  setTimeout(() => guard('bot-growth', growthTick), 10 * 60 * 1000); // first pass shortly after boot
+  setInterval(() => guard('bot-growth', growthTick), 60 * 60 * 1000);
 
   refreshFake();
   retarget();
-  setInterval(rotationTick, 4500);
+  setInterval(() => guard('lobby-rotation', rotationTick), 4500);
   console.log(`bots: ${bots.length} personas online`);
 }

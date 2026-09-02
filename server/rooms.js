@@ -75,6 +75,23 @@ function send(client, msg) {
   }
 }
 
+/* Work that runs on a timer has nobody to report to. Left bare, one throw
+   inside a setTimeout takes the whole game server with it and every live match
+   in memory goes with it. These two say what happened and let the rest keep
+   playing. */
+export function guard(what, fn) {
+  try {
+    const out = fn();
+    if (out && typeof out.then === 'function') {
+      out.catch(e => console.error(`[${what}]`, e && e.stack ? e.stack : e));
+    }
+    return out;
+  } catch (e) {
+    console.error(`[${what}]`, e && e.stack ? e.stack : e);
+    return null;
+  }
+}
+
 function lobbyRooms() {
   const list = [];
   for (const room of rooms.values()) {
@@ -223,13 +240,13 @@ function armMoveTimer(room) {
   const p = room.state.turn;
   const ms = Math.min(MOVE_MS, room.bank[p]);
   const grace = moveGrace(room.players[p]?.rtt);
-  room.moveTimer = setTimeout(() => {
+  room.moveTimer = setTimeout(() => guard('move-timeout', () => {
     const reason = room.bank[p] <= MOVE_MS ? 'timeout' : 'move_timeout';
     // A duel ends here. At a table of four the game does not stop because one
     // person stopped: that seat is emptied and the other three play on.
-    if (isQuad(room)) knockOut(room, p, reason);
-    else finish(room, 1 - p, reason);
-  }, ms + grace);
+    if (isQuad(room)) return knockOut(room, p, reason);
+    return finish(room, 1 - p, reason);
+  }), ms + grace);
 }
 
 /* Empty a seat. The pawn comes off the board, the walls that player built stay
@@ -248,7 +265,7 @@ function knockOut(room, idx, reason) {
   }
   if (room.state.winner !== null) {
     for (const pl of room.players) send(pl, stateMsg(room));
-    finish(room, room.state.winner, 'last_standing');
+    guard('finish', () => finish(room, room.state.winner, 'last_standing'));
     return;
   }
   room.turnStarted = Date.now();
@@ -441,6 +458,7 @@ async function finish(room, winnerIdx, reason) {
   for (const pl of room.players) {
     if (pl.isBot) continue;
     touchStreak({ userId: pl.userId, deviceId: pl.deviceId }, localDay(pl.tzOffset || 0))
+      .catch(e => { console.error('[streak]', e && e.stack ? e.stack : e); return null; })
       .then((st) => {
         if (!st) return;
         pl.streak = st.streak;
@@ -452,8 +470,8 @@ async function finish(room, winnerIdx, reason) {
       });
   }
   // The task of the day follows the result rather than holding it up.
-  bumpDaily(room, w, true);
-  for (const pl of losers) bumpDaily(room, pl, false);
+  guard('daily', () => bumpDaily(room, w, true));
+  for (const pl of losers) guard('daily', () => bumpDaily(room, pl, false));
   if (quad) {
     if (w.userId || losers.some(pl => pl.userId)) {
       await recordQuadResult(w.userId || null, losers.map(pl => pl.userId || null));
@@ -519,7 +537,7 @@ function leaveRoom(client, notifyOpp = true) {
   if (room.status === 'playing') {
     // Leaving a live game of four empties that seat; the other three play on.
     if (isQuad(room)) knockOut(room, idx, 'left');
-    else finish(room, 1 - idx, 'opponent_left');
+    else guard('finish', () => finish(room, 1 - idx, 'opponent_left'));
   } else if (room.status === 'over' && notifyOpp && !isQuad(room)) {
     const opp = room.players[1 - idx];
     if (opp.roomId === room.id) send(opp, { t: 'rematch_declined' });
@@ -688,7 +706,7 @@ async function handleHello(client, msg) {
     streakFree: Boolean(client.streakFree),
   });
   if (missed) send(client, missed);
-  sendDaily(client);
+  guard('daily', () => sendDaily(client));
 }
 
 function handleMove(client, msg) {
@@ -715,7 +733,7 @@ function handleMove(client, msg) {
   }
   if (room.state.winner !== null) {
     for (const pl of room.players) send(pl, stateMsg(room));
-    finish(room, room.state.winner, 'goal');
+    guard('finish', () => finish(room, room.state.winner, 'goal'));
     return;
   }
   room.turnStarted = Date.now();
@@ -778,7 +796,7 @@ export function attachWs(wss) {
         const idx = room.players.indexOf(client);
         if (idx === -1) return;
         if (isQuad(room)) knockOut(room, idx, 'resign');
-        else finish(room, 1 - idx, 'resign');
+        else guard('finish', () => finish(room, 1 - idx, 'resign'));
       }
     },
     sendRoomWait,
@@ -1015,7 +1033,7 @@ export function attachWs(wss) {
               const idx = room.players.indexOf(client);
               if (idx === -1) break;
               if (isQuad(room)) knockOut(room, idx, 'resign');
-              else finish(room, 1 - idx, 'resign');
+              else guard('finish', () => finish(room, 1 - idx, 'resign'));
             }
             break;
           }
@@ -1041,14 +1059,14 @@ export function attachWs(wss) {
         for (const o of others(room, idx)) {
           send(o, { t: 'opp_disconnected', seat: idx, nick: client.nick, grace: GRACE_MS, clocks: clockPayload(room) });
         }
-        client.graceTimer = setTimeout(() => {
+        client.graceTimer = setTimeout(() => guard('grace-expired', () => {
           byToken.delete(client.token);
           if (room.status === 'playing') {
             if (isQuad(room)) knockOut(room, idx, 'left');
             else finish(room, 1 - idx, 'opponent_left');
           }
           if (room.players.every(p => clients.get(p.ws) !== p)) destroyRoom(room);
-        }, GRACE_MS);
+        }), GRACE_MS);
       } else {
         if (client.token) byToken.delete(client.token);
         leaveRoom(client, true);
@@ -1059,12 +1077,12 @@ export function attachWs(wss) {
   // Heartbeat: drop dead connections. This has to be well under MOVE_MS —
   // at 30s a socket could die and the player be timed out for a move they
   // never saw before the server even noticed they were gone.
-  setInterval(() => {
+  setInterval(() => guard('heartbeat', () => {
     for (const [ws, client] of clients) {
       if (!client.alive) { ws.terminate(); continue; }
       client.alive = false;
       client.pingAt = Date.now();
       try { ws.ping(); } catch { /* ignore */ }
     }
-  }, 8_000);
+  }), 8_000);
 }

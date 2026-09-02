@@ -2064,7 +2064,49 @@ ${dayRows
     : '<p class="note">Подробная история пишется с 19.07 — у этого человека записей пока нет. Появятся при следующем его заходе.</p>'}`, 'people'));
 });
 
-app.get('/healthz', (req, res) => res.send('ok'));
+/* ---- staying alive ----
+
+   Node kills the whole process on an unhandled promise rejection. For a game
+   that keeps every live match in memory that means one stray error in one
+   request drops nine thousand people at once, and the site is dark until
+   somebody notices and presses a button.
+
+   Nothing here excuses a bug. It turns a total outage into a line in the log
+   with enough in it to find the cause: what threw, where, and what the server
+   was carrying at the time. If the process is genuinely broken the next
+   request will say so; if it was one bad request, everyone else keeps playing.
+
+   Nothing is swallowed silently — every one of these prints. */
+function survive(kind, err) {
+  const m = process.memoryUsage();
+  console.error(`[${kind}] ${err && err.stack ? err.stack : err}`);
+  console.error(`[${kind}] uptime ${Math.round(process.uptime())}s, ` +
+    `heap ${Math.round(m.heapUsed / 1048576)}/${Math.round(m.heapTotal / 1048576)}MB, ` +
+    `rss ${Math.round(m.rss / 1048576)}MB, online ${realOnline()}`);
+}
+process.on('unhandledRejection', (err) => survive('unhandled-rejection', err));
+process.on('uncaughtException', (err) => survive('uncaught-exception', err));
+
+// A line an hour, so that "it died at four in the morning" has something to
+// read next to it — chiefly whether memory was climbing before it went.
+setInterval(() => {
+  const m = process.memoryUsage();
+  console.log(`[health] uptime ${Math.round(process.uptime() / 60)}min, ` +
+    `heap ${Math.round(m.heapUsed / 1048576)}MB, rss ${Math.round(m.rss / 1048576)}MB, ` +
+    `online ${realOnline()}`);
+}, 30 * 60 * 1000);
+
+app.get('/healthz', (req, res) => {
+  const m = process.memoryUsage();
+  res.json({
+    ok: true,
+    uptimeSec: Math.round(process.uptime()),
+    heapMB: Math.round(m.heapUsed / 1048576),
+    rssMB: Math.round(m.rss / 1048576),
+    online: realOnline(),
+    db: dbEnabled ? 'on' : 'off',
+  });
+});
 
 const server = http.createServer(app);
 const wss = new WebSocketServer({ server, path: '/ws' });
@@ -2076,5 +2118,8 @@ server.listen(PORT, () => {
   initPush();
   // Hourly, so every timezone gets its own evening. The tick decides who is
   // due; most hours it finds nobody and does nothing.
-  setInterval(() => pushTick(realOnline() + fakeOnline(), onlineUserIds()), 60 * 60 * 1000);
+  setInterval(() => {
+    pushTick(realOnline() + fakeOnline(), onlineUserIds())
+      .catch(e => console.error('[push-tick]', e && e.stack ? e.stack : e));
+  }, 60 * 60 * 1000);
 });
