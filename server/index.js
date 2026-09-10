@@ -5,7 +5,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { WebSocketServer } from 'ws';
 import { attachWs, realOnline, onlineUserIds } from './rooms.js';
-import { fakeOnline } from './bots.js';
+import { fakeOnline, botStatus } from './bots.js';
 import { RANKS } from '../public/js/ranks.js';
 import { checkNick } from '../public/js/nick.js';
 import { localDay } from '../public/js/streak.js';
@@ -2105,6 +2105,7 @@ app.get('/healthz', (req, res) => {
     rssMB: Math.round(m.rss / 1048576),
     online: realOnline(),
     db: dbEnabled ? 'on' : 'off',
+    bots: botStatus(),
   });
 });
 

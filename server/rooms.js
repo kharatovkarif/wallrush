@@ -12,7 +12,7 @@ import {
   recordQuadResult,
 } from './db.js';
 import { taskForDay, matchProgress } from '../public/js/daily.js';
-import { initBots, fakeOnline, notifyUserWaiting, fillQuadRoom } from './bots.js';
+import { initBots, fakeOnline, notifyUserWaiting, fillQuadRoom, noteBotGame } from './bots.js';
 import crypto from 'crypto';
 
 const BANK_MS = 300_000;      // 5:00 per player per game
@@ -497,8 +497,8 @@ async function finish(room, winnerIdx, reason) {
   } else if (w.userId || losers[0].userId) {
     await recordResult(w.userId || null, losers[0].userId || null);
   }
-  if (w.isBot) recordBotResult(w.nick, true);
-  for (const pl of losers) if (pl.isBot) recordBotResult(pl.nick, false);
+  if (w.isBot) { recordBotResult(w.nick, true); noteBotGame(); }
+  for (const pl of losers) if (pl.isBot) { recordBotResult(pl.nick, false); noteBotGame(); }
   // real people on every seat → a genuine human-vs-human match
   if (!w.isBot && losers.every(pl => !pl.isBot)) recordHumanMatch(room.mode || 'duel');
 }

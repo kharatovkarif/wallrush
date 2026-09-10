@@ -450,6 +450,49 @@ export function notifyUserWaiting(room, delayMs) {
   }), delayMs);
 }
 
+/* What the bots are actually doing, in numbers.
+
+   They live in this process and leave no trace anywhere until a game of
+   theirs finishes and lands in bot_players. When they quietly stop — a throw
+   swallowed by a guard, a roomId that never got cleared, hooks that never
+   arrived — nothing says so, and from outside it looks exactly like a busy
+   lobby that simply has no bots in it. That happened, and it took a day to
+   even establish that it HAD happened.
+
+   So the numbers come out where they can be read from a phone. */
+export function botStatus() {
+  if (!api) return { ready: false, reason: 'initBots never ran' };
+  let openRooms = 0, playing = 0;
+  try {
+    for (const r of api.rooms.values()) {
+      if (!r.players.length || !r.players[0]?.isBot) continue;
+      if (r.status === 'open') openRooms++;
+      else if (r.status === 'playing') playing++;
+    }
+  } catch (e) {
+    return { ready: true, reason: 'could not read rooms: ' + e.message };
+  }
+  return {
+    ready: true,
+    total: bots.length,
+    idle: idleBots().length,
+    busy: bots.filter(b => b.roomId).length,
+    openRooms,
+    playing,
+    fakeOnline: fakeCount,
+    lastError: lastRotationError,
+    ticks: rotationTicks,
+    gamesSinceBoot: botGamesFinished,
+  };
+}
+
+// counted here so that "the bots are running" and "the bots are playing" can
+// be told apart — the first was true all along, the second was not
+let rotationTicks = 0;
+let lastRotationError = null;
+export function noteBotGame() { botGamesFinished++; }
+let botGamesFinished = 0;
+
 /* ---------- boot ---------- */
 export function initBots(hooks) {
   api = hooks;
@@ -482,6 +525,13 @@ export function initBots(hooks) {
 
   refreshFake();
   retarget();
-  setInterval(() => guard('lobby-rotation', rotationTick), 4500);
+  setInterval(() => {
+    rotationTicks++;
+    try { rotationTick(); }
+    catch (e) {
+      lastRotationError = String(e && e.message || e).slice(0, 120);
+      console.error('[lobby-rotation]', e && e.stack ? e.stack : e);
+    }
+  }, 4500);
   console.log(`bots: ${bots.length} personas online`);
 }
