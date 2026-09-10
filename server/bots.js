@@ -13,53 +13,98 @@ import { guard } from './rooms.js';
 // speed: multiplier on think time (0.6 = snappy player, 1.4 = slow thinker)
 // chatty: 0..1 — how often they send emojis
 // resigner: whether they may resign a hopeless game
-const ROSTER = [
-  { nick: 'gisno', skill: 'hard', speed: 0.8, chatty: 0.5, resigner: true },
-  { nick: 'user729', skill: 'normal', speed: 1.0, chatty: 0.2, resigner: false },
-  { nick: 'Danya05', skill: 'normal', speed: 0.7, chatty: 0.8, resigner: true },
-  { nick: 'wall_e_', skill: 'ace', speed: 1.1, chatty: 0.3, resigner: false },
-  { nick: 'KiraM', skill: 'easy', speed: 0.9, chatty: 0.6, resigner: true },
-  { nick: 'foxy_wr', skill: 'hard', speed: 1.0, chatty: 0.7, resigner: false },
-  { nick: 'Marat_07', skill: 'normal', speed: 1.2, chatty: 0.4, resigner: true },
-  { nick: 'stenka72', skill: 'hard', speed: 1.3, chatty: 0.1, resigner: false },
-  { nick: 'Lexa', skill: 'easy', speed: 0.6, chatty: 0.9, resigner: true },
-  { nick: 'ZloyPingvin', skill: 'normal', speed: 1.0, chatty: 0.7, resigner: false },
-  { nick: 'miron4ik', skill: 'easy', speed: 0.8, chatty: 0.5, resigner: true },
-  { nick: 'TommyGun', skill: 'hard', speed: 0.9, chatty: 0.3, resigner: false },
-  { nick: 'sova_night', skill: 'normal', speed: 1.4, chatty: 0.2, resigner: true },
-  { nick: 'Arsen21', skill: 'ace', speed: 1.0, chatty: 0.4, resigner: false },
-  { nick: 'bublik', skill: 'easy', speed: 0.7, chatty: 0.8, resigner: true },
-  { nick: 'NeoFit', skill: 'normal', speed: 1.1, chatty: 0.3, resigner: false },
-  { nick: 'kvadrat', skill: 'hard', speed: 1.2, chatty: 0.2, resigner: true },
-  { nick: 'Rina_x', skill: 'normal', speed: 0.8, chatty: 0.6, resigner: false },
-  { nick: 'Shustrik', skill: 'easy', speed: 0.5, chatty: 0.7, resigner: true },
-  { nick: 'DedMaxim', skill: 'hard', speed: 1.4, chatty: 0.4, resigner: false },
-  { nick: 'tokyo_dr1ft', skill: 'normal', speed: 0.9, chatty: 0.5, resigner: true },
-  { nick: 'vint1k', skill: 'easy', speed: 0.8, chatty: 0.4, resigner: false },
-  { nick: 'MegaMozg', skill: 'ace', speed: 1.2, chatty: 0.3, resigner: false },
-  { nick: 'Olezha', skill: 'normal', speed: 1.0, chatty: 0.6, resigner: true },
-  { nick: 'sanya_krut', skill: 'hard', speed: 0.9, chatty: 0.7, resigner: false },
-  { nick: 'PolinaV', skill: 'normal', speed: 1.1, chatty: 0.5, resigner: true },
-  { nick: 'wallmaster', skill: 'ace', speed: 1.0, chatty: 0.2, resigner: false },
-  { nick: 'krot_v_dele', skill: 'easy', speed: 0.9, chatty: 0.6, resigner: true },
-  { nick: 'Timur_ka', skill: 'normal', speed: 0.7, chatty: 0.8, resigner: false },
-  { nick: 'ZaGadka', skill: 'hard', speed: 1.3, chatty: 0.1, resigner: true },
-  { nick: 'nixon77', skill: 'normal', speed: 1.0, chatty: 0.3, resigner: false },
-  { nick: 'belka_strelka', skill: 'easy', speed: 0.8, chatty: 0.7, resigner: true },
-  { nick: 'Grafit', skill: 'hard', speed: 1.1, chatty: 0.2, resigner: false },
-  { nick: 'MrPencil', skill: 'normal', speed: 0.9, chatty: 0.5, resigner: true },
-  { nick: 'ulitka_speed', skill: 'easy', speed: 1.4, chatty: 0.6, resigner: false },
-  { nick: 'Katya2006', skill: 'normal', speed: 0.8, chatty: 0.7, resigner: true },
-  { nick: 'prosto_igrok', skill: 'easy', speed: 1.0, chatty: 0.3, resigner: false },
-  { nick: 'FenixQQ', skill: 'ace', speed: 0.9, chatty: 0.5, resigner: false },
-  { nick: 'sm0ke', skill: 'hard', speed: 1.0, chatty: 0.4, resigner: true },
-  { nick: 'Vitalya', skill: 'normal', speed: 1.2, chatty: 0.6, resigner: false },
-  { nick: 'dobryak', skill: 'easy', speed: 1.1, chatty: 0.9, resigner: true },
-  { nick: 'Igrek', skill: 'normal', speed: 1.0, chatty: 0.2, resigner: false },
-  { nick: 'hodok', skill: 'hard', speed: 1.2, chatty: 0.3, resigner: true },
-  { nick: 'labirint_pro', skill: 'ace', speed: 1.1, chatty: 0.4, resigner: false },
-  { nick: 'Sergo_86', skill: 'normal', speed: 0.9, chatty: 0.5, resigner: true },
+/* ---------- who the bots are ----------
+
+   Forty-five names were not enough. At nine thousand players a day the same
+   handful came round again and again, and people notice: the giveaway is not
+   how a bot plays, it is meeting "stenka72" for the third time in an evening.
+
+   The first forty-five keep their names, because their records live in
+   bot_players and those are years of games. The rest are built from parts, at
+   boot, from a fixed seed — so the roster is identical on every restart and
+   each name keeps the history it earned. */
+const SEED_NICKS = [
+  'gisno', 'user729', 'Danya05', 'wall_e_', 'KiraM', 'foxy_wr', 'Marat_07',
+  'stenka72', 'Lexa', 'ZloyPingvin', 'miron4ik', 'TommyGun', 'sova_night',
+  'Arsen21', 'bublik', 'NeoFit', 'kvadrat', 'Rina_x', 'Shustrik', 'DedMaxim',
+  'tokyo_dr1ft', 'vint1k', 'MegaMozg', 'Olezha', 'sanya_krut', 'PolinaV',
+  'wallmaster', 'krot_v_dele', 'Timur_ka', 'ZaGadka', 'nixon77',
+  'belka_strelka', 'Grafit', 'MrPencil', 'ulitka_speed', 'Katya2006',
+  'prosto_igrok', 'FenixQQ', 'sm0ke', 'Vitalya', 'dobryak', 'Igrek', 'hodok',
+  'labirint_pro', 'Sergo_86',
 ];
+
+const NAMES = ['Artem', 'Dima', 'Sasha', 'Nikita', 'Egor', 'Ilya', 'Roma', 'Kolya',
+  'Vadim', 'Ruslan', 'Damir', 'Amir', 'Emir', 'Alina', 'Dasha', 'Masha', 'Sonya',
+  'Vika', 'Nastya', 'Karina', 'Zarina', 'Farid', 'Bekzod', 'Otabek', 'Javohir',
+  'Mehdi', 'Reza', 'Sina', 'Kaveh', 'Ali', 'Omar', 'Kerem', 'Emre', 'Baris',
+  'Deniz', 'Yusuf', 'Mert', 'Ozan', 'Pablo', 'Mateo', 'Lucia', 'Hugo', 'Leo',
+  'Max', 'Tim', 'Kirill', 'Stas', 'Zhenya', 'Misha', 'Petya', 'Vanya', 'Slava'];
+
+const WORDS = ['stenka', 'labirint', 'hodok', 'krot', 'sova', 'volk', 'lis', 'yozh',
+  'barsuk', 'sokol', 'bober', 'zubr', 'ryba', 'kotik', 'pingvin', 'medved',
+  'kamen', 'bloknot', 'karandash', 'kirpich', 'beton', 'granit', 'mramor',
+  'wall', 'maze', 'block', 'rush', 'dash', 'gate', 'pawn', 'rook', 'knight',
+  'shadow', 'ghost', 'storm', 'frost', 'ember', 'nova', 'pixel', 'turbo',
+  'quick', 'silent', 'lucky', 'clever', 'sneaky', 'tricky', 'iron', 'steel'];
+
+const ADJ = ['Zloy', 'Dobry', 'Bystry', 'Tihiy', 'Hitry', 'Umny', 'Smely', 'Mega',
+  'Super', 'Ultra', 'Neo', 'Old', 'Young', 'Dark', 'Light', 'Cold', 'Wild'];
+
+const TAIL = ['_wr', '_pro', '_x', '_ok', '_777', '_1', '_yt', 'ka', 'chik', 'ov'];
+
+// a small fixed-seed generator, so the same list comes out every boot
+function seeded(seed) {
+  let s = seed >>> 0;
+  return () => {
+    s = (s * 1664525 + 1013904223) >>> 0;
+    return s / 4294967296;
+  };
+}
+
+function buildRoster(target = 360) {
+  const rnd = seeded(20260910);
+  const pick = (a) => a[Math.floor(rnd() * a.length)];
+  const nicks = [...SEED_NICKS];
+  const taken = new Set(nicks.map(n => n.toLowerCase()));
+  let guard = 0;
+  while (nicks.length < target && guard++ < target * 40) {
+    const shape = Math.floor(rnd() * 7);
+    let n;
+    if (shape === 0) n = pick(NAMES) + (10 + Math.floor(rnd() * 90));
+    else if (shape === 1) n = pick(NAMES) + '_' + String(Math.floor(rnd() * 100)).padStart(2, '0');
+    else if (shape === 2) n = pick(WORDS) + Math.floor(rnd() * 100);
+    else if (shape === 3) n = pick(ADJ) + pick(WORDS).replace(/^./, c => c.toUpperCase());
+    else if (shape === 4) n = pick(WORDS) + '_' + pick(WORDS);
+    else if (shape === 5) n = pick(WORDS) + pick(TAIL);
+    else n = pick(NAMES).toLowerCase() + pick(TAIL);
+    if (n.length < 3 || n.length > 16) continue;
+    if (!/^[A-Za-z0-9_]+$/.test(n)) continue;
+    if (taken.has(n.toLowerCase())) continue;
+    taken.add(n.toLowerCase());
+    nicks.push(n);
+  }
+  const skills = ['easy', 'easy', 'normal', 'normal', 'normal', 'hard', 'hard', 'ace'];
+  return nicks.map((nick, i) => {
+    const r = seeded(20260910 + i * 7919);
+    return {
+      nick,
+      skill: skills[Math.floor(r() * skills.length)],
+      speed: 0.5 + r() * 1.0,
+      chatty: r(),
+      resigner: r() < 0.5,
+      /* ---- a life of their own ----
+         peak: the hour (Moscow) this one usually plays at, evenings favoured
+         width: how far either side of it they still turn up
+         dayOff: a weekday they mostly skip, the way people do          */
+      peak: [9, 12, 14, 16, 18, 19, 20, 20, 21, 21, 22, 23, 1][Math.floor(r() * 13)],
+      width: 2 + Math.floor(r() * 5),
+      dayOff: Math.floor(r() * 7),
+    };
+  });
+}
+
+const ROSTER = buildRoster();
 
 // Bots are supposed to feel like real people: competent racers, never wandering.
 // Even the "easy" personas play at least the normal level, so nobody looks dumb.
@@ -108,6 +153,9 @@ function makeBot(p) {
     thinkTimer: null,
     leaveTimer: null,
     openDeadline: 0,
+    awakeUntil: 0,     // this persona's own evening
+    sleepUntil: 0,
+    stuckSince: 0,     // how long they have been sitting in a room doing nothing
   };
   bot.ws = {
     readyState: 1,
@@ -341,11 +389,97 @@ function doMove(bot) {
   api.handleMove(bot, { move });
 }
 
+/* ---------- a day in the life ----------
+
+   Everybody being available every hour is the thing that reads as fake. Real
+   people have an evening they play in, a day of the week they skip, and they
+   go away for hours at a time.
+
+   So each persona has an hour of its own and turns up around it. Once awake it
+   stays for a session and then leaves for a while — which is also what stops
+   the same three names coming round all evening.
+
+   The floor is the exception to realism, and it is deliberate: at four in the
+   morning a player who finds an empty lobby does not come back at noon to
+   check again. */
+const MIN_AWAKE = 8;
+const mskHour = (now) => (new Date(now).getUTCHours() + 3) % 24;
+const mskDay = (now) => new Date(now + 3 * 3600e3).getUTCDay();
+const hourGap = (a, b) => { const d = Math.abs(a - b) % 24; return Math.min(d, 24 - d); };
+
+function wakeChance(bot, now) {
+  const gap = hourGap(mskHour(now), bot.p.peak);
+  if (mskDay(now) === bot.p.dayOff) return gap <= 1 ? 0.10 : 0.015;
+  if (gap <= bot.p.width / 2) return 0.55;
+  if (gap <= bot.p.width) return 0.20;
+  return 0.03;
+}
+
+function livesTick(now = Date.now()) {
+  let awake = 0;
+  for (const b of bots) {
+    if (b.awakeUntil > now) { awake++; continue; }
+    if (b.sleepUntil > now) continue;
+    if (Math.random() < wakeChance(b, now)) {
+      b.awakeUntil = now + 15 * 60_000 + Math.random() * 60 * 60_000;   // a sitting of 15–75 min
+      b.sleepUntil = 0;
+      awake++;
+    } else {
+      b.sleepUntil = now + 20 * 60_000 + Math.random() * 100 * 60_000;  // away for 20 min – 2 h
+    }
+  }
+  if (awake < MIN_AWAKE) {
+    const asleep = bots.filter(b => b.awakeUntil <= now)
+      .sort((x, y) => hourGap(mskHour(now), x.p.peak) - hourGap(mskHour(now), y.p.peak));
+    for (const b of asleep.slice(0, MIN_AWAKE - awake)) {
+      b.awakeUntil = now + 20 * 60_000 + Math.random() * 40 * 60_000;
+      b.sleepUntil = 0;
+    }
+  }
+}
+const isAwake = (b, now) => b.awakeUntil > now;
+function awakeCount(now = Date.now()) { return bots.reduce((n, b) => n + (isAwake(b, now) ? 1 : 0), 0); }
+
+/* Nobody is allowed to be stuck.
+
+   A bot that agreed to a rematch and whose opponent then closed the tab kept
+   its roomId for ever: the rematch answer clears the leave timer, so there was
+   nothing left to get it out, and the room could not be destroyed while the
+   bot still pointed at it. One at a time, quietly, until the whole roster was
+   "busy" and the lobby had no bots left in it at all. That is what happened.
+
+   Rather than patch that one path, every bot is checked on every tick: if the
+   room is gone, or it has been finished for a minute, or it has been waiting
+   to fill for four, the bot walks away like a person would. */
+function freeStuckBots(now) {
+  for (const b of bots) {
+    if (!b.roomId) { b.stuckSince = 0; continue; }
+    const room = api.rooms.get(b.roomId);
+    if (!room || room.players.indexOf(b) === -1) {
+      b.roomId = null;
+      clearBotTimers(b);
+      b.stuckSince = 0;
+      continue;
+    }
+    const patience = room.status === 'over' ? 60_000
+                   : room.status === 'open' ? 4 * 60_000
+                   : 0;                                   // a live game ends on its own
+    if (!patience) { b.stuckSince = 0; continue; }
+    if (!b.stuckSince) { b.stuckSince = now; continue; }
+    if (now - b.stuckSince > patience) {
+      b.stuckSince = 0;
+      clearBotTimers(b);
+      api.leaveRoom(b, false);
+    }
+  }
+}
+
 /* ---------- lobby life: rotating open rooms ---------- */
 let rotTarget = 2;
 function idleBots() { return bots.filter(b => !b.roomId); }
 function pickIdle() {
-  const free = idleBots();
+  const now = Date.now();
+  const free = bots.filter(b => !b.roomId && isAwake(b, now));
   return free.length ? free[Math.floor(Math.random() * free.length)] : null;
 }
 function botOpenRooms() {
@@ -359,6 +493,7 @@ function botGamesActive() {
 
 function rotationTick() {
   const now = Date.now();
+  freeStuckBots(now);
   // rooms that waited long enough disappear (the "player" went elsewhere)
   for (const room of botOpenRooms()) {
     const b = room.players[0];
@@ -472,14 +607,28 @@ export function botStatus() {
   } catch (e) {
     return { ready: true, reason: 'could not read rooms: ' + e.message };
   }
+  const now = Date.now();
   return {
     ready: true,
     total: bots.length,
-    idle: idleBots().length,
+    awake: awakeCount(now),
+    idle: bots.filter(b => !b.roomId && isAwake(b, now)).length,
     busy: bots.filter(b => b.roomId).length,
     openRooms,
     playing,
     fakeOnline: fakeCount,
+    // counts, never names: /healthz is public, and a list of which nicknames
+    // are ours would hand away the one thing the bots depend on
+    inRooms: (() => {
+      const by = { gone: 0, open: 0, playing: 0, over: 0 };
+      for (const b of bots) {
+        if (!b.roomId) continue;
+        const r = api.rooms.get(b.roomId);
+        by[r ? r.status : 'gone'] = (by[r ? r.status : 'gone'] || 0) + 1;
+      }
+      return by;
+    })(),
+    waitingTooLong: bots.filter(b => b.stuckSince && Date.now() - b.stuckSince > 120_000).length,
     lastError: lastRotationError,
     ticks: rotationTicks,
     gamesSinceBoot: botGamesFinished,
@@ -523,6 +672,10 @@ export function initBots(hooks) {
   setTimeout(() => guard('bot-growth', growthTick), 10 * 60 * 1000); // first pass shortly after boot
   setInterval(() => guard('bot-growth', growthTick), 60 * 60 * 1000);
 
+  livesTick();                       // some are already at the table when we start
+  setInterval(() => {
+    try { livesTick(); } catch (e) { console.error('[bot-lives]', e && e.stack ? e.stack : e); }
+  }, 60_000);
   refreshFake();
   retarget();
   setInterval(() => {
@@ -533,5 +686,5 @@ export function initBots(hooks) {
       console.error('[lobby-rotation]', e && e.stack ? e.stack : e);
     }
   }, 4500);
-  console.log(`bots: ${bots.length} personas online`);
+  console.log(`bots: ${bots.length} personas, ${awakeCount()} of them about right now`);
 }

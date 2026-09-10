@@ -411,10 +411,15 @@ export async function leaderboard(limit = 50) {
 export async function seedBots(nicks) {
   if (!dbEnabled) return;
   try {
+    // Points come with the record, or three hundred new names all arrive as
+    // Rookies on zero and the lobby is suddenly full of obvious newcomers who
+    // play like veterans. Existing rows are left alone (ignoreDuplicates), so
+    // the originals keep the history they actually earned.
     const rows = nicks.map((nick) => {
       const games = 5 + Math.floor(Math.random() * 60);
       const wins = Math.floor(games * (0.25 + Math.random() * 0.5));
-      return { nick, wins, losses: games - wins };
+      const losses = games - wins;
+      return { nick, wins, losses, points: Math.max(0, wins * 25 - losses * 10) };
     });
     await supa.from('bot_players').upsert(rows, { onConflict: 'nick', ignoreDuplicates: true });
   } catch (e) {
