@@ -12,11 +12,20 @@ import { localDay } from '../public/js/streak.js';
 import { taskForDay } from '../public/js/daily.js';
 import { packById } from '../public/js/packs.js';
 import { initPush, pushPublicKey, saveSub, dropSub, pushTick } from './push.js';
+import { mountPages } from './pages.js';
 import { dbEnabled, dbStatus, dbDetail, cleanEnv, likeEscape, supa, verifyUser, getProfile, createProfile, claimGuestProgress, leaderboard, clearNickNotice, restoreStreak, deleteAccount } from './db.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
 app.use(express.json());
+
+/* Pages a search engine can read: the Russian landing page, the rules, help,
+   terms and privacy at addresses of their own, the sitemap, and "/" itself —
+   which is why this goes in front of the static middleware and not after it.
+   The home page is still the file in public/, handed over with the live rating
+   written into it. If anything in there throws, the request falls through to
+   express.static and the game is served exactly as before. */
+mountPages(app, { reviewStats: () => reviewStats() });
 // no-cache: browsers must revalidate every file, so deploys show up immediately
 // (ETag still gives cheap 304 responses when nothing changed)
 app.use(express.static(path.join(__dirname, '../public'), {
@@ -693,6 +702,7 @@ app.get('/reviews', async (req, res) => {
   ${cards}
   <footer>
     Ratings are left inside the game after a match, by the players themselves — an account or ten matches played. Good and bad are both here, unedited; where we have answered, the answer is under the review.<br>
+    <a href="/">Play</a> · <a href="/rules">Rules</a> · <a href="/help">Help</a> · <a href="/ru">Русский</a><br>
     Contact: <a href="https://t.me/Karoboev">@Karoboev</a> · <a href="mailto:ads@wallrush.online">ads@wallrush.online</a>
   </footer>
 </div>

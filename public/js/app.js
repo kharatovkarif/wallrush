@@ -1,16 +1,16 @@
 // WallRush client app: screens, board UI, online play (WebSocket), AI mode, auth.
-import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, wallBetween, N } from './engine.js?v=151';
-import { aiMove } from './ai.js?v=151';
-import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=151';
-import { PACKS } from './packs.js?v=151';
-import { rankOf, nextRank } from './ranks.js?v=151';
-import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=151';
-import { checkNick, nickOk, randomNick } from './nick.js?v=151';
+import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, wallBetween, N } from './engine.js?v=152';
+import { aiMove } from './ai.js?v=152';
+import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=152';
+import { PACKS } from './packs.js?v=152';
+import { rankOf, nextRank } from './ranks.js?v=152';
+import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=152';
+import { checkNick, nickOk, randomNick } from './nick.js?v=152';
 import {
   embedded, initPortal, inPortal, portalAd, portalPlaying, portalHappy,
   portalLoaded, portalInviteCode, portalShowInvite, portalHideInvite, portalInstant,
   portalRoom, portalOnJoin, portalInviteLink, portalMuted, portalOnMute, portalUserName,
-} from './portal.js?v=151';
+} from './portal.js?v=152';
 
 /* ================= state ================= */
 const $ = (id) => document.getElementById(id);
@@ -285,7 +285,7 @@ function getAiWorker() {
   if (aiWorker === false) return null;
   if (!aiWorker) {
     try {
-      aiWorker = new Worker('js/ai-worker.js?v=151', { type: 'module' });
+      aiWorker = new Worker('js/ai-worker.js?v=152', { type: 'module' });
       aiWorker.onmessage = (e) => {
         const cb = aiPending.get(e.data.id);
         aiPending.delete(e.data.id);
@@ -3399,6 +3399,10 @@ $('btn-rate-close').addEventListener('click', () => {
 });
 
 $('btn-open-reviews').addEventListener('click', () => show('screen-reviews'));
+// Filled in by the server, so it only exists on a page the server built; the
+// href is the crawler's route to /reviews and the tap is the player's route to
+// the same reviews without leaving the game.
+$('rating-pill')?.addEventListener('click', (e) => { e.preventDefault(); show('screen-reviews'); });
 $('rv-back').addEventListener('click', () => show('screen-profile'));
 $('btn-leave-review').addEventListener('click', () => openRate(true));
 
@@ -3776,7 +3780,11 @@ function renderDoc(target, text) {
 }
 
 document.querySelectorAll('.legal-links a[data-legal]').forEach(a =>
-  a.addEventListener('click', () => {
+  a.addEventListener('click', (e) => {
+    // the href points at the page version of this document, which is there for
+    // crawlers and for anyone who lands on it from a search — a player who is
+    // already in the game gets the dialog instead
+    e.preventDefault();
     const p = a.dataset.legal; // rules | help | terms | privacy
     $('legal-title').textContent = t(p + '_title');
     renderDoc($('legal-text'), t(p + '_body'));

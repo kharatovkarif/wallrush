@@ -1,4 +1,7 @@
-# Everything is one page, and all of it is meant to be found.
+# The game is at /, and the rules, help, terms, privacy and the Russian page
+# for the game are at addresses of their own. All of it is meant to be found.
+# The sitemap below is written by the server, not kept as a file, so a page
+# cannot be added without its address appearing in it.
 User-agent: *
 Allow: /
 

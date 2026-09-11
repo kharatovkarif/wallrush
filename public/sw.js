@@ -1,7 +1,7 @@
 // WallRush service worker: caches the app shell so the game opens instantly
 // and the AI mode keeps working offline. Pages go network-first (fresh
 // deploys land right away), versioned assets go cache-first.
-const V = '151';
+const V = '152';
 const CACHE = 'wr-' + V;
 const SHELL = [
   '/',
@@ -52,13 +52,21 @@ self.addEventListener('fetch', (e) => {
   if (url.origin !== location.origin) return;
   if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/ws') || url.pathname.startsWith('/admin')) return;
 
+  /* The app lives at "/" and is the only page worth having offline. There are
+     other pages on this origin now — /ru, /rules, /reviews and the rest — and
+     they are read online. They must never be written into the "/" slot: a
+     player who once opened the rules from a search result would afterwards
+     find the rules there instead of the game. */
   if (req.mode === 'navigate') {
+    const isApp = url.pathname === '/' || url.pathname === '/index.html';
     e.respondWith(
       fetch(req).then((r) => {
-        const copy = r.clone();
-        caches.open(CACHE).then((c) => c.put('/', copy));
+        if (isApp && r.ok) {
+          const copy = r.clone();
+          caches.open(CACHE).then((c) => c.put('/', copy));
+        }
         return r;
-      }).catch(() => caches.match('/'))
+      }).catch(() => caches.match(isApp ? '/' : req))
     );
     return;
   }

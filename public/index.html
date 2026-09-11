@@ -16,8 +16,8 @@
        In English on purpose. There is one indexable page behind six languages,
        and English reaches the widest search audience; the game itself still
        opens in whatever language the visitor's browser asks for. -->
-  <title>WallRush — Play Quoridor Online Free, 1v1 Strategy Game</title>
-  <meta name="description" content="Play WallRush free in your browser — a 1v1 Quoridor strategy duel. Race your pawn to the far side of a 9×9 board, or wall your rival off. Against real people online, a friend by room code, or the AI. No download, no signup.">
+  <title>WallRush — Play Quoridor Online Free, 2 or 4 Players</title>
+  <meta name="description" content="Play WallRush free in your browser — Quoridor online, one on one or four at a table. Race your pawn to the far side of the board, or wall your rival off. Against real people, a friend by room code, or the AI. No download, no signup.">
   <link rel="canonical" href="https://wallrush.online/">
 
   <!-- The card a messenger draws when the link is shared. Without these, a
@@ -26,18 +26,22 @@
   <meta property="og:site_name" content="WallRush">
   <meta property="og:url" content="https://wallrush.online/">
   <meta property="og:title" content="WallRush — Play Quoridor Online Free">
-  <meta property="og:description" content="A 1v1 strategy duel in your browser. Race to the far side of the board, or wall your rival off. Against real players, a friend, or the AI — no signup.">
+  <meta property="og:description" content="Quoridor in your browser, two players or four. Race to the far side of the board, or wall your rival off. Against real players, a friend, or the AI — no signup.">
   <meta property="og:image" content="https://wallrush.online/icons/icon-512.png">
   <meta property="og:image:width" content="512">
   <meta property="og:image:height" content="512">
   <meta name="twitter:card" content="summary">
   <meta name="twitter:title" content="WallRush — Play Quoridor Online Free">
-  <meta name="twitter:description" content="A 1v1 strategy duel in your browser. Race to the far side of the board, or wall your rival off. No signup.">
+  <meta name="twitter:description" content="Quoridor in your browser, two players or four. Race to the far side of the board, or wall your rival off. No signup.">
   <meta name="twitter:image" content="https://wallrush.online/icons/icon-512.png">
 
-  <!-- One page serves every language, so each alternate points back to it. -->
+  <!-- Russian has a page of its own at /ru, written rather than translated:
+       the search words there ("кворидор", "игра со стенками") exist in no
+       English file, and the game is half Russian-speaking. The four languages
+       without a page of their own still point here, which is where the app
+       greets them in their language. -->
   <link rel="alternate" hreflang="en" href="https://wallrush.online/">
-  <link rel="alternate" hreflang="ru" href="https://wallrush.online/">
+  <link rel="alternate" hreflang="ru" href="https://wallrush.online/ru">
   <link rel="alternate" hreflang="fa" href="https://wallrush.online/">
   <link rel="alternate" hreflang="tr" href="https://wallrush.online/">
   <link rel="alternate" hreflang="fr" href="https://wallrush.online/">
@@ -45,20 +49,27 @@
   <link rel="alternate" hreflang="x-default" href="https://wallrush.online/">
 
   <!-- Structured data: what a search engine, and an assistant reading through
-       one, uses to say what this thing actually is. -->
+       one, uses to say what this thing actually is.
+
+       The rating is not written here. server/pages.js serves this file and
+       inserts an aggregateRating built from the reviews in the database,
+       straight after the "@type" line below — the same figure it puts in the
+       pill on the first screen, because a rating a visitor cannot see is a
+       rating Google is right to ignore. Move that line and the insertion stops
+       happening; the page stays valid, it just loses its stars. -->
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
     "@type": "VideoGame",
     "name": "WallRush",
-    "alternateName": "Wall Rush",
+    "alternateName": ["Wall Rush", "Quoridor", "Кворидор"],
     "url": "https://wallrush.online/",
     "image": "https://wallrush.online/icons/icon-512.png",
-    "description": "A free 1v1 Quoridor-style strategy game played in the browser. Move your pawn to the opposite side of a 9×9 board before your opponent does, using a limited supply of walls to block their path. Play against real people online, against a friend by room code, or against an AI opponent.",
+    "description": "A free Quoridor-style strategy game played in the browser, for two players or four. Move your pawn to the opposite side of a 9×9 board before your opponent does, using a limited supply of walls to block their path — or sit down at the 11×11 table where four players race for the golden cell in the centre. Play against real people online, against a friend by room code, or against an AI opponent.",
     "genre": ["Strategy", "Board Game", "Puzzle"],
     "gamePlatform": ["Web browser", "Android", "iOS"],
     "playMode": ["MultiPlayer", "SinglePlayer"],
-    "numberOfPlayers": { "@type": "QuantitativeValue", "minValue": 1, "maxValue": 2 },
+    "numberOfPlayers": { "@type": "QuantitativeValue", "minValue": 1, "maxValue": 4 },
     "applicationCategory": "GameApplication",
     "operatingSystem": "Any",
     "inLanguage": ["en", "ru", "fa", "tr", "fr", "es"],
@@ -72,7 +83,7 @@
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
   <!-- Opens the connection to the ad host early. Costs one handshake and no
        download, and takes that handshake off the wait once Support is tapped. -->
-  <link rel="stylesheet" href="css/style.css?v=151">
+  <link rel="stylesheet" href="css/style.css?v=152">
   <!-- Are we inside somebody else's page? Every game portal forbids running
        your own ads inside theirs, and the ad scripts below start the moment
        the parser reaches them — long before any module could stop one. So the
@@ -118,6 +129,14 @@
           <button class="streak-pill" id="streak-pill" hidden>
             <span class="flame fl-1" id="streak-flame">🔥</span><b id="streak-count">0</b>
           </button>
+          <!-- The rating of the game, next to the number of people in it. Two
+               reasons it sits here rather than only on the reviews screen: 843
+               players at 4.6 is the best argument the first screen has, and
+               Google prints stars in its results only for a rating the page
+               itself shows. Written in by server/pages.js — left empty and
+               hidden here, so the file alone is still a working page. A tap
+               opens the reviews inside the game; the href is for crawlers. -->
+          <a class="rating-pill" id="rating-pill" href="/reviews" hidden></a>
         </div>
       </header>
 
@@ -186,11 +205,15 @@
             <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#fff" d="M22 8.2a3 3 0 0 0-2.1-2.1C18 5.5 12 5.5 12 5.5s-6 0-7.9.6A3 3 0 0 0 2 8.2 31 31 0 0 0 1.7 12 31 31 0 0 0 2 15.8a3 3 0 0 0 2.1 2.1c1.9.6 7.9.6 7.9.6s6 0 7.9-.6a3 3 0 0 0 2.1-2.1A31 31 0 0 0 22.3 12 31 31 0 0 0 22 8.2zM10 15V9l5.2 3z"/></svg>
           </a>
         </div>
+        <!-- Each of these is also a page of its own now (/rules, /help,
+             /terms, /privacy, and the Russian set behind them), so the href is
+             real and a crawler can follow it. A player never leaves: the click
+             handler opens the same dialog it always did. -->
         <nav class="legal-links">
-          <a data-legal="rules" data-i18n="legal_rules">Rules</a><span>·</span>
-          <a data-legal="help" data-i18n="legal_help">Help</a><span>·</span>
-          <a data-legal="terms" data-i18n="legal_terms">Terms</a><span>·</span>
-          <a data-legal="privacy" data-i18n="legal_privacy">Privacy</a>
+          <a href="/rules" data-legal="rules" data-i18n="legal_rules">Rules</a><span>·</span>
+          <a href="/help" data-legal="help" data-i18n="legal_help">Help</a><span>·</span>
+          <a href="/terms" data-legal="terms" data-i18n="legal_terms">Terms</a><span>·</span>
+          <a href="/privacy" data-legal="privacy" data-i18n="legal_privacy">Privacy</a>
         </nav>
       </div>
 
@@ -1058,7 +1081,7 @@
     <div id="toast" hidden></div>
   </div>
 
-  <script src="vendor/supabase.js?v=151" defer></script>
-  <script type="module" src="js/app.js?v=151"></script>
+  <script src="vendor/supabase.js?v=152" defer></script>
+  <script type="module" src="js/app.js?v=152"></script>
 </body>
 </html>

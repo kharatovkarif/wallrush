@@ -814,6 +814,20 @@ a.btn-big { text-decoration: none; display: block; }
 .streak-pill, .flame-btn {
   border: none; font: inherit; color: inherit; cursor: pointer;
 }
+/* The rating, in the same row as the people-online count and the flame. Built
+   to the shape of its neighbours so it reads as one of them rather than as a
+   badge somebody stuck on: same pill, same shadow, gold star and nothing else
+   coloured. */
+.rating-pill {
+  display: inline-flex; align-items: baseline; gap: 5px; margin-top: 12px;
+  background: var(--card); border-radius: 999px; padding: 7px 14px;
+  font-size: 14px; box-shadow: var(--shadow);
+  color: inherit; text-decoration: none;
+}
+.rating-pill .rp-star { color: #ffc531; font-size: 13px; }
+.rating-pill b { font-weight: 600; }
+.rating-pill small { color: var(--muted); font-size: 12px; }
+.rating-pill:active { transform: scale(.95); }
 .flame-btn { background: none; padding: 0; line-height: 1; }
 .streak-pill:active, .flame-btn:active { transform: scale(.95); }
 .streak-pill.broken { box-shadow: var(--shadow), 0 0 0 2px rgba(47, 109, 246, .35); }
@@ -1039,7 +1053,8 @@ html[data-theme="dark"] .opt-or::before, html[data-theme="dark"] .opt-or::after 
 html[data-theme="dark"] .legal-text h3 { border-bottom-color: #2c3349; }
 html[data-theme="dark"] .rank-card,
 html[data-theme="dark"] .streak-card { background: #232841; }
-html[data-theme="dark"] .streak-pill { background: #1c2033; }
+html[data-theme="dark"] .streak-pill,
+html[data-theme="dark"] .rating-pill { background: #1c2033; }
 html[data-theme="dark"] .streak-line.milestone { color: var(--violet2); }
 html[data-theme="dark"] .rank-bar { background: #12141f; }
 html[data-theme="dark"] .veteran-badge { color: #ffd76a; }
