@@ -850,6 +850,9 @@ const ADMIN_CSS = `
   .live-strip .ls-main { font-size: 13.5px; }
   .live-strip .ls-main b { font-size: 17px; margin-right: 3px; }
   .live-strip .ls-sub { font-size: 11.5px; color: var(--faint); flex-basis: 100%; margin: -4px 0 0 17px; }
+  .live-strip.bad { border-color: #e05263; background: rgba(224, 82, 99, .10); }
+  .live-strip.bad .dot { background: #e05263; }
+  .live-strip .ls-warn { font-size: 12px; color: #ff8a96; flex-basis: 100%; margin: 2px 0 0 17px; font-weight: 600; }
   @keyframes lpulse { 50% { opacity: .35; } }
   .cmp-note { font-size: 11.5px; line-height: 1.5; color: #7c86a6; background: #15182a; border: 1px solid var(--line);
               border-radius: 11px; padding: 8px 12px; margin: 0 0 10px; }
@@ -976,6 +979,43 @@ const NAV_ITEMS = [
   ['reviews', '⭐', 'Отзывы'],
   ['ads', '📣', 'Реклама'],
 ];
+/* Живы ли боты — так, чтобы это было видно сразу, а не пришлось искать.
+
+   Они существуют внутри процесса и не оставляют следов, пока их партия не
+   закончится, поэтому «ботов нет» и «боты есть, просто не нужны» снаружи
+   выглядят одинаково. Один раз это уже стоило суток на выяснение самого
+   факта. Теперь полоска краснеет и говорит, что именно не так. */
+const botStrip = () => {
+  // A fault here must never take the dashboard down with it: this is the
+  // widget that exists to report trouble, not to cause it.
+  try { return renderBotStrip(); }
+  catch (e) { return `<div class="live-strip bad"><span class="dot"></span>
+    <span class="ls-main"><b>Не удалось прочитать состояние ботов</b></span>
+    <span class="ls-warn">${esc(String(e && e.message || e))}</span></div>`; }
+};
+
+const renderBotStrip = () => {
+  const b = botStatus();
+  const up = process.uptime();
+  if (!b.ready) {
+    return `<div class="live-strip bad"><span class="dot"></span>
+      <span class="ls-main"><b>Боты не запустились</b></span>
+      <span class="ls-warn">${esc(b.reason || 'причина неизвестна')}</span></div>`;
+  }
+  const trouble = b.lastError ? `сбой в лобби: ${esc(b.lastError)}`
+    : b.awake === 0 ? 'ни одного за столом'
+    : b.idle === 0 ? 'все заняты — свободных нет, новых партий не будет'
+    : (up > 900 && b.gamesSinceBoot === 0) ? 'ни одной партии за всё время работы'
+    : b.waitingTooLong > 5 ? `${b.waitingTooLong} застряли в комнатах` : '';
+  const inRooms = b.inRooms || {};
+  return `<div class="live-strip ${trouble ? 'bad' : ''}">
+  <span class="dot"></span>
+  <span class="ls-main">🤖 <b>${b.awake}</b> ботов сейчас за столом, всего ${b.total}</span>
+  <span class="ls-sub">свободных ${b.idle} · играют ${inRooms.playing || 0} · ждут в комнатах ${inRooms.open || 0} · партий с запуска ${b.gamesSinceBoot} · работает ${Math.round(up / 60)} мин</span>
+  ${trouble ? `<span class="ls-warn">⚠️ ${trouble}</span>` : ''}
+</div>`;
+};
+
 const bottomNav = (active) => `<nav class="adm-nav">${NAV_ITEMS.map(([id, ic, label]) =>
   `<a class="an-btn ${active === id ? 'on' : ''}" href="/admin?key=${ADMIN_KEY}&view=${id}"><span class="an-ic">${ic}</span>${label}</a>`
 ).join('')}</nav>`;
@@ -1861,6 +1901,7 @@ ${blocks.join('') || '<p class="note">Подневная история пише
   <span class="ls-main"><b>${num(realOnline())}</b> реально на сайте</span>
   <span class="ls-sub">на витрине «онлайн ${num(realOnline() + fakeOnline())}»</span>
 </div>
+${botStrip()}
 <div class="tabs">${pTab('today', 'Сегодня')}${pTab('yesterday', 'Вчера')}${pTab('week', '7 дней')}${pTab('month', '30 дней')}</div>
 <p class="cmp-note">${short
       ? `📅 ${esc(range.label)} · сравнивать не с чем — статистика ведётся с ${dataStart ? mskDdMm(dataStart) : '—'}`
