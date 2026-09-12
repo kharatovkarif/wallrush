@@ -16,8 +16,31 @@ import { initBots, fakeOnline, notifyUserWaiting, fillQuadRoom, noteBotGame } fr
 import crypto from 'crypto';
 
 const BANK_MS = 300_000;      // 5:00 per player per game
-const MOVE_MS = 30_000;       // max per move
-const GRACE_MS = 30_000;      // reconnect window
+let MOVE_MS = 30_000;         // max per move
+let GRACE_MS = 30_000;        // reconnect window, one drop
+/* And the total of those windows one player may spend in one game.
+
+   The window exists for a phone that loses signal, and it has to stay. But
+   until now every drop bought a brand new one, so a player about to lose
+   could disconnect at the twenty-ninth second, come straight back, and be
+   handed another thirty — for ever. Reported by a player, reproduced here,
+   and exactly as bad as it sounds: the game could be frozen indefinitely by
+   someone who did not want to lose it.
+
+   A minute is a generous allowance because of how the two cases differ. An
+   honest reconnect takes two to five seconds, so a minute is a dozen drops or
+   more. Stalling costs twenty-nine seconds a time, so it buys two. */
+let GRACE_BUDGET_MS = 60_000;
+
+/* These three are `let` for one reason: the test suite cannot sit through
+   thirty-second windows, and the rules around them are exactly what needs
+   proving. Nothing in the running server calls this — grep says the only
+   caller is test/clock.mjs. */
+export function _setClocksForTest(next = {}) {
+  if (next.moveMs) MOVE_MS = next.moveMs;
+  if (next.graceMs) GRACE_MS = next.graceMs;
+  if (next.budgetMs) GRACE_BUDGET_MS = next.budgetMs;
+}
 
 // The four-handed table. Everything about it is fixed: an 11x11 board, four
 // seats, seven walls each, the same clock as everywhere else. There is nothing
@@ -147,11 +170,23 @@ function clockPayload(room) {
     bank: room.bank,
     turn: room.state.turn,
     moveLimit: MOVE_MS,
+    // How much of this move was already spent before a pause. The screen has
+    // to subtract it, or a player who dropped on their own move would watch a
+    // full thirty seconds count down while the server allows them what is
+    // actually left.
+    moveSpent: room.moveSpent || 0,
     turnStarted: room.turnStarted,
     serverNow: Date.now(),
     noTime: Boolean(room.noTime), // no bank — only the 30s per-move rule
     paused: Boolean(room.paused), // waiting for a disconnected opponent
   };
+}
+
+// A new turn, as opposed to the same turn picked back up after a pause. The
+// difference is the whole of the fix below, so it gets a name.
+function beginTurn(room) {
+  room.turnStarted = Date.now();
+  room.moveSpent = 0;
 }
 
 // The clock must not run down the player who stayed. The reconnect window and
@@ -163,11 +198,21 @@ function clockPayload(room) {
 // Time already spent on this turn is charged to the bank first, so dropping
 // the connection cannot win a move back for free. The turn then restarts, so
 // whoever is on move gets a whole one once both are present again.
-function pauseClock(room) {
+function pauseClock(room, byIdx) {
   if (room.status !== 'playing' || room.paused) return;
   clearTimeout(room.moveTimer);
   const p = room.state.turn;
-  room.bank[p] = Math.max(0, room.bank[p] - (Date.now() - room.turnStarted));
+  const spent = Date.now() - room.turnStarted;
+  room.bank[p] = Math.max(0, room.bank[p] - spent);
+  /* Whose drop stopped the clock decides what the move is worth afterwards.
+
+     Somebody else dropped: the player on move was interrupted through no
+     fault of their own and gets a whole move back, as before.
+
+     The player on move dropped: their own move carries on from where they
+     left it. Anything else hands a fresh thirty seconds to whoever pulls the
+     plug, which is the trick this is here to stop. */
+  room.moveSpent = byIdx === p ? Math.min(MOVE_MS, (room.moveSpent || 0) + spent) : 0;
   room.turnStarted = Date.now();   // a move made while paused is charged from here
   room.paused = true;
 }
@@ -229,7 +274,9 @@ function startGame(room) {
   room.moves = 0;
   room.out = {};            // seat -> why they are no longer playing
   room.rematch = new Array(n).fill(false);
-  room.turnStarted = Date.now();
+  // A fresh game, so everyone's allowance for being away starts full again.
+  for (const pl of room.players) { pl.graceUsed = 0; pl.graceStart = 0; }
+  beginTurn(room);
   armMoveTimer(room);
   room.players.forEach((pl, i) => send(pl, startMsg(room, i)));
   broadcastLobby();
@@ -256,7 +303,8 @@ export const moveGrace = (rtt) =>
 function armMoveTimer(room) {
   clearTimeout(room.moveTimer);
   const p = room.state.turn;
-  const ms = Math.min(MOVE_MS, room.bank[p]);
+  const left = Math.max(0, MOVE_MS - (room.moveSpent || 0));
+  const ms = Math.min(left, room.bank[p]);
   const grace = moveGrace(room.players[p]?.rtt);
   room.moveTimer = setTimeout(() => guard('move-timeout', () => {
     const reason = room.bank[p] <= MOVE_MS ? 'timeout' : 'move_timeout';
@@ -286,7 +334,7 @@ function knockOut(room, idx, reason) {
     guard('finish', () => finish(room, room.state.winner, 'last_standing'));
     return;
   }
-  room.turnStarted = Date.now();
+  beginTurn(room);
   if (!room.paused) armMoveTimer(room);
   for (const pl of room.players) tell(room, pl, stateMsg(room));
 }
@@ -681,6 +729,12 @@ async function handleHello(client, msg) {
       client.streakBest = old.streakBest ?? client.streakBest;
       client.tzOffset = old.tzOffset ?? client.tzOffset;
       client.rtt = old.rtt || client.rtt;   // their connection did not change
+    // Time spent away is charged to their allowance for this game, and the
+    // allowance itself travels with them — the reconnect is a new socket, so
+    // anything left on the old object is lost unless it is carried across.
+    client.graceUsed = (old.graceUsed || 0)
+      + (old.graceStart ? Math.min(GRACE_BUDGET_MS, Date.now() - old.graceStart) : 0);
+    client.graceStart = 0;
       byToken.set(client.token, client);
       clients.delete(old.ws);
       const room = rooms.get(client.roomId);
@@ -755,7 +809,7 @@ function handleMove(client, msg) {
     guard('finish', () => finish(room, room.state.winner, 'goal'));
     return;
   }
-  room.turnStarted = Date.now();
+  beginTurn(room);
   // While the room is paused nobody is waiting on the other side, so the
   // 30s move limit must not start running against a player who is not there
   // to see the move. resumeClock() arms it when they are back.
@@ -1069,14 +1123,30 @@ export function attachWs(wss) {
       if (!room) { if (client.token) byToken.delete(client.token); return; }
       const idx = room.players.indexOf(client);
       if (room.status === 'playing' && idx !== -1) {
-        // give them GRACE_MS to reconnect (token survives in byToken).
+        /* A window to reconnect in (the token survives in byToken), drawn from
+           what is left of this player's allowance for the whole game. Spend
+           the allowance and a drop is simply the end of the game for them —
+           which is the honest reading by then, since a minute of it is a
+           dozen ordinary reconnects or two deliberate stalls. */
+        // One window at a time, and never more of it than the allowance has
+        // left. Taking only the second of those would hand a player who has
+        // dropped nothing a window the size of the whole allowance.
+        const left = Math.min(GRACE_MS, Math.max(0, GRACE_BUDGET_MS - (client.graceUsed || 0)));
+        if (left <= 0) {
+          byToken.delete(client.token);
+          if (isQuad(room)) knockOut(room, idx, 'left');
+          else finish(room, 1 - idx, 'opponent_left');
+          if (room.players.every(p => clients.get(p.ws) !== p)) destroyRoom(room);
+          return;
+        }
+        client.graceStart = Date.now();   // what the return trip is charged from
         // A duel has nothing to do but wait. At a table of four the game only
         // stops if the missing player is the one on move — freezing three
         // people because a fourth, who was not even on turn, dropped their
         // connection is how a room empties.
-        if (!isQuad(room) || room.state?.turn === idx) pauseClock(room);
+        if (!isQuad(room) || room.state?.turn === idx) pauseClock(room, idx);
         for (const o of others(room, idx)) {
-          tell(room, o, { t: 'opp_disconnected', room: room.id, seat: idx, nick: client.nick, grace: GRACE_MS, clocks: clockPayload(room) });
+          tell(room, o, { t: 'opp_disconnected', room: room.id, seat: idx, nick: client.nick, grace: left, clocks: clockPayload(room) });
         }
         client.graceTimer = setTimeout(() => guard('grace-expired', () => {
           byToken.delete(client.token);
@@ -1085,7 +1155,7 @@ export function attachWs(wss) {
             else finish(room, 1 - idx, 'opponent_left');
           }
           if (room.players.every(p => clients.get(p.ws) !== p)) destroyRoom(room);
-        }), GRACE_MS);
+        }), left);
       } else {
         if (client.token) byToken.delete(client.token);
         leaveRoom(client, true);

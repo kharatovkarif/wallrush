@@ -1,16 +1,16 @@
 // WallRush client app: screens, board UI, online play (WebSocket), AI mode, auth.
-import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, wallBetween, N } from './engine.js?v=152';
-import { aiMove } from './ai.js?v=152';
-import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=152';
-import { PACKS } from './packs.js?v=152';
-import { rankOf, nextRank } from './ranks.js?v=152';
-import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=152';
-import { checkNick, nickOk, randomNick } from './nick.js?v=152';
+import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, wallBetween, N } from './engine.js?v=153';
+import { aiMove } from './ai.js?v=153';
+import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=153';
+import { PACKS } from './packs.js?v=153';
+import { rankOf, nextRank } from './ranks.js?v=153';
+import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=153';
+import { checkNick, nickOk, randomNick } from './nick.js?v=153';
 import {
   embedded, initPortal, inPortal, portalAd, portalPlaying, portalHappy,
   portalLoaded, portalInviteCode, portalShowInvite, portalHideInvite, portalInstant,
   portalRoom, portalOnJoin, portalInviteLink, portalMuted, portalOnMute, portalUserName,
-} from './portal.js?v=152';
+} from './portal.js?v=153';
 
 /* ================= state ================= */
 const $ = (id) => document.getElementById(id);
@@ -285,7 +285,7 @@ function getAiWorker() {
   if (aiWorker === false) return null;
   if (!aiWorker) {
     try {
-      aiWorker = new Worker('js/ai-worker.js?v=152', { type: 'module' });
+      aiWorker = new Worker('js/ai-worker.js?v=153', { type: 'module' });
       aiWorker.onmessage = (e) => {
         const cb = aiPending.get(e.data.id);
         aiPending.delete(e.data.id);
@@ -1571,7 +1571,12 @@ setInterval(() => {
   const bank = [...ck.bank];
   const active = ck.turn;
   bank[active] = Math.max(0, bank[active] - elapsed);
-  const moveLeft = Math.max(0, Math.min(ck.moveLimit - elapsed, bank[active]));
+  // Whatever this move had already cost before a disconnect paused it. The
+  // server counts it against the thirty seconds, so the screen has to as well
+  // — otherwise someone who dropped on their own move watches a full countdown
+  // and is cut off partway through it.
+  const moveLeft = Math.max(0,
+    Math.min(ck.moveLimit - (ck.moveSpent || 0) - elapsed, bank[active]));
 
   const myTurn = active === me;
   if (isQuad()) {
