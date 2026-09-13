@@ -476,6 +476,66 @@ export function shapeDayBoard(raw, flaggedIds = [], limit = 100) {
     .map(r => ({ nick: r.nick, points: r.points, wins: r.wins, losses: r.losses, kind: r.kind }));
 }
 
+/* ---------- where you are on it ----------
+
+   A board that shows fifty names and stops is a board most people are not on.
+   Being told you are 886th is worth more than being told nothing: it is a
+   position, it moves, and it is the only number on the screen that is yours.
+
+   Rank counts how many are strictly ahead, so people level on points share a
+   place — 886th and 886th, then 888th. That is how a league table reads, and
+   it avoids inventing an order between two players the board itself cannot
+   separate.
+
+   For a guest the all-time number is honest but hypothetical: their points are
+   real and counted the same way, but the list they are being measured against
+   does not include them, because it never has. The screen says so rather than
+   pretending otherwise. */
+
+const aheadOf = async (q) => {
+  const { count, error } = await q;
+  if (error) throw new Error(error.message);
+  return count || 0;
+};
+
+export async function myRank({ userId, deviceId }) {
+  if (!dbEnabled) return null;
+  try {
+    const me = await getPoints({ userId, deviceId });
+    const points = me.points || 0;
+    const [people, bots] = await Promise.all([
+      aheadOf(supa.from('profiles').select('id', { count: 'exact', head: true })
+        .gt('points', points).not('flagged', 'is', true)),
+      aheadOf(supa.from('bot_players').select('nick', { count: 'exact', head: true })
+        .gt('points', points)),
+    ]);
+    return { rank: people + bots + 1, points, listed: Boolean(userId) };
+  } catch (e) {
+    console.error('myRank failed:', e.message);
+    return null;
+  }
+}
+
+export async function myDayRank(pl) {
+  if (!dbEnabled) return null;
+  const who = dayKeyOf(pl);
+  if (!who) return null;
+  try {
+    const day = mskDay();
+    const { data } = await supa.from('points_days')
+      .select('points, wins, losses').eq('day', day).eq('who', who).maybeSingle();
+    const points = data?.points || 0;
+    // Nothing won today is not a place on today's board, it is no place at all.
+    if (points <= 0) return { rank: 0, points, wins: data?.wins || 0, listed: true };
+    const ahead = await aheadOf(supa.from('points_days').select('who', { count: 'exact', head: true })
+      .eq('day', day).gt('points', points));
+    return { rank: ahead + 1, points, wins: data?.wins || 0, listed: true };
+  } catch (e) {
+    console.error('myDayRank failed:', e.message);
+    return null;
+  }
+}
+
 // Old days, swept once a day rather than on a schedule of their own: the first
 // read after midnight pays for it, and it is a delete of a few thousand rows.
 let sweptOn = '';

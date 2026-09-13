@@ -165,6 +165,9 @@ export const I18N = {
     lb_all: 'За всё время',
     lb_today_sub: 'Топ-100 за сегодня · обнуляется в 00:00 МСК',
     lb_today_empty: 'Сегодня ещё никто не набрал очков — будь первым!',
+    lb_you: 'Ты',
+    lb_you_none: 'Сегодня у тебя ещё нет очков — сыграй партию, и попадёшь в список.',
+    lb_you_guest: 'Гости в общий список не попадают. Заведи аккаунт — и место станет твоим.',
     offline_bar: 'Нет интернета — можно играть против ИИ',
     lb_stale: 'Список сохранён %t — без интернета он не обновляется',
     lb_wins: 'Побед',
@@ -579,6 +582,9 @@ export const I18N = {
     lb_all: 'All time',
     lb_today_sub: 'Today’s top 100 · resets at midnight Moscow time',
     lb_today_empty: 'Nobody has scored today yet — be the first!',
+    lb_you: 'You',
+    lb_you_none: 'You have not scored today yet — play a game and you are on the list.',
+    lb_you_guest: 'Guests are not on the all-time list. Make an account and the place is yours.',
     offline_bar: 'No connection — you can still play the AI',
     lb_stale: 'Saved %t — it cannot update with no connection',
     lb_wins: 'Wins',
@@ -844,7 +850,7 @@ export const LANGS = [
 export const LANG_CODES = LANGS.map((l) => l.code);
 export const RTL = new Set(['fa']);
 
-const V = '154';
+const V = '155';
 
 // Loads a translation file on demand. Safe to call repeatedly and safe to fail:
 // if the request never lands, makeT keeps falling back to English.

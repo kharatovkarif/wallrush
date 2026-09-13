@@ -13,7 +13,7 @@ import { taskForDay } from '../public/js/daily.js';
 import { packById } from '../public/js/packs.js';
 import { initPush, pushPublicKey, saveSub, dropSub, pushTick } from './push.js';
 import { mountPages } from './pages.js';
-import { dbEnabled, dbStatus, dbDetail, cleanEnv, likeEscape, supa, verifyUser, getProfile, createProfile, claimGuestProgress, leaderboard, dailyLeaderboard, sweepDayPoints, mskDay, clearNickNotice, restoreStreak, deleteAccount } from './db.js';
+import { dbEnabled, dbStatus, dbDetail, cleanEnv, likeEscape, supa, verifyUser, getProfile, createProfile, claimGuestProgress, leaderboard, dailyLeaderboard, sweepDayPoints, mskDay, myRank, myDayRank, clearNickNotice, restoreStreak, deleteAccount } from './db.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -53,11 +53,28 @@ app.get('/api/config', (req, res) => {
    An unknown scope falls back to the all-time board rather than erroring: an
    old cached page asking the old way must keep working. */
 app.get('/api/leaderboard', async (req, res) => {
+  /* Who is asking, if they are willing to say. An account proves it with the
+     same token every other route takes; a guest has nothing to prove and sends
+     the device the points are kept under. Both are optional — the boards
+     themselves are public and render for anyone. */
+  const user = await verifyUser(bearer(req));
+  const dev = String(req.headers['x-device'] || '');
+  const me = { userId: user?.id || null, deviceId: /^[A-Za-z0-9-]{8,64}$/.test(dev) ? dev : null };
+  const anon = !me.userId && !me.deviceId;
+
   if (String(req.query.scope) === 'today') {
     sweepDayPoints().catch(() => {});   // yesterday's housekeeping, not this request's business
-    return res.json({ scope: 'today', day: mskDay(), rows: await dailyLeaderboard(100) });
+    const [rows, mine] = await Promise.all([
+      dailyLeaderboard(100),
+      anon ? null : myDayRank(me),
+    ]);
+    return res.json({ scope: 'today', day: mskDay(), rows, me: mine });
   }
-  res.json({ scope: 'all', rows: await leaderboard(50) });
+  const [rows, mine] = await Promise.all([
+    leaderboard(50),
+    anon ? null : myRank(me),
+  ]);
+  res.json({ scope: 'all', rows, me: mine });
 });
 
 function bearer(req) {

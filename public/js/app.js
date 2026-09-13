@@ -1,16 +1,16 @@
 // WallRush client app: screens, board UI, online play (WebSocket), AI mode, auth.
-import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, wallBetween, N } from './engine.js?v=154';
-import { aiMove } from './ai.js?v=154';
-import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=154';
-import { PACKS } from './packs.js?v=154';
-import { rankOf, nextRank } from './ranks.js?v=154';
-import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=154';
-import { checkNick, nickOk, randomNick } from './nick.js?v=154';
+import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, wallBetween, N } from './engine.js?v=155';
+import { aiMove } from './ai.js?v=155';
+import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=155';
+import { PACKS } from './packs.js?v=155';
+import { rankOf, nextRank } from './ranks.js?v=155';
+import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=155';
+import { checkNick, nickOk, randomNick } from './nick.js?v=155';
 import {
   embedded, initPortal, inPortal, portalAd, portalPlaying, portalHappy,
   portalLoaded, portalInviteCode, portalShowInvite, portalHideInvite, portalInstant,
   portalRoom, portalOnJoin, portalInviteLink, portalMuted, portalOnMute, portalUserName,
-} from './portal.js?v=154';
+} from './portal.js?v=155';
 
 /* ================= state ================= */
 const $ = (id) => document.getElementById(id);
@@ -285,7 +285,7 @@ function getAiWorker() {
   if (aiWorker === false) return null;
   if (!aiWorker) {
     try {
-      aiWorker = new Worker('js/ai-worker.js?v=154', { type: 'module' });
+      aiWorker = new Worker('js/ai-worker.js?v=155', { type: 'module' });
       aiWorker.onmessage = (e) => {
         const cb = aiPending.get(e.data.id);
         aiPending.delete(e.data.id);
@@ -2528,20 +2528,26 @@ async function loadLeaderboard() {
     b.classList.toggle('on', b.dataset.scope === scope));
   $('lb-sub').textContent = t(scope === 'today' ? 'lb_today_sub' : 'leaderboard_sub');
   try {
-    const res = await fetch(`/api/leaderboard?scope=${scope}`);
-    const { rows, day } = await res.json();
+    // Says who is asking, so the answer can carry their own place on the list.
+    // An account proves it with its token; a guest names the device its points
+    // are kept under. Neither is required — the boards are public.
+    const auth = await authHeaders();
+    const res = await fetch(`/api/leaderboard?scope=${scope}`, {
+      headers: { ...auth, 'x-device': deviceId },
+    });
+    const { rows, day, me } = await res.json();
     if (scope !== lbScope) return;          // they tapped the other one while this was in flight
     if (rows?.length) {
-      try { localStorage.setItem(lbCacheKey(scope), JSON.stringify({ at: Date.now(), day, rows })); } catch {}
+      try { localStorage.setItem(lbCacheKey(scope), JSON.stringify({ at: Date.now(), day, rows, me })); } catch {}
     }
-    renderLeaderboard(rows, 0, scope);
+    renderLeaderboard(rows, 0, scope, me);
   } catch {
     if (scope !== lbScope) return;
     let cached = null;
     try { cached = JSON.parse(localStorage.getItem(lbCacheKey(scope)) || 'null'); } catch {}
     // A saved daily board is only worth anything while it is still that day.
     const stale = scope === 'today' && cached?.day && cached.day !== mskToday();
-    if (cached?.rows?.length && !stale) renderLeaderboard(cached.rows, cached.at, scope);
+    if (cached?.rows?.length && !stale) renderLeaderboard(cached.rows, cached.at, scope, cached.me);
     else list.innerHTML = `<div class="lb-empty">${t(navigator.onLine ? 'err_generic' : 'offline_bar')}</div>`;
   }
 }
@@ -2558,8 +2564,69 @@ $('lb-tabs').addEventListener('click', (e) => {
   loadLeaderboard();
 });
 
+/* One row of the board. Used for the fifty on the list and for the one pinned
+   underneath it, because a player looking for themselves should find the same
+   thing they were scrolling past. */
+function lbRow(row, place, scope, mine) {
+  const el = document.createElement('div');
+  el.className = 'lb-item' + (mine ? ' lb-me' : '');
+  const medal = place === 1 ? '🥇' : place === 2 ? '🥈' : place === 3 ? '🥉' : `#${place}`;
+  el.innerHTML = `<div class="lb-rank"></div><div class="r-avatar"></div>
+    <div class="lb-nick"><span class="lb-name"></span><small class="lb-badge"></small></div>
+    <div class="lb-score"><b></b><small></small></div>`;
+  const pts = row.points || 0;
+  el.querySelector('.lb-rank').textContent = place ? medal : '—';
+  el.querySelector('.r-avatar').textContent = (row.nick || '?')[0].toUpperCase();
+  el.querySelector('.lb-name').textContent = row.nick;
+  // A rank is built out of a lifetime of points, so it says nothing about an
+  // evening's worth of them — on the day's board it is left off.
+  el.querySelector('.lb-badge').textContent = scope === 'today' ? '' : rankChip(pts);
+  // On the day's board the number is what was won today, so it is written with
+  // a plus: the same 40 means a different thing on the two lists.
+  el.querySelector('.lb-score b').textContent = (scope === 'today' ? '+' : '') + pts.toLocaleString();
+  el.querySelector('.lb-score small').textContent =
+    `${t('points_label')} · ${row.wins || 0} ${t('lb_wins')}`;
+  return el;
+}
+
+/* The player's own line, under the list they did not make.
+
+   Fifty names and a full stop is a board most people are not on, and a number
+   that is yours — 886th, and it moved since yesterday — is worth more than no
+   number at all. Skipped when they are already up there: being shown twice is
+   worse than not being shown. */
+function pinMe(list, me, scope, shown) {
+  if (!me) return;
+  const mine = myNick();
+  if (shown.some(r => r.nick === mine)) return;
+
+  const wrap = document.createElement('div');
+  wrap.className = 'lb-mine';
+  if (scope === 'today' && !me.rank) {
+    // Nothing won today is not a place on today's board; say that, not "0".
+    wrap.innerHTML = `<p class="lb-mine-note"></p>`;
+    wrap.querySelector('.lb-mine-note').textContent = t('lb_you_none');
+    list.appendChild(wrap);
+    return;
+  }
+  const label = document.createElement('p');
+  label.className = 'lb-mine-label';
+  label.textContent = t('lb_you');
+  wrap.appendChild(label);
+  wrap.appendChild(lbRow({ nick: mine, points: me.points, wins: me.wins }, me.rank, scope, true));
+  // A guest's number is real but the list it measures against has never had
+  // guests on it. Say so plainly instead of quietly implying otherwise.
+  if (scope === 'all' && me.listed === false) {
+    const note = document.createElement('p');
+    note.className = 'lb-mine-note';
+    note.textContent = t('lb_you_guest');
+    wrap.appendChild(note);
+  }
+  list.appendChild(wrap);
+}
+
 // `savedAt` marks the list as a copy: 0 means it came from the server just now.
-function renderLeaderboard(rows, savedAt, scope = 'all') {
+function renderLeaderboard(rows, savedAt, scope = 'all', me = null) {
   const list = $('lb-list');
   list.innerHTML = '';
   if (!rows?.length) {
@@ -2573,32 +2640,9 @@ function renderLeaderboard(rows, savedAt, scope = 'all') {
     p.textContent = t('lb_stale').replace('%t', new Date(savedAt).toLocaleString());
     list.appendChild(p);
   }
-  {
-    rows.forEach((row, i) => {
-      const el = document.createElement('div');
-      el.className = 'lb-item';
-      const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `#${i + 1}`;
-      el.innerHTML = `<div class="lb-rank"></div><div class="r-avatar"></div>
-        <div class="lb-nick"></div>
-        <div class="lb-score"><b></b><small></small></div>`;
-      const pts = row.points || 0;
-      el.querySelector('.lb-rank').textContent = medal;
-      el.querySelector('.r-avatar').textContent = (row.nick || '?')[0].toUpperCase();
-      el.querySelector('.lb-nick').innerHTML =
-        `<span class="lb-name"></span><small class="lb-badge"></small>`;
-      el.querySelector('.lb-name').textContent = row.nick;
-      // A rank is built out of a lifetime of points, so it says nothing about
-      // an evening's worth of them — on the day's board it is left off.
-      el.querySelector('.lb-badge').textContent = scope === 'today' ? '' : rankChip(pts);
-      // On the day's board the number is what was won today, so it is written
-      // with a plus: the same 40 means a different thing on the two lists.
-      el.querySelector('.lb-score b').textContent =
-        (scope === 'today' ? '+' : '') + pts.toLocaleString();
-      el.querySelector('.lb-score small').textContent =
-        `${t('points_label')} · ${row.wins} ${t('lb_wins')}`;
-      list.appendChild(el);
-    });
-  }
+  const mine = myNick();
+  rows.forEach((row, i) => list.appendChild(lbRow(row, i + 1, scope, row.nick === mine)));
+  pinMe(list, me, scope, rows);
 }
 
 /* ================= profile & auth ================= */

@@ -1204,6 +1204,28 @@ html[data-theme="dark"] .fr-row { border-top-color: rgba(255,255,255,.06); }
                   box-shadow: var(--shadow); cursor: pointer; transition: transform .12s ease; }
 .lb-tabs button.on { background: var(--blue); color: #fff; }
 .lb-tabs button:active { transform: scale(.95); }
+
+/* The player's own line.
+
+   It started at the foot of the list, which put the one row they came to see
+   under a hundred rows they did not. It stays on screen instead: stuck above
+   the navigation bar while the board scrolls underneath it, the way a league
+   table keeps your team in view. */
+.lb-mine {
+  position: sticky; z-index: 5; bottom: 0;
+  margin: 18px -18px 0;
+  /* Its own padding reaches all the way to the foot of the screen, so the list
+     scrolls behind it rather than peeping out underneath; the navigation bar
+     is fixed above it and draws over the lower part. */
+  padding: 12px 18px calc(84px + env(safe-area-inset-bottom));
+  background: var(--bg); border-top: 2px dashed rgba(128, 138, 160, .28);
+}
+.lb-mine-label { margin: 0 0 8px; text-align: center; font-size: 12px; letter-spacing: 2px;
+                 text-transform: uppercase; color: var(--muted); }
+.lb-mine-note { margin: 8px 4px 0; text-align: center; font-size: 13px; color: var(--muted); line-height: 1.5; }
+.lb-mine .lb-item { margin-bottom: 0; }
+/* and wherever they turn up in the list itself */
+.lb-item.lb-me { outline: 2px solid var(--blue); outline-offset: -2px; }
 .rv-foot { display: flex; justify-content: space-between; align-items: center; margin-top: 8px;
            color: var(--muted); font-size: 12px; }
 .rv-like { border: 0; background: none; font: inherit; font-size: 13px; color: var(--muted);
