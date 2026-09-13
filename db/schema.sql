@@ -533,6 +533,86 @@ $$;
 --   * every function has its search_path pinned, so names inside it cannot be
 --     resolved against a schema the caller chose.
 --
+-- ---------------------------------------------------------------------------
+-- points_days — today's table
+--
+-- The all-time board rewards having been here longest, which is a closed shop
+-- to anybody who arrived this week. This is the one a single good evening can
+-- reach: points won since midnight, emptied and begun again every day.
+--
+-- Moscow's midnight for everyone, not each reader's own. A shared board needs
+-- a shared day, or two people looking at the same page are looking at two
+-- different contests. The screen says which midnight it means.
+--
+-- Keyed by who rather than by nickname, so a name changed mid-day does not
+-- split a player in two; the nick rides along so the board draws without a
+-- join, and is refreshed on every write.
+--   who: 'u:<uuid>' an account · 'd:<device>' a guest · 'b:<nick>' one of ours
+create table if not exists public.points_days (
+  day     date    not null,
+  who     text    not null,
+  nick    text    not null,
+  kind    text    not null check (kind in ('user', 'guest', 'bot')),
+  points  integer not null default 0,
+  wins    integer not null default 0,
+  losses  integer not null default 0,
+  primary key (day, who)
+);
+
+create index if not exists points_days_board
+  on public.points_days (day, points desc, wins desc, losses asc);
+
+alter table public.points_days enable row level security;
+
+create or replace function public.day_points(
+  d date, w text, n text, k text, dp integer, win integer, loss integer
+) returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  insert into public.points_days as t (day, who, nick, kind, points, wins, losses)
+  values (d, w, n, k, dp, win, loss)
+  on conflict (day, who) do update
+    set points = t.points + excluded.points,
+        wins   = t.wins   + excluded.wins,
+        losses = t.losses + excluded.losses,
+        nick   = excluded.nick;
+end $$;
+
+-- Yesterday is worth keeping: a board that vanishes at midnight cannot be
+-- looked back at, and whoever fell asleep in first place should get to see it.
+-- The date arithmetic is on a Moscow date because that is what the column
+-- holds — the first version compared against a timestamp and threw on every
+-- call, which is the sort of thing only a run finds.
+create or replace function public.day_points_sweep(keep_days integer default 14)
+returns integer
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare gone integer;
+begin
+  delete from public.points_days
+   where day < ((now() at time zone 'Europe/Moscow')::date - keep_days);
+  get diagnostics gone = row_count;
+  return gone;
+end $$;
+
+-- A flagged account keeps its history and leaves the table, here as on the
+-- all-time board.
+create or replace function public.day_points_drop(w text)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  delete from public.points_days where who = w;
+end $$;
+
+-- ---------------------------------------------------------------------------
 -- AFTER ANY `create or replace function` IN THIS FILE, RE-RUN THIS:
 --
 --   do $$

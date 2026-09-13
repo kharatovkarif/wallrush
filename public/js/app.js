@@ -1,16 +1,16 @@
 // WallRush client app: screens, board UI, online play (WebSocket), AI mode, auth.
-import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, wallBetween, N } from './engine.js?v=153';
-import { aiMove } from './ai.js?v=153';
-import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=153';
-import { PACKS } from './packs.js?v=153';
-import { rankOf, nextRank } from './ranks.js?v=153';
-import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=153';
-import { checkNick, nickOk, randomNick } from './nick.js?v=153';
+import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, wallBetween, N } from './engine.js?v=154';
+import { aiMove } from './ai.js?v=154';
+import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=154';
+import { PACKS } from './packs.js?v=154';
+import { rankOf, nextRank } from './ranks.js?v=154';
+import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=154';
+import { checkNick, nickOk, randomNick } from './nick.js?v=154';
 import {
   embedded, initPortal, inPortal, portalAd, portalPlaying, portalHappy,
   portalLoaded, portalInviteCode, portalShowInvite, portalHideInvite, portalInstant,
   portalRoom, portalOnJoin, portalInviteLink, portalMuted, portalOnMute, portalUserName,
-} from './portal.js?v=153';
+} from './portal.js?v=154';
 
 /* ================= state ================= */
 const $ = (id) => document.getElementById(id);
@@ -285,7 +285,7 @@ function getAiWorker() {
   if (aiWorker === false) return null;
   if (!aiWorker) {
     try {
-      aiWorker = new Worker('js/ai-worker.js?v=153', { type: 'module' });
+      aiWorker = new Worker('js/ai-worker.js?v=154', { type: 'module' });
       aiWorker.onmessage = (e) => {
         const cb = aiPending.get(e.data.id);
         aiPending.delete(e.data.id);
@@ -2509,29 +2509,62 @@ function showEmoji(e, mine = false, seat = null) {
    rather than passed off as live. */
 const LB_CACHE = 'wr_lb';
 
+/* Which of the two boards is on screen. Today's opens first: it is the one
+   with something to play for tonight, and the all-time one is a wall of names
+   that has not moved in a month for anybody outside the top fifty. The choice
+   is remembered per browser, because someone who prefers the other one should
+   not have to say so every time. */
+let lbScope = 'today';
+try { if (localStorage.getItem('wr_lb_scope') === 'all') lbScope = 'all'; } catch {}
+
+// Each board is cached under its own key: yesterday's all-time list is still
+// worth showing on a train, yesterday's daily list is not today's.
+const lbCacheKey = (scope) => (scope === 'today' ? LB_CACHE + '_day' : LB_CACHE);
+
 async function loadLeaderboard() {
   const list = $('lb-list');
+  const scope = lbScope;
+  $('lb-tabs').querySelectorAll('button').forEach(b =>
+    b.classList.toggle('on', b.dataset.scope === scope));
+  $('lb-sub').textContent = t(scope === 'today' ? 'lb_today_sub' : 'leaderboard_sub');
   try {
-    const res = await fetch('/api/leaderboard');
-    const { rows } = await res.json();
+    const res = await fetch(`/api/leaderboard?scope=${scope}`);
+    const { rows, day } = await res.json();
+    if (scope !== lbScope) return;          // they tapped the other one while this was in flight
     if (rows?.length) {
-      try { localStorage.setItem(LB_CACHE, JSON.stringify({ at: Date.now(), rows })); } catch {}
+      try { localStorage.setItem(lbCacheKey(scope), JSON.stringify({ at: Date.now(), day, rows })); } catch {}
     }
-    renderLeaderboard(rows, 0);
+    renderLeaderboard(rows, 0, scope);
   } catch {
+    if (scope !== lbScope) return;
     let cached = null;
-    try { cached = JSON.parse(localStorage.getItem(LB_CACHE) || 'null'); } catch {}
-    if (cached?.rows?.length) renderLeaderboard(cached.rows, cached.at);
+    try { cached = JSON.parse(localStorage.getItem(lbCacheKey(scope)) || 'null'); } catch {}
+    // A saved daily board is only worth anything while it is still that day.
+    const stale = scope === 'today' && cached?.day && cached.day !== mskToday();
+    if (cached?.rows?.length && !stale) renderLeaderboard(cached.rows, cached.at, scope);
     else list.innerHTML = `<div class="lb-empty">${t(navigator.onLine ? 'err_generic' : 'offline_bar')}</div>`;
   }
 }
 
+// The same day the server counts by: midnight in Moscow, wherever you are.
+const mskToday = () => new Date(Date.now() + 3 * 3600_000).toISOString().slice(0, 10);
+
+$('lb-tabs').addEventListener('click', (e) => {
+  const b = e.target.closest('button[data-scope]');
+  if (!b || b.dataset.scope === lbScope) return;
+  lbScope = b.dataset.scope;
+  try { localStorage.setItem('wr_lb_scope', lbScope); } catch {}
+  $('lb-list').innerHTML = '';
+  loadLeaderboard();
+});
+
 // `savedAt` marks the list as a copy: 0 means it came from the server just now.
-function renderLeaderboard(rows, savedAt) {
+function renderLeaderboard(rows, savedAt, scope = 'all') {
   const list = $('lb-list');
   list.innerHTML = '';
   if (!rows?.length) {
-    list.innerHTML = `<div class="lb-empty">${t('leaderboard_empty')}</div>`;
+    // An empty day is not a broken board — it is early. Say which it is.
+    list.innerHTML = `<div class="lb-empty">${t(scope === 'today' ? 'lb_today_empty' : 'leaderboard_empty')}</div>`;
     return;
   }
   if (savedAt) {
@@ -2554,8 +2587,13 @@ function renderLeaderboard(rows, savedAt) {
       el.querySelector('.lb-nick').innerHTML =
         `<span class="lb-name"></span><small class="lb-badge"></small>`;
       el.querySelector('.lb-name').textContent = row.nick;
-      el.querySelector('.lb-badge').textContent = rankChip(pts);
-      el.querySelector('.lb-score b').textContent = pts.toLocaleString();
+      // A rank is built out of a lifetime of points, so it says nothing about
+      // an evening's worth of them — on the day's board it is left off.
+      el.querySelector('.lb-badge').textContent = scope === 'today' ? '' : rankChip(pts);
+      // On the day's board the number is what was won today, so it is written
+      // with a plus: the same 40 means a different thing on the two lists.
+      el.querySelector('.lb-score b').textContent =
+        (scope === 'today' ? '+' : '') + pts.toLocaleString();
       el.querySelector('.lb-score small').textContent =
         `${t('points_label')} · ${row.wins} ${t('lb_wins')}`;
       list.appendChild(el);

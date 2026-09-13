@@ -6,7 +6,7 @@ import { streakState, canRestore, pendingStreak, freeRestore, localDay } from '.
 import { checkNick, randomNick } from '../public/js/nick.js';
 import {
   verifyUser, getProfile, recordResult, recordBotResult, recordHumanMatch,
-  getPoints, addPoints, addBotPoints, touchStreak,
+  getPoints, addPoints, addBotPoints, addDayPoints, touchStreak,
   friendAdd, friendRemove, friendList, dailyState, dailyBump,
   friendFind, friendCount, friendRequestAdd, friendRequestAccept, friendRequestDecline, friendRequestsIn,
   recordQuadResult,
@@ -427,10 +427,22 @@ async function bumpDaily(room, pl, won) {
   });
 }
 
-function persistPoints(pl, delta) {
-  if (!delta) return;
-  if (pl.isBot) addBotPoints(pl.nick, delta);
-  else addPoints({ userId: pl.userId, deviceId: pl.deviceId }, delta);
+/* The one place a score changes, which is why today's table is written from
+   here too: there is no second path to forget about.
+
+   `result` is only passed where a game was actually scored. A private room, a
+   game decided in five moves, the fourth rematch in a row — those return
+   before they get here, and they do not belong on a day's board any more than
+   they belong on the all-time one. A loser already at zero has nothing left to
+   lose, so their delta is zero; the loss is still recorded, or a bad evening
+   would leave no trace at all. */
+function persistPoints(pl, delta, result = null) {
+  if (!delta && !result) return;
+  if (delta) {
+    if (pl.isBot) addBotPoints(pl.nick, delta);
+    else addPoints({ userId: pl.userId, deviceId: pl.deviceId }, delta);
+  }
+  addDayPoints(pl, delta, result);
 }
 
 // Updates the in-memory totals straight away so the game_over message is
@@ -457,7 +469,7 @@ function awardQuadPoints(room, winnerIdx) {
   const dw = quadPointsDelta(w.points || 0, field, 'win');
   w.points = (w.points || 0) + dw;
   deltas[winnerIdx] = dw;
-  persistPoints(w, dw);
+  persistPoints(w, dw, 'win');
   for (let i = 0; i < n; i++) {
     if (i === winnerIdx) continue;
     const pl = room.players[i];
@@ -467,7 +479,7 @@ function awardQuadPoints(room, winnerIdx) {
     const raw = quadPointsDelta(before, w.points || 0, outcome);
     pl.points = Math.max(0, before + raw);   // a beginner never digs a hole
     deltas[i] = pl.points - before;          // report what was really lost
-    persistPoints(pl, deltas[i]);
+    persistPoints(pl, deltas[i], 'loss');
   }
   return deltas;
 }
@@ -488,8 +500,8 @@ function awardPoints(room, w, l) {
   l.points = Math.max(0, lp + dl);          // a beginner never digs a hole
   deltas[room.players.indexOf(w)] = dw;
   deltas[room.players.indexOf(l)] = l.points - lp;  // report what was really lost
-  persistPoints(w, deltas[room.players.indexOf(w)]);
-  persistPoints(l, deltas[room.players.indexOf(l)]);
+  persistPoints(w, deltas[room.players.indexOf(w)], 'win');
+  persistPoints(l, deltas[room.players.indexOf(l)], 'loss');
   return deltas;
 }
 

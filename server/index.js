@@ -13,7 +13,7 @@ import { taskForDay } from '../public/js/daily.js';
 import { packById } from '../public/js/packs.js';
 import { initPush, pushPublicKey, saveSub, dropSub, pushTick } from './push.js';
 import { mountPages } from './pages.js';
-import { dbEnabled, dbStatus, dbDetail, cleanEnv, likeEscape, supa, verifyUser, getProfile, createProfile, claimGuestProgress, leaderboard, clearNickNotice, restoreStreak, deleteAccount } from './db.js';
+import { dbEnabled, dbStatus, dbDetail, cleanEnv, likeEscape, supa, verifyUser, getProfile, createProfile, claimGuestProgress, leaderboard, dailyLeaderboard, sweepDayPoints, mskDay, clearNickNotice, restoreStreak, deleteAccount } from './db.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -47,8 +47,17 @@ app.get('/api/config', (req, res) => {
   });
 });
 
+/* Two boards behind one address. "all" is the standing of everyone who has
+   ever played here; "today" is what has been won since midnight in Moscow and
+   is empty again tomorrow — the one a player who arrived this week can get on.
+   An unknown scope falls back to the all-time board rather than erroring: an
+   old cached page asking the old way must keep working. */
 app.get('/api/leaderboard', async (req, res) => {
-  res.json({ rows: await leaderboard(50) });
+  if (String(req.query.scope) === 'today') {
+    sweepDayPoints().catch(() => {});   // yesterday's housekeeping, not this request's business
+    return res.json({ scope: 'today', day: mskDay(), rows: await dailyLeaderboard(100) });
+  }
+  res.json({ scope: 'all', rows: await leaderboard(50) });
 });
 
 function bearer(req) {

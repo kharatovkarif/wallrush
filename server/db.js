@@ -373,6 +373,121 @@ export async function recordResult(winnerUserId, loserUserId) {
 // the merged top N cannot contain a row that was not in the top N of its own
 // table — and hold the answer for a spell. A ranking a minute out of date is
 // not a ranking anyone notices.
+/* ---------- today's table ----------
+
+   The all-time board rewards having been here longest, which is a closed shop
+   to anybody who arrived this week. This is the one a single good evening can
+   reach: points earned since midnight, emptied and started again every day.
+
+   Midnight Moscow for everyone, not each player's own midnight. A shared board
+   has to have a shared day — if it ended at a different hour for each reader,
+   two people looking at the same page would be looking at different contests.
+   Moscow because that is where most of the players are; the screen says so, so
+   nobody in Tehran or Dushanbe has to work it out. */
+
+export const mskDay = (now = Date.now()) =>
+  new Date(now + 3 * 3600_000).toISOString().slice(0, 10);
+
+// Who the row belongs to. An account keeps its place across devices, a guest
+// keeps it on the one they play from, and ours are named.
+export const dayKeyOf = (pl) =>
+  pl.isBot ? `b:${pl.nick}` : pl.userId ? `u:${pl.userId}` : pl.deviceId ? `d:${pl.deviceId}` : null;
+
+/* Every point that moves, on the day it moved. Called from the one place in
+   the server that changes a score, so there is no second path to forget.
+
+   Points can go down — losing costs you — and the day's total can go negative
+   for somebody having a bad evening. That is left alone rather than clamped:
+   the board only shows the positive end of it, and a floor of zero would let
+   a player lose all evening with nothing to show for it. */
+export async function addDayPoints(pl, delta, result = null) {
+  if (!dbEnabled) return;
+  const who = dayKeyOf(pl);
+  if (!who || (!delta && !result)) return;
+  try {
+    await supa.rpc('day_points', {
+      d: mskDay(),
+      w: who,
+      n: String(pl.nick || '?').slice(0, 40),
+      k: pl.isBot ? 'bot' : pl.userId ? 'user' : 'guest',
+      dp: Math.round(delta || 0),
+      win: result === 'win' ? 1 : 0,
+      loss: result === 'loss' ? 1 : 0,
+    });
+  } catch (e) {
+    console.error('addDayPoints failed:', e.message);
+  }
+}
+
+const DAY_TTL = 60_000;
+let dayCache = { at: 0, day: '', size: 0, rows: [] };
+
+/* The top of today. Read in board order straight out of the index, then the
+   accounts among them checked against the anti-cheat marker in one go — the
+   day table does not carry that marker, because it would go stale the moment
+   somebody was flagged mid-day.
+
+   A few more rows are asked for than are shown, so that dropping a flagged
+   player does not leave the list one short. */
+export async function dailyLeaderboard(limit = 100) {
+  if (!dbEnabled) return [];
+  const day = mskDay();
+  const fresh = dayCache.day === day && Date.now() - dayCache.at < DAY_TTL && dayCache.size >= limit;
+  if (fresh) return dayCache.rows.slice(0, limit);
+
+  try {
+    const { data, error } = await supa.from('points_days')
+      .select('who, nick, kind, points, wins, losses')
+      .eq('day', day)
+      .gt('points', 0)
+      .order('points', { ascending: false })
+      .order('wins', { ascending: false })
+      .order('losses', { ascending: true })
+      .limit(Math.ceil(limit * 1.3) + 10);
+    if (error) throw new Error(error.message);
+
+    const raw = data || [];
+    const userIds = raw.filter(r => r.kind === 'user').map(r => r.who.slice(2));
+    let flaggedIds = [];
+    if (userIds.length) {
+      const { data: bad } = await supa.from('profiles')
+        .select('id').in('id', userIds).is('flagged', true);
+      flaggedIds = (bad || []).map(f => f.id);
+    }
+    const rows = shapeDayBoard(raw, flaggedIds, limit);
+    dayCache = { at: Date.now(), day, size: limit, rows };
+    return rows;
+  } catch (e) {
+    console.error('dailyLeaderboard failed:', e.message);
+    // a failed round trip must not be cached as an empty day
+    return dayCache.day === day ? dayCache.rows.slice(0, limit) : [];
+  }
+}
+
+/* What comes back from the query turned into what the screen gets: flagged
+   accounts dropped, the list cut to length, and only the columns a board needs.
+   Pulled out on its own because it is the part with a decision in it, and the
+   part a test can hold without a database. */
+export function shapeDayBoard(raw, flaggedIds = [], limit = 100) {
+  const out = new Set(flaggedIds.map(id => `u:${id}`));
+  return (raw || [])
+    .filter(r => !out.has(r.who))
+    .slice(0, limit)
+    .map(r => ({ nick: r.nick, points: r.points, wins: r.wins, losses: r.losses, kind: r.kind }));
+}
+
+// Old days, swept once a day rather than on a schedule of their own: the first
+// read after midnight pays for it, and it is a delete of a few thousand rows.
+let sweptOn = '';
+export async function sweepDayPoints() {
+  if (!dbEnabled) return;
+  const day = mskDay();
+  if (sweptOn === day) return;
+  sweptOn = day;
+  try { await supa.rpc('day_points_sweep', { keep_days: 14 }); }
+  catch (e) { console.error('day sweep failed:', e.message); }
+}
+
 const LB_TTL = 60_000;
 let lbCache = { at: 0, size: 0, rows: [] };
 

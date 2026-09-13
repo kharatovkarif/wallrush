@@ -83,7 +83,7 @@
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
   <!-- Opens the connection to the ad host early. Costs one handshake and no
        download, and takes that handshake off the wait once Support is tapped. -->
-  <link rel="stylesheet" href="css/style.css?v=153">
+  <link rel="stylesheet" href="css/style.css?v=154">
   <!-- Are we inside somebody else's page? Every game portal forbids running
        your own ads inside theirs, and the ad scripts below start the moment
        the parser reaches them — long before any module could stop one. So the
@@ -845,8 +845,16 @@
     <section class="screen" id="screen-leaderboard">
       <header class="sub-head center">
         <h2>🏆 <span data-i18n="leaderboard_title"></span></h2>
-        <p class="hint" data-i18n="leaderboard_sub"></p>
+        <p class="hint" id="lb-sub" data-i18n="leaderboard_sub"></p>
       </header>
+      <!-- Two boards, one screen. The all-time one rewards having been here
+           longest and is out of reach for anyone who arrived this week; the
+           day's one is back to nothing every midnight, so a good evening is
+           enough to be on it. Today is the one shown first, for that reason. -->
+      <div class="lb-tabs" id="lb-tabs">
+        <button data-scope="today" class="on" data-i18n="lb_today"></button>
+        <button data-scope="all" data-i18n="lb_all"></button>
+      </div>
       <div id="lb-list" class="lb-list"></div>
 
       <!-- HilltopAds 300x250 banner, in the menu only and never in-game. Back
@@ -1081,7 +1089,7 @@
     <div id="toast" hidden></div>
   </div>
 
-  <script src="vendor/supabase.js?v=153" defer></script>
-  <script type="module" src="js/app.js?v=153"></script>
+  <script src="vendor/supabase.js?v=154" defer></script>
+  <script type="module" src="js/app.js?v=154"></script>
 </body>
 </html>

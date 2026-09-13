@@ -1196,6 +1196,14 @@ html[data-theme="dark"] .fr-row { border-top-color: rgba(255,255,255,.06); }
                   font-size: 13px; background: var(--card); color: var(--muted);
                   box-shadow: var(--shadow); cursor: pointer; }
 .rv-tabs button.on { background: var(--blue); color: #fff; }
+/* The two boards on the leaderboard screen. Same pill as the review filters,
+   but centred and only two of them, so nothing scrolls. */
+.lb-tabs { display: flex; justify-content: center; gap: 8px; margin: 2px 0 12px; }
+.lb-tabs button { border: 0; border-radius: 999px; padding: 9px 20px; font: inherit;
+                  font-size: 13.5px; background: var(--card); color: var(--muted);
+                  box-shadow: var(--shadow); cursor: pointer; transition: transform .12s ease; }
+.lb-tabs button.on { background: var(--blue); color: #fff; }
+.lb-tabs button:active { transform: scale(.95); }
 .rv-foot { display: flex; justify-content: space-between; align-items: center; margin-top: 8px;
            color: var(--muted); font-size: 12px; }
 .rv-like { border: 0; background: none; font: inherit; font-size: 13px; color: var(--muted);
