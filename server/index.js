@@ -1110,7 +1110,14 @@ function countUp(root) {
     });
   }, { threshold: .25 });
   for (var i = 0; i < els.length; i++) {
-    var target = parseInt(els[i].textContent.replace(/[^0-9]/g, ''), 10);
+    /* Only whole numbers count up. Stripping every non-digit turned the rating
+       4.6 into 46 and left it there — the animation writes the number back, so
+       the average on this page had been wrong since the day it was added. Any
+       value that is not plain digits (a rating, a percentage, a dash) is left
+       exactly as the server wrote it. */
+    var raw = els[i].textContent.replace(/[\s\u00a0]/g, '');
+    if (!/^\d+$/.test(raw)) continue;
+    var target = parseInt(raw, 10);
     if (!target || target < 2) continue;
     els[i].dataset.to = target;
     io.observe(els[i]);
