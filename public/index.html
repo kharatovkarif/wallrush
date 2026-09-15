@@ -83,7 +83,7 @@
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
   <!-- Opens the connection to the ad host early. Costs one handshake and no
        download, and takes that handshake off the wait once Support is tapped. -->
-  <link rel="stylesheet" href="css/style.css?v=155">
+  <link rel="stylesheet" href="css/style.css?v=156">
   <!-- Are we inside somebody else's page? Every game portal forbids running
        your own ads inside theirs, and the ad scripts below start the moment
        the parser reaches them — long before any module could stop one. So the
@@ -676,6 +676,40 @@
     <!-- Offered after a win to a guest who has something real to lose. Their
          points and streak live in this browser only: clear the data or change
          phone and they are gone, and until now nothing ever said so. -->
+    <!-- One player's card, opened from every list that shows a name: the
+         friends list, the search, an incoming request, and both leaderboards.
+         Same card, same numbers, fetched fresh each time — a list that happens
+         to carry today's points must not show them as a lifetime total. -->
+    <div class="overlay" id="overlay-player" hidden>
+      <div class="modal pl-modal">
+        <button class="pl-close" id="pl-close" aria-label="close">✕</button>
+        <div class="pl-head">
+          <!-- the piece they play with, turning on the spot -->
+          <div class="pl-ball"><span class="pawn blue"></span></div>
+          <div class="pl-who">
+            <b id="pl-nick"></b>
+            <div class="pl-tags">
+              <span class="pl-rank" id="pl-rank"></span>
+              <span class="pl-place" id="pl-place"></span>
+            </div>
+            <div class="pl-flame" id="pl-flame" hidden></div>
+          </div>
+        </div>
+        <div class="pl-stats" id="pl-stats">
+          <div><b id="pl-games">—</b><small data-i18n="pl_games"></small></div>
+          <div><b id="pl-wins">—</b><small data-i18n="pl_wins"></small></div>
+          <div><b id="pl-losses">—</b><small data-i18n="pl_losses"></small></div>
+          <div><b id="pl-rate">—</b><small data-i18n="pl_rate"></small></div>
+        </div>
+        <p class="hint" id="pl-note" hidden></p>
+        <div class="modal-buttons">
+          <button class="btn-big" id="pl-act" hidden></button>
+          <button class="btn-big btn-outline" id="pl-call" hidden></button>
+        </div>
+        <p class="hint" id="pl-loading" data-i18n="pl_loading"></p>
+      </div>
+    </div>
+
     <div class="overlay" id="overlay-call" hidden>
       <div class="modal">
         <div class="modal-emoji">🎮</div>
@@ -1089,7 +1123,7 @@
     <div id="toast" hidden></div>
   </div>
 
-  <script src="vendor/supabase.js?v=155" defer></script>
-  <script type="module" src="js/app.js?v=155"></script>
+  <script src="vendor/supabase.js?v=156" defer></script>
+  <script type="module" src="js/app.js?v=156"></script>
 </body>
 </html>

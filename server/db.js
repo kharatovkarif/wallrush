@@ -536,6 +536,67 @@ export async function myDayRank(pl) {
   }
 }
 
+/* ---------- one player, looked up by the name on the screen ----------
+
+   Every list in the game shows a nickname: the friends list, the search, an
+   incoming request, both leaderboards. So the card behind all of them is
+   fetched by nickname, and there is exactly one of it — tap a name anywhere
+   and the same card opens, with the same numbers, read fresh rather than
+   pieced together from whatever that particular list happened to carry. The
+   day's board carries today's points, not a lifetime of them, and a card that
+   showed one as the other would be wrong in a way nobody could catch.
+
+   The lookup itself is one call into the database (player_card), which settles
+   account / one of ours / guest in the right order and works out the place on
+   the board while it is there. Written as a function rather than as queries
+   from here for one reason: a nickname may contain an underscore, and to LIKE
+   an underscore means "any character", so a search for Ma_rat would have found
+   Marrat and handed back a stranger's card. Nearly a thousand accounts have
+   one. An exact comparison in SQL has nothing to escape. */
+export async function publicProfile(nick, viewerId = null) {
+  if (!dbEnabled) return null;
+  try {
+    const { data, error } = await supa.rpc('player_card', { q: String(nick || '') });
+    if (error) throw new Error(error.message);
+    const row = Array.isArray(data) ? data[0] : data;
+    if (!row) return null;
+
+    const out = {
+      nick: row.nick,
+      kind: row.kind,
+      points: row.points || 0,
+      // A guest's games are counted on their device rather than per result, so
+      // the card only claims the numbers it actually has.
+      wins: Number.isInteger(row.wins) ? row.wins : null,
+      losses: Number.isInteger(row.losses) ? row.losses : null,
+      streak: row.streak || 0,
+      streakBest: row.streak_best || 0,
+      since: row.since || null,
+      // Only an account can be sent a friend request, and only an account has
+      // an id worth handing out.
+      id: row.kind === 'user' ? row.id : null,
+      place: row.place || null,
+      already: false,
+      pending: false,
+    };
+
+    if (viewerId && out.id && viewerId !== out.id) {
+      const [{ count: f }, { count: r }] = await Promise.all([
+        supa.from('friends').select('user_id', { count: 'exact', head: true })
+          .eq('user_id', viewerId).eq('friend_id', out.id),
+        supa.from('friend_requests').select('from_id', { count: 'exact', head: true })
+          .or(`and(from_id.eq.${viewerId},to_id.eq.${out.id}),and(from_id.eq.${out.id},to_id.eq.${viewerId})`),
+      ]);
+      out.already = (f || 0) > 0;
+      out.pending = (r || 0) > 0;
+    }
+    return out;
+  } catch (e) {
+    console.error('publicProfile failed:', e.message);
+    return null;
+  }
+}
+
 // Old days, swept once a day rather than on a schedule of their own: the first
 // read after midnight pays for it, and it is a delete of a few thousand rows.
 let sweptOn = '';

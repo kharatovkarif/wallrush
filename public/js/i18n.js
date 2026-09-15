@@ -168,6 +168,16 @@ export const I18N = {
     lb_you: 'Ты',
     lb_you_none: 'Сегодня у тебя ещё нет очков — сыграй партию, и попадёшь в список.',
     lb_you_guest: 'Гости в общий список не попадают. Заведи аккаунт — и место станет твоим.',
+    pl_games: 'игр',
+    pl_wins: 'побед',
+    pl_losses: 'поражений',
+    pl_rate: 'побед',
+    pl_days: 'дней подряд',
+    pl_loading: 'Загружаем…',
+    pl_gone: 'Такого игрока не нашли. Возможно, он сменил ник.',
+    pl_guest_note: 'Этот игрок играет гостем — добавить в друзья можно только тех, у кого есть аккаунт.',
+    pl_offline_note: 'Позвать играть можно, когда он в сети.',
+    pl_need_account: 'Заведи аккаунт, чтобы добавлять друзей.',
     offline_bar: 'Нет интернета — можно играть против ИИ',
     lb_stale: 'Список сохранён %t — без интернета он не обновляется',
     lb_wins: 'Побед',
@@ -585,6 +595,16 @@ export const I18N = {
     lb_you: 'You',
     lb_you_none: 'You have not scored today yet — play a game and you are on the list.',
     lb_you_guest: 'Guests are not on the all-time list. Make an account and the place is yours.',
+    pl_games: 'games',
+    pl_wins: 'won',
+    pl_losses: 'lost',
+    pl_rate: 'win rate',
+    pl_days: 'days running',
+    pl_loading: 'Loading…',
+    pl_gone: 'No such player. They may have changed their nickname.',
+    pl_guest_note: 'This player is playing as a guest — only players with an account can be added as friends.',
+    pl_offline_note: 'You can call them once they are online.',
+    pl_need_account: 'Make an account to add friends.',
     offline_bar: 'No connection — you can still play the AI',
     lb_stale: 'Saved %t — it cannot update with no connection',
     lb_wins: 'Wins',
@@ -850,7 +870,7 @@ export const LANGS = [
 export const LANG_CODES = LANGS.map((l) => l.code);
 export const RTL = new Set(['fa']);
 
-const V = '155';
+const V = '156';
 
 // Loads a translation file on demand. Safe to call repeatedly and safe to fail:
 // if the request never lands, makeT keeps falling back to English.

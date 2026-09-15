@@ -1,16 +1,16 @@
 // WallRush client app: screens, board UI, online play (WebSocket), AI mode, auth.
-import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, wallBetween, N } from './engine.js?v=155';
-import { aiMove } from './ai.js?v=155';
-import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=155';
-import { PACKS } from './packs.js?v=155';
-import { rankOf, nextRank } from './ranks.js?v=155';
-import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=155';
-import { checkNick, nickOk, randomNick } from './nick.js?v=155';
+import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, wallBetween, N } from './engine.js?v=156';
+import { aiMove } from './ai.js?v=156';
+import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=156';
+import { PACKS } from './packs.js?v=156';
+import { rankOf, nextRank } from './ranks.js?v=156';
+import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=156';
+import { checkNick, nickOk, randomNick } from './nick.js?v=156';
 import {
   embedded, initPortal, inPortal, portalAd, portalPlaying, portalHappy,
   portalLoaded, portalInviteCode, portalShowInvite, portalHideInvite, portalInstant,
   portalRoom, portalOnJoin, portalInviteLink, portalMuted, portalOnMute, portalUserName,
-} from './portal.js?v=155';
+} from './portal.js?v=156';
 
 /* ================= state ================= */
 const $ = (id) => document.getElementById(id);
@@ -285,7 +285,7 @@ function getAiWorker() {
   if (aiWorker === false) return null;
   if (!aiWorker) {
     try {
-      aiWorker = new Worker('js/ai-worker.js?v=155', { type: 'module' });
+      aiWorker = new Worker('js/ai-worker.js?v=156', { type: 'module' });
       aiWorker.onmessage = (e) => {
         const cb = aiPending.get(e.data.id);
         aiPending.delete(e.data.id);
@@ -489,7 +489,7 @@ function frRow(f) {
   const state = f.busy ? 'busy' : f.online ? 'on' : '';
   const where = f.busy ? t('friend_busy') : f.online ? t('friend_online') : t('friend_offline');
   const flame = f.streak > 0 ? ' · 🔥 ' + f.streak : '';
-  return `<div class="fr-row">
+  return `<div class="fr-row" data-nick="${esc(f.nick)}">
     <span class="fr-dot ${state}"></span>
     <span class="fr-info"><b>${esc(f.nick)}</b><small>${where} · ${f.points} ${t('save_ask_points')}${flame}</small></span>
     <button class="fr-call" data-call="${esc(f.id)}"${f.online && !f.busy ? '' : ' disabled'}>${t('friend_call')}</button>
@@ -507,7 +507,7 @@ function renderFriends() {
 
   $('fr-requests-box').hidden = guest || friendRequests.length === 0;
   $('fr-req-count').textContent = friendRequests.length ? String(friendRequests.length) : '';
-  $('fr-requests').innerHTML = friendRequests.map(r => `<div class="fr-row">
+  $('fr-requests').innerHTML = friendRequests.map(r => `<div class="fr-row" data-nick="${esc(r.nick)}">
     <span class="fr-dot"></span>
     <span class="fr-info"><b>${esc(r.nick)}</b><small>${r.points} ${t('save_ask_points')}</small></span>
     <button class="fr-call" data-yes="${esc(r.id)}">✓</button>
@@ -533,18 +533,143 @@ function renderFound() {
   </div>`;
 }
 
+/* ================= one player's card =================
+
+   Every list in the game shows a nickname — friends, the search, an incoming
+   request, both leaderboards — and a name on a list says nothing about the
+   person behind it. Tapping one now opens the same card everywhere: the piece
+   they play with, their rank and their place, the games they have played, and
+   whatever can be done about them from here.
+
+   Fetched by nickname each time rather than built from the row that was
+   tapped. The lists do not all carry the same numbers — the day's board
+   carries today's points, not a lifetime of them — and a card that showed one
+   as the other would be lying in a way nobody could catch. */
+let playerCard = null;       // the player currently on screen
+let playerCall = false;      // was this opened from the friends list?
+
+function closePlayer() { $('overlay-player').hidden = true; playerCard = null; }
+$('pl-close').addEventListener('click', closePlayer);
+$('overlay-player').addEventListener('click', (e) => { if (e.target.id === 'overlay-player') closePlayer(); });
+
+async function openPlayer(nick, opts = {}) {
+  if (!nick) return;
+  playerCall = Boolean(opts.call);
+  playerCard = null;
+  // Opens straight away with the name already on it: waiting on a blank
+  // rectangle to find out whose card it is reads as a bug.
+  $('pl-nick').textContent = nick;
+  $('pl-rank').textContent = '';
+  $('pl-place').textContent = '';
+  $('pl-flame').hidden = true;
+  $('pl-note').hidden = true;
+  $('pl-act').hidden = true;
+  $('pl-call').hidden = true;
+  $('pl-stats').hidden = true;
+  $('pl-loading').hidden = false;
+  $('overlay-player').hidden = false;
+
+  let row = null;
+  try {
+    const auth = await authHeaders();
+    const res = await fetch('/api/player?nick=' + encodeURIComponent(nick), { headers: auth });
+    if (res.ok) row = (await res.json()).player;
+  } catch { /* shown as "not found" below, which is what it looks like from here */ }
+  if ($('overlay-player').hidden || $('pl-nick').textContent !== nick) return;  // they closed it, or opened another
+
+  $('pl-loading').hidden = true;
+  if (!row) {
+    $('pl-note').textContent = t('pl_gone');
+    $('pl-note').hidden = false;
+    return;
+  }
+  playerCard = row;
+  renderPlayer(row);
+}
+
+function renderPlayer(p) {
+  const rank = rankOf(p.points || 0);
+  $('pl-nick').textContent = p.nick;
+  $('pl-rank').textContent = `${rank.icon} ${t(rank.key)}`;
+  $('pl-place').textContent = p.place ? '#' + p.place.toLocaleString() : '';
+
+  // A flame is shown only while it is burning. Plenty of real players are on
+  // zero on any given day, so an absent flame says nothing about anyone.
+  $('pl-flame').hidden = !(p.streak > 0);
+  if (p.streak > 0) $('pl-flame').textContent = `🔥 ${p.streak} ${t('pl_days')}`;
+
+  const w = p.wins, l = p.losses;
+  const known = Number.isFinite(w) && Number.isFinite(l);
+  $('pl-stats').hidden = false;
+  $('pl-games').textContent = known ? (w + l).toLocaleString() : '—';
+  $('pl-wins').textContent = known ? w.toLocaleString() : '—';
+  $('pl-losses').textContent = known ? l.toLocaleString() : '—';
+  $('pl-rate').textContent = known && (w + l) > 0 ? Math.round(100 * w / (w + l)) + '%' : '—';
+
+  // What can be done about this person from here.
+  const act = $('pl-act'), call = $('pl-call'), note = $('pl-note');
+  act.hidden = true; call.hidden = true; note.hidden = true;
+
+  if (!p.id) {
+    // A guest, or one of the game's own players: no account to befriend.
+    note.textContent = t('pl_guest_note');
+    note.hidden = false;
+  } else if (p.already) {
+    const f = friends.find(x => x.id === p.id);
+    call.textContent = t('friend_call');
+    call.disabled = !(f && f.online && !f.busy);
+    call.hidden = false;
+    if (call.disabled) { note.textContent = t('pl_offline_note'); note.hidden = false; }
+  } else if (p.pending) {
+    act.textContent = t('friends_pending');
+    act.disabled = true;
+    act.hidden = false;
+  } else if (session) {
+    act.textContent = '＋ ' + t('friend_add');
+    act.disabled = false;
+    act.hidden = false;
+  } else {
+    note.textContent = t('pl_need_account');
+    note.hidden = false;
+  }
+}
+
+$('pl-act').addEventListener('click', () => {
+  if (!playerCard?.id || $('pl-act').disabled) return;
+  wsSend({ t: 'friend_request', id: playerCard.id });
+  playerCard.pending = true;
+  $('pl-act').textContent = t('friends_pending');
+  $('pl-act').disabled = true;
+});
+$('pl-call').addEventListener('click', () => {
+  if (!playerCard?.id || $('pl-call').disabled) return;
+  closePlayer();
+  openCallDialog(playerCard.id);
+});
+
 $('fr-list').addEventListener('click', (e) => {
   const call = e.target.closest('[data-call]');
   if (call) { openCallDialog(call.dataset.call); return; }
   const del = e.target.closest('[data-del]');
-  if (del && confirm(t('friend_remove_ask'))) wsSend({ t: 'friend_remove', id: del.dataset.del });
+  if (del) {
+    if (confirm(t('friend_remove_ask'))) wsSend({ t: 'friend_remove', id: del.dataset.del });
+    return;
+  }
+  // anywhere else on the row opens the card — online or not
+  const row = e.target.closest('[data-nick]');
+  if (row) openPlayer(row.dataset.nick, { call: true });
 });
 
 $('fr-requests').addEventListener('click', (e) => {
   const yes = e.target.closest('[data-yes]');
   const no = e.target.closest('[data-no]');
   const id = yes?.dataset.yes || no?.dataset.no;
-  if (!id) return;
+  if (!id) {
+    // deciding on a request is easier once you can see who is asking
+    const row = e.target.closest('[data-nick]');
+    if (row) openPlayer(row.dataset.nick);
+    return;
+  }
   wsSend({ t: 'friend_answer', id, yes: Boolean(yes) });
   friendRequests = friendRequests.filter(r => r.id !== id);
   renderFriends();
@@ -558,12 +683,15 @@ $('fr-found').addEventListener('click', (e) => {
   ask.textContent = t('friends_pending');
 });
 
+/* Searching opens the card itself rather than a one-line result. Somebody
+   looking for a player wants to know they found the right one before they ask
+   to be added, and the card is where that is written down. */
 function searchFriend() {
   const nick = $('fr-search').value.trim();
   if (nick.length < 2) return;
   foundFriend = null;
   renderFound();
-  wsSend({ t: 'friend_search', nick });
+  openPlayer(nick);
 }
 $('fr-search-go').addEventListener('click', searchFriend);
 $('fr-search').addEventListener('keydown', (e) => { if (e.key === 'Enter') searchFriend(); });
@@ -2570,6 +2698,12 @@ $('lb-tabs').addEventListener('click', (e) => {
 function lbRow(row, place, scope, mine) {
   const el = document.createElement('div');
   el.className = 'lb-item' + (mine ? ' lb-me' : '');
+  // Every name on the board opens its own card. The numbers on it are the
+  // lifetime ones, fetched fresh — on the day's board the figure in the row
+  // is what was won today, which is a different thing entirely.
+  el.dataset.nick = row.nick || '';
+  el.tabIndex = 0;
+  el.setAttribute('role', 'button');
   const medal = place === 1 ? '🥇' : place === 2 ? '🥈' : place === 3 ? '🥉' : `#${place}`;
   el.innerHTML = `<div class="lb-rank"></div><div class="r-avatar"></div>
     <div class="lb-nick"><span class="lb-name"></span><small class="lb-badge"></small></div>
@@ -2644,6 +2778,18 @@ function renderLeaderboard(rows, savedAt, scope = 'all', me = null) {
   rows.forEach((row, i) => list.appendChild(lbRow(row, i + 1, scope, row.nick === mine)));
   pinMe(list, me, scope, rows);
 }
+
+$('lb-list').addEventListener('click', (e) => {
+  const row = e.target.closest('.lb-item[data-nick]');
+  if (row && row.dataset.nick) openPlayer(row.dataset.nick);
+});
+$('lb-list').addEventListener('keydown', (e) => {
+  if (e.key !== 'Enter' && e.key !== ' ') return;
+  const row = e.target.closest('.lb-item[data-nick]');
+  if (!row || !row.dataset.nick) return;
+  e.preventDefault();
+  openPlayer(row.dataset.nick);
+});
 
 /* ================= profile & auth ================= */
 function updateProfileUI() {

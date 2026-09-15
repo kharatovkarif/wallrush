@@ -613,6 +613,64 @@ begin
 end $$;
 
 -- ---------------------------------------------------------------------------
+-- ---------------------------------------------------------------------------
+-- player_card — one player, by the name shown on a list
+--
+-- Friends, the search, an incoming request, both leaderboards: every list in
+-- the game prints a nickname, so the card behind all of them is looked up by
+-- nickname and there is one of it. Account, then one of ours, then a guest —
+-- in that order, because that is the order of "who is this really". Only an
+-- account carries an id out, because only an account can be befriended.
+--
+-- lower(nick) = lower(q), never ILIKE. A nickname may contain an underscore
+-- (997 accounts, 694 guests and 179 of ours have one) and to LIKE an
+-- underscore means "any character here" — a search for Ma_rat would match
+-- Marrat and hand back a stranger's card. Escaping works in Postgres but has
+-- to survive the API layer to do so; an exact comparison has nothing to
+-- escape and cannot be got wrong.
+create or replace function public.player_card(q text)
+returns table (
+  kind text, id uuid, nick text, points integer,
+  wins integer, losses integer, streak integer, streak_best integer,
+  since timestamptz, place integer
+)
+language plpgsql security definer set search_path = public stable
+as $$
+declare n text := lower(trim(coalesce(q, '')));
+begin
+  if length(n) < 1 or length(n) > 40 then return; end if;
+  return query
+  with found as (
+    (select 'user'::text as kind, p.id, p.nick, coalesce(p.points,0) as points,
+            p.wins, p.losses, p.streak, p.streak_best, p.created_at as since
+       from public.profiles p
+      where lower(p.nick) = n and p.flagged is not true limit 1)
+    union all
+    (select 'bot', null::uuid, b.nick, coalesce(b.points,0),
+            b.wins, b.losses, null::integer, null::integer, null::timestamptz
+       from public.bot_players b where lower(b.nick) = n limit 1)
+    union all
+    -- a guest's name is not unique the way an account's is, so the one who
+    -- played most recently is the one the list meant
+    (select 'guest', null::uuid, v.last_nick, coalesce(v.points,0),
+            null::integer, null::integer, v.streak, v.streak_best, v.first_seen
+       from public.visitors v
+      where lower(v.last_nick) = n and v.flagged is not true
+      order by v.last_seen desc limit 1)
+  ),
+  pick as (
+    select * from found
+     order by case found.kind when 'user' then 1 when 'bot' then 2 else 3 end limit 1
+  )
+  select f.kind, f.id, f.nick, f.points, f.wins, f.losses, f.streak, f.streak_best, f.since,
+         (select count(*)::integer from public.profiles p2
+           where p2.points > f.points and p2.flagged is not true)
+       + (select count(*)::integer from public.bot_players b2 where b2.points > f.points)
+       + 1 as place
+    from pick f;
+end $$;
+
+-- ---------------------------------------------------------------------------
 -- AFTER ANY `create or replace function` IN THIS FILE, RE-RUN THIS:
 --
 --   do $$

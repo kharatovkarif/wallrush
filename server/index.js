@@ -13,7 +13,7 @@ import { taskForDay } from '../public/js/daily.js';
 import { packById } from '../public/js/packs.js';
 import { initPush, pushPublicKey, saveSub, dropSub, pushTick } from './push.js';
 import { mountPages } from './pages.js';
-import { dbEnabled, dbStatus, dbDetail, cleanEnv, likeEscape, supa, verifyUser, getProfile, createProfile, claimGuestProgress, leaderboard, dailyLeaderboard, sweepDayPoints, mskDay, myRank, myDayRank, clearNickNotice, restoreStreak, deleteAccount } from './db.js';
+import { dbEnabled, dbStatus, dbDetail, cleanEnv, likeEscape, supa, verifyUser, getProfile, createProfile, claimGuestProgress, leaderboard, dailyLeaderboard, sweepDayPoints, mskDay, myRank, myDayRank, publicProfile, clearNickNotice, restoreStreak, deleteAccount } from './db.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -75,6 +75,21 @@ app.get('/api/leaderboard', async (req, res) => {
     anon ? null : myRank(me),
   ]);
   res.json({ scope: 'all', rows, me: mine });
+});
+
+/* One player's card, by the name shown on whatever list was tapped — the
+   friends list, the search, an incoming request, either leaderboard. Public,
+   because every number on it is already public: the boards print the points,
+   the wins and the losses of everyone on them.
+
+   Who is asking matters only for the button at the bottom: an account that is
+   already a friend gets no "add", and a request already sent says so. */
+app.get('/api/player', async (req, res) => {
+  const user = await verifyUser(bearer(req));
+  const row = await publicProfile(String(req.query.nick || ''), user?.id || null);
+  if (!row) return res.status(404).json({ error: 'not_found' });
+  res.set('Cache-Control', 'no-store');
+  res.json({ player: row });
 });
 
 function bearer(req) {
