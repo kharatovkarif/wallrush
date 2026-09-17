@@ -277,14 +277,13 @@ export async function claimGuestProgress(userId, deviceId) {
 }
 
 // count a finished game between two real humans (for the owner's stats)
+/* A tally of games, and a tally can wait. Handed to the write queue instead
+   of going out on its own — one insert for a whole flush rather than one per
+   finished game. */
 export async function recordHumanMatch(mode) {
   if (!dbEnabled) return;
-  try {
-    const known = mode === 'race' || mode === 'quad' ? mode : 'duel';
-    await supa.from('human_matches').insert({ mode: known });
-  } catch (e) {
-    console.error('recordHumanMatch failed:', e.message);
-  }
+  const { noteMatchLater } = await import('./queue.js');
+  noteMatchLater(mode);
 }
 
 /* One four-handed game is one win and three losses, written once per person.
@@ -400,23 +399,13 @@ export const dayKeyOf = (pl) =>
    for somebody having a bad evening. That is left alone rather than clamped:
    the board only shows the positive end of it, and a floor of zero would let
    a player lose all evening with nothing to show for it. */
+/* The day's board, through the write queue. Five games in eight seconds
+   become one row written instead of five, which matters because it is the
+   same few hundred people playing continuously. */
 export async function addDayPoints(pl, delta, result = null) {
   if (!dbEnabled) return;
-  const who = dayKeyOf(pl);
-  if (!who || (!delta && !result)) return;
-  try {
-    await supa.rpc('day_points', {
-      d: mskDay(),
-      w: who,
-      n: String(pl.nick || '?').slice(0, 40),
-      k: pl.isBot ? 'bot' : pl.userId ? 'user' : 'guest',
-      dp: Math.round(delta || 0),
-      win: result === 'win' ? 1 : 0,
-      loss: result === 'loss' ? 1 : 0,
-    });
-  } catch (e) {
-    console.error('addDayPoints failed:', e.message);
-  }
+  const { bumpDayLater } = await import('./queue.js');
+  bumpDayLater(pl, delta, result);
 }
 
 const DAY_TTL = 60_000;

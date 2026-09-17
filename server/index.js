@@ -13,6 +13,7 @@ import { taskForDay } from '../public/js/daily.js';
 import { packById } from '../public/js/packs.js';
 import { initPush, pushPublicKey, saveSub, dropSub, pushTick } from './push.js';
 import { mountPages } from './pages.js';
+import { logVisitLater, startWriteQueue, queueStatus, flushWrites } from './queue.js';
 import { dbEnabled, dbStatus, dbDetail, cleanEnv, likeEscape, supa, verifyUser, getProfile, createProfile, claimGuestProgress, leaderboard, dailyLeaderboard, sweepDayPoints, mskDay, myRank, myDayRank, publicProfile, clearNickNotice, restoreStreak, deleteAccount } from './db.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -320,8 +321,10 @@ app.post('/api/visit', async (req, res) => {
         standalone_at: installed ? new Date().toISOString() : null,
       });
     }
-    // per-event log: powers the per-person timeline on the admin page
-    await supa.from('visit_log').insert({ device_id: device, kind: game ? 'game' : 'visit' });
+    // per-event log: powers the per-person timeline on the admin page. Held
+    // for a few seconds and sent as one insert with everybody else's — this
+    // single line was the busiest request the database had.
+    logVisitLater(device, game ? 'game' : 'visit');
     // Keep 7 days of raw events. At ~90k games a day, 60 days of them filled
     // the whole 500 MB database — it reached 97% and was hours from going
     // read-only, which would have stopped new players and points being saved.
@@ -350,7 +353,7 @@ app.post('/api/event', async (req, res) => {
     const kind = String(req.body?.kind || '');
     if (!EVENT_KINDS.has(kind)) return;
     if (!/^[A-Za-z0-9-]{8,64}$/.test(device)) return;
-    await supa.from('visit_log').insert({ device_id: device, kind });
+    logVisitLater(device, kind);
   } catch (e) {
     console.error('event log failed:', e.message);
   }
@@ -2204,6 +2207,7 @@ app.get('/healthz', (req, res) => {
     rssMB: Math.round(m.rss / 1048576),
     online: realOnline(),
     db: dbEnabled ? 'on' : 'off',
+    writes: queueStatus(),
     bots: botStatus(),
   });
 });
@@ -2215,6 +2219,7 @@ attachWs(wss);
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
   console.log(`WallRush listening on :${PORT} (db: ${dbEnabled ? 'on' : 'off — guest mode'})`);
+  startWriteQueue();
   initPush();
   // Hourly, so every timezone gets its own evening. The tick decides who is
   // due; most hours it finds nobody and does nothing.
