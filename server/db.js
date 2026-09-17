@@ -498,8 +498,39 @@ const aheadOf = async (q) => {
   return count || 0;
 };
 
+/* A place on the board costs a counting pass over every profile, and these are
+   asked for on the hottest paths there are: the ranking screen, and every tap
+   on a name in it. Uncached, that was a full scan of nine thousand rows per
+   open — which took the database down on 17 September, with the game still
+   running from memory while every counter on the admin page read zero.
+
+   A place does not move in a minute, so it is remembered for one. The map is
+   swept when it grows, because it is keyed by player and there are a lot of
+   players. */
+const RANK_TTL = 60_000;
+const RANK_MAX = 4000;
+const rankCache = new Map();
+
+function cachedRank(key) {
+  const hit = rankCache.get(key);
+  if (hit && Date.now() - hit.at < RANK_TTL) return hit.val;
+  return undefined;
+}
+function keepRank(key, val) {
+  if (rankCache.size > RANK_MAX) {
+    const now = Date.now();
+    for (const [k, v] of rankCache) if (now - v.at >= RANK_TTL) rankCache.delete(k);
+    if (rankCache.size > RANK_MAX) rankCache.clear();
+  }
+  rankCache.set(key, { at: Date.now(), val });
+  return val;
+}
+
 export async function myRank({ userId, deviceId }) {
   if (!dbEnabled) return null;
+  const key = 'r:' + (userId || 'd:' + deviceId);
+  const hit = cachedRank(key);
+  if (hit !== undefined) return hit;
   try {
     const me = await getPoints({ userId, deviceId });
     const points = me.points || 0;
@@ -509,7 +540,7 @@ export async function myRank({ userId, deviceId }) {
       aheadOf(supa.from('bot_players').select('nick', { count: 'exact', head: true })
         .gt('points', points)),
     ]);
-    return { rank: people + bots + 1, points, listed: Boolean(userId) };
+    return keepRank(key, { rank: people + bots + 1, points, listed: Boolean(userId) });
   } catch (e) {
     console.error('myRank failed:', e.message);
     return null;
@@ -520,16 +551,19 @@ export async function myDayRank(pl) {
   if (!dbEnabled) return null;
   const who = dayKeyOf(pl);
   if (!who) return null;
+  const key = 'd:' + who;
+  const hit = cachedRank(key);
+  if (hit !== undefined) return hit;
   try {
     const day = mskDay();
     const { data } = await supa.from('points_days')
       .select('points, wins, losses').eq('day', day).eq('who', who).maybeSingle();
     const points = data?.points || 0;
     // Nothing won today is not a place on today's board, it is no place at all.
-    if (points <= 0) return { rank: 0, points, wins: data?.wins || 0, listed: true };
+    if (points <= 0) return keepRank(key, { rank: 0, points, wins: data?.wins || 0, listed: true });
     const ahead = await aheadOf(supa.from('points_days').select('who', { count: 'exact', head: true })
       .eq('day', day).gt('points', points));
-    return { rank: ahead + 1, points, wins: data?.wins || 0, listed: true };
+    return keepRank(key, { rank: ahead + 1, points, wins: data?.wins || 0, listed: true });
   } catch (e) {
     console.error('myDayRank failed:', e.message);
     return null;
@@ -555,10 +589,14 @@ export async function myDayRank(pl) {
    one. An exact comparison in SQL has nothing to escape. */
 export async function publicProfile(nick, viewerId = null) {
   if (!dbEnabled) return null;
+  const key = 'c:' + String(nick || '').toLowerCase();
   try {
-    const { data, error } = await supa.rpc('player_card', { q: String(nick || '') });
-    if (error) throw new Error(error.message);
-    const row = Array.isArray(data) ? data[0] : data;
+    let row = cachedRank(key);
+    if (row === undefined) {
+      const { data, error } = await supa.rpc('player_card', { q: String(nick || '') });
+      if (error) throw new Error(error.message);
+      row = keepRank(key, (Array.isArray(data) ? data[0] : data) || null);
+    }
     if (!row) return null;
 
     const out = {
