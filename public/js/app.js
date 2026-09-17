@@ -1,16 +1,16 @@
 // WallRush client app: screens, board UI, online play (WebSocket), AI mode, auth.
-import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, wallBetween, N } from './engine.js?v=156';
-import { aiMove } from './ai.js?v=156';
-import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=156';
-import { PACKS } from './packs.js?v=156';
-import { rankOf, nextRank } from './ranks.js?v=156';
-import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=156';
-import { checkNick, nickOk, randomNick } from './nick.js?v=156';
+import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, wallBetween, N } from './engine.js?v=157';
+import { aiMove } from './ai.js?v=157';
+import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=157';
+import { PACKS } from './packs.js?v=157';
+import { rankOf, nextRank } from './ranks.js?v=157';
+import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=157';
+import { checkNick, nickOk, randomNick } from './nick.js?v=157';
 import {
   embedded, initPortal, inPortal, portalAd, portalPlaying, portalHappy,
   portalLoaded, portalInviteCode, portalShowInvite, portalHideInvite, portalInstant,
   portalRoom, portalOnJoin, portalInviteLink, portalMuted, portalOnMute, portalUserName,
-} from './portal.js?v=156';
+} from './portal.js?v=157';
 
 /* ================= state ================= */
 const $ = (id) => document.getElementById(id);
@@ -285,7 +285,7 @@ function getAiWorker() {
   if (aiWorker === false) return null;
   if (!aiWorker) {
     try {
-      aiWorker = new Worker('js/ai-worker.js?v=156', { type: 'module' });
+      aiWorker = new Worker('js/ai-worker.js?v=157', { type: 'module' });
       aiWorker.onmessage = (e) => {
         const cb = aiPending.get(e.data.id);
         aiPending.delete(e.data.id);
