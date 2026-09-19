@@ -295,32 +295,23 @@ app.post('/api/visit', async (req, res) => {
     const rawSrc = String(req.body?.src || '').slice(0, 40).toLowerCase();
     const src = /^[a-z0-9_.:-]{1,40}$/.test(rawSrc) ? rawSrc : null;
     const user = await verifyUser(bearer(req));
-    const { data: ex } = await supa.from('visitors')
-      .select('visits, games, installed_at, source').eq('device_id', device).maybeSingle();
-    if (ex) {
-      await supa.from('visitors').update({
-        last_seen: new Date().toISOString(),
-        visits: ex.visits + (game ? 0 : 1),
-        games: ex.games + (game ? 1 : 0),
-        ...(nick ? { last_nick: nick } : {}),
-        ...(lang ? { lang } : {}),
-        ...(tz ? { tz } : {}),
-        ...(user ? { user_id: user.id } : {}),
-        ...(src && !ex.source ? { source: src } : {}),
-        ...(installed && !ex.installed_at ? { installed_at: new Date().toISOString() } : {}),
-        ...(installed ? { standalone_at: new Date().toISOString() } : {}), // every launch from the icon
-      }).eq('device_id', device);
-    } else {
-      await supa.from('visitors').insert({
-        device_id: device,
-        last_nick: nick,
-        games: game ? 1 : 0,
-        lang, tz, source: src,
-        user_id: user ? user.id : null,
-        installed_at: installed ? new Date().toISOString() : null,
-        standalone_at: installed ? new Date().toISOString() : null,
-      });
-    }
+    /* One call, not two. This used to read the counters and then write them
+       back, which is two round trips on every page load and every game
+       started — a third of everything the database was asked to do, and what
+       ran it out of room twice in September. The adding up happens in SQL now,
+       which also closes a real hole: two games finishing in the same moment
+       read the same number and wrote the same number, losing one of them. */
+    await supa.rpc('bump_visitor', {
+      d: device,
+      add_visits: game ? 0 : 1,
+      add_games: game ? 1 : 0,
+      p_nick: nick,
+      p_lang: lang,
+      p_tz: tz,
+      p_user: user ? user.id : null,
+      p_src: src,
+      p_installed: installed,
+    });
     // per-event log: powers the per-person timeline on the admin page. Held
     // for a few seconds and sent as one insert with everybody else's — this
     // single line was the busiest request the database had.
