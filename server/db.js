@@ -78,7 +78,40 @@ export async function clearNickNotice(userId) {
 
 const BLANK = { points: 0, veteran: false, streak: 0, streakBest: 0, streakDay: null, freezeMonth: null, streakPrev: 0 };
 
+/* Read once on connect, and again on every reconnect — which on a phone that
+   keeps losing signal is a great many times an hour. Everything after that
+   moment comes down the socket instead, so a few seconds of staleness here is
+   invisible, and the reads were a large share of what the database was doing
+   when it ran out of room on 19 September. */
+const POINTS_TTL = 30_000;
+const POINTS_MAX = 5_000;
+const pointsCache = new Map();
+
+export function forgetPoints({ userId, deviceId }) {
+  pointsCache.delete('u:' + userId);
+  pointsCache.delete('d:' + deviceId);
+}
+
 export async function getPoints({ userId, deviceId }) {
+  if (!dbEnabled) return { ...BLANK };
+  const key = userId ? 'u:' + userId : deviceId ? 'd:' + deviceId : null;
+  if (key) {
+    const hit = pointsCache.get(key);
+    if (hit && Date.now() - hit.at < POINTS_TTL) return { ...hit.val };
+  }
+  const val = await readPoints({ userId, deviceId });
+  if (key && val) {
+    if (pointsCache.size > POINTS_MAX) {
+      const now = Date.now();
+      for (const [k, v] of pointsCache) if (now - v.at >= POINTS_TTL) pointsCache.delete(k);
+      if (pointsCache.size > POINTS_MAX) pointsCache.clear();
+    }
+    pointsCache.set(key, { at: Date.now(), val });
+  }
+  return { ...val };
+}
+
+async function readPoints({ userId, deviceId }) {
   if (!dbEnabled) return { ...BLANK };
   const shape = (d, veteran) => ({
     points: d?.points || 0,
@@ -120,6 +153,7 @@ export async function getPoints({ userId, deviceId }) {
    client, and calling twice is harmless: after the first one the streak is no
    longer broken. */
 export async function restoreStreak({ userId, deviceId }, today) {
+  forgetPoints({ userId, deviceId });
   if (!dbEnabled || !today) return null;
   const table = userId ? 'profiles' : 'visitors';
   const col = userId ? 'id' : 'device_id';
@@ -149,6 +183,7 @@ export async function restoreStreak({ userId, deviceId }, today) {
 // Marks the player's local day as played. Returns the streak after the update,
 // or null when there is nothing to write to.
 export async function touchStreak({ userId, deviceId }, today) {
+  forgetPoints({ userId, deviceId });
   if (!dbEnabled || !today) return null;
   try {
     const { data } = userId
@@ -173,6 +208,7 @@ export async function touchStreak({ userId, deviceId }, today) {
 // Returns the new total, or null when there is nothing to write it to.
 export async function addPoints({ userId, deviceId }, delta) {
   if (!dbEnabled || !delta) return null;
+  forgetPoints({ userId, deviceId });   // the cached figure is now the old one
   try {
     if (userId) {
       const { data } = await supa.rpc('add_points_user', { uid: userId, delta });
