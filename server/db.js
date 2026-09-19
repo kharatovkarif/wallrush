@@ -154,6 +154,7 @@ async function readPoints({ userId, deviceId }) {
    longer broken. */
 export async function restoreStreak({ userId, deviceId }, today) {
   forgetPoints({ userId, deviceId });
+  forgetStreak({ userId, deviceId });
   if (!dbEnabled || !today) return null;
   const table = userId ? 'profiles' : 'visitors';
   const col = userId ? 'id' : 'device_id';
@@ -182,7 +183,36 @@ export async function restoreStreak({ userId, deviceId }, today) {
 
 // Marks the player's local day as played. Returns the streak after the update,
 // or null when there is nothing to write to.
+/* The flame says "played today", and it changes once in a day. It was asked
+   about after every single game: twenty games in an evening meant twenty calls
+   to the database, nineteen of which could only answer what the first one
+   already had.
+
+   So the first game of a player's day goes through and the answer is kept; the
+   rest of that day are answered from here. `advanced` and `froze` are forced
+   off on the way out, because those two mean "it grew just now" and "it was
+   saved just now" — the celebration belongs to the game that earned it, not to
+   every game after.
+
+   Keyed on the player's own day, not the server's, so it rolls over at their
+   midnight. A restart forgets it, which costs one extra call per player. */
+const streakDone = new Map();
+const STREAK_MAX = 8_000;
+
+const streakKey = ({ userId, deviceId }) =>
+  (userId ? 'u:' + userId : deviceId ? 'd:' + deviceId : null);
+
+export function forgetStreak(who) {
+  const k = streakKey(who);
+  if (k) streakDone.delete(k);
+}
+
 export async function touchStreak({ userId, deviceId }, today) {
+  const key = streakKey({ userId, deviceId });
+  const hit = key && streakDone.get(key);
+  if (hit && hit.day === today) {
+    return { streak: hit.streak, best: hit.best, advanced: false, froze: false };
+  }
   forgetPoints({ userId, deviceId });
   if (!dbEnabled || !today) return null;
   try {
@@ -193,12 +223,20 @@ export async function touchStreak({ userId, deviceId }, today) {
         : { data: null };
     const row = Array.isArray(data) ? data[0] : data;
     if (!row) return null;
-    return {
+    const out = {
       streak: row.streak || 0,
       best: row.best || 0,
       advanced: Boolean(row.advanced),
       froze: Boolean(row.froze),
     };
+    if (key) {
+      if (streakDone.size > STREAK_MAX) {
+        for (const [k, v] of streakDone) if (v.day !== today) streakDone.delete(k);
+        if (streakDone.size > STREAK_MAX) streakDone.clear();
+      }
+      streakDone.set(key, { day: today, streak: out.streak, best: out.best });
+    }
+    return out;
   } catch (e) {
     console.error('touchStreak failed:', e.message);
     return null;
