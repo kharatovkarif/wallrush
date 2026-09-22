@@ -21,8 +21,8 @@ const ok = (cond, what) => {
 };
 
 // 1.2s a move, 400ms to come back, 1s of being away per game in total.
-const MOVE = 1200, GRACE = 400, BUDGET = 1000;
-_setClocksForTest({ moveMs: MOVE, graceMs: GRACE, budgetMs: BUDGET });
+const MOVE = 1200, GRACE = 400, BUDGET = 1000, QUAD_FREEZE = 250;
+_setClocksForTest({ moveMs: MOVE, graceMs: GRACE, budgetMs: BUDGET, quadFreezeMs: QUAD_FREEZE });
 
 class FakeWs extends EventEmitter {
   constructor(name) { super(); this.name = name; this.readyState = 1; this.sent = []; }
@@ -206,6 +206,54 @@ console.log('\nnothing dropped at all');
   ok(after && after.turn !== me.state.turn, 'and the turn passes');
   ok(after && after.moveSpent === 0, 'and the next move starts at zero too');
   a.shut(); b.shut();
+  await tick(GRACE + 120);
+}
+
+/* ---------- 6. a table of four, and the player who pulls the plug ----------
+ *
+ * Reported from a real game: "blue disconnected and my timer is still on
+ * thirty seconds". The table was stopped while it waited for him; when the
+ * window ran out his seat was emptied and nothing put the clock back, so the
+ * three who stayed played the rest of the game with no move limit at all and a
+ * frozen countdown on screen. Anyone could then sit on a turn forever, which is
+ * the stall this whole file exists to stop — arriving by the back door. */
+console.log('\nfour at the table, one pulls the plug');
+{
+  const ws = [];
+  for (const n of ['q0', 'q1', 'q2', 'q3']) ws.push(await connect(n));
+  say(ws[0], { t: 'create_room', mode: 'quad' });
+  await tick();
+  const roomId = ws[0].last('room_created').roomId;
+  for (let i = 1; i < 4; i++) { say(ws[i], { t: 'join_room', roomId }); await tick(); }
+  const start = ws[0].last('game_start');
+  ok(Boolean(start), 'the table of four starts');
+
+  const onMove = start.state.turn;
+  const watcher = ws[(onMove + 1) % 4];
+  watcher.clear();
+  ws[onMove].shut();                      // drops on his own turn: everyone stops
+  await tick(40);
+
+  const told = watcher.last('opp_disconnected');
+  ok(Boolean(told), 'the others are told he is gone');
+  ok(told && told.grace <= QUAD_FREEZE,
+     `and three people wait ${told && told.grace}ms, not the duel's ${GRACE}ms`);
+  ok(told && told.clocks.paused === true, 'the table is stopped while they wait');
+
+  await tick(QUAD_FREEZE + 150);
+  const out = watcher.take('player_out').find(m => m.seat === onMove);
+  ok(Boolean(out), 'he does not come back, so the seat is emptied');
+  const after = clocksOf(watcher);
+  ok(after && after.paused === false, 'and the table starts again — this is the bug');
+
+  // The decisive one: with the clock never restarted, no move can time out and
+  // the three who stayed are in a game nobody can lose on time.
+  watcher.clear();
+  await tick(MOVE + moveGrace(0) + 250);  // nobody moves
+  const timedOut = watcher.take('player_out').find(m => m.reason !== 'left');
+  ok(Boolean(timedOut), `a turn that nobody plays still times out (${timedOut && timedOut.reason})`);
+
+  for (const w of ws) w.shut();
   await tick(GRACE + 120);
 }
 

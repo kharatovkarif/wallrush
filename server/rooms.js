@@ -32,7 +32,21 @@ let GRACE_MS = 30_000;        // reconnect window, one drop
    more. Stalling costs twenty-nine seconds a time, so it buys two. */
 let GRACE_BUDGET_MS = 60_000;
 
-/* These three are `let` for one reason: the test suite cannot sit through
+/* How long three people are made to wait for a fourth.
+
+   The window above was written for a duel, where one person waits for one
+   person. At a table of four a drop by whoever is on move stops the game for
+   everybody, and thirty seconds of three people's evening for one player's
+   connection is a different trade entirely — a player on the way out learned
+   to pull the plug on their own turn and the other three left instead. Ten
+   seconds still covers an honest reconnect, which takes two to five.
+
+   Only the drop that actually freezes the table is shortened. A player who is
+   not on move stops nothing by disappearing, so their window stays the full
+   one. */
+let QUAD_FREEZE_MS = 10_000;
+
+/* These are `let` for one reason: the test suite cannot sit through
    thirty-second windows, and the rules around them are exactly what needs
    proving. Nothing in the running server calls this — grep says the only
    caller is test/clock.mjs. */
@@ -40,6 +54,7 @@ export function _setClocksForTest(next = {}) {
   if (next.moveMs) MOVE_MS = next.moveMs;
   if (next.graceMs) GRACE_MS = next.graceMs;
   if (next.budgetMs) GRACE_BUDGET_MS = next.budgetMs;
+  if (next.quadFreezeMs) QUAD_FREEZE_MS = next.quadFreezeMs;
 }
 
 // The four-handed table. Everything about it is fixed: an 11x11 board, four
@@ -215,11 +230,18 @@ function pauseClock(room, byIdx) {
   room.moveSpent = byIdx === p ? Math.min(MOVE_MS, (room.moveSpent || 0) + spent) : 0;
   room.turnStarted = Date.now();   // a move made while paused is charged from here
   room.paused = true;
+  /* Whose return the table is waiting for. Without this the pause outlived the
+     player: at a table of four, the seat was emptied when the window ran out
+     and nothing ever set `paused` back, so the three who stayed played on with
+     no move clock at all and a timer frozen on their screens for the rest of
+     the game. */
+  room.pausedFor = byIdx;
 }
 
 function resumeClock(room) {
   if (room.status !== 'playing' || !room.paused) return;
   room.paused = false;
+  room.pausedFor = null;
   room.turnStarted = Date.now();
   armMoveTimer(room);
 }
@@ -333,6 +355,15 @@ function knockOut(room, idx, reason) {
     for (const pl of room.players) tell(room, pl, stateMsg(room));
     guard('finish', () => finish(room, room.state.winner, 'last_standing'));
     return;
+  }
+  /* The table was stopped waiting for this player to come back, and they are
+     not coming back. There is nobody left to wait for, so the clock starts
+     again — otherwise the three who stayed are handed a game with no timer,
+     which is what a player reported as "he left and my timer is still stuck on
+     thirty seconds". */
+  if (room.paused && room.pausedFor === idx) {
+    room.paused = false;
+    room.pausedFor = null;
   }
   beginTurn(room);
   if (!room.paused) armMoveTimer(room);
@@ -1154,7 +1185,13 @@ export function attachWs(wss) {
         // One window at a time, and never more of it than the allowance has
         // left. Taking only the second of those would hand a player who has
         // dropped nothing a window the size of the whole allowance.
-        const left = Math.min(GRACE_MS, Math.max(0, GRACE_BUDGET_MS - (client.graceUsed || 0)));
+        let left = Math.min(GRACE_MS, Math.max(0, GRACE_BUDGET_MS - (client.graceUsed || 0)));
+        // Whether the game actually stops for this drop. At a table of four it
+        // only stops when the missing player is the one on move.
+        const freezes = !isQuad(room) || room.state?.turn === idx;
+        // Three people waiting for one is worth less of their time than one
+        // waiting for one.
+        if (isQuad(room) && freezes) left = Math.min(left, QUAD_FREEZE_MS);
         if (left <= 0) {
           byToken.delete(client.token);
           if (isQuad(room)) knockOut(room, idx, 'left');
@@ -1167,7 +1204,7 @@ export function attachWs(wss) {
         // stops if the missing player is the one on move — freezing three
         // people because a fourth, who was not even on turn, dropped their
         // connection is how a room empties.
-        if (!isQuad(room) || room.state?.turn === idx) pauseClock(room, idx);
+        if (freezes) pauseClock(room, idx);
         for (const o of others(room, idx)) {
           tell(room, o, { t: 'opp_disconnected', room: room.id, seat: idx, nick: client.nick, grace: left, clocks: clockPayload(room) });
         }

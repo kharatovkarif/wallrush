@@ -183,7 +183,11 @@ console.log('\na seat times out');
   await tick(50);
   const away = ws.find((_, i) => i !== victim).last('opp_disconnected');
   ok(away && away.seat === victim, 'the others are told who went quiet');
-  ok(away.grace === 30000, 'they have thirty seconds to come back');
+  /* Ten, not the duel's thirty. He went on his own turn, so the game is stopped
+     for the three who stayed, and a player on the way out learned to pull the
+     plug for exactly that. Ten seconds still covers an honest reconnect. */
+  ok(away.grace === 10000, 'three people wait ten seconds for him, not thirty');
+  ok(away.clocks && away.clocks.paused === true, 'and the table is stopped while they do');
   for (const w of ws) if (w.readyState === 1) w.shut();
   await tick();
 }
