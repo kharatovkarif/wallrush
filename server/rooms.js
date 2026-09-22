@@ -9,7 +9,7 @@ import {
   getPoints, addPoints, addBotPoints, addDayPoints, touchStreak,
   friendAdd, friendRemove, friendList, dailyState, dailyBump,
   friendFind, friendCount, friendRequestAdd, friendRequestAccept, friendRequestDecline, friendRequestsIn,
-  recordQuadResult,
+  recordQuadResult, deviceOwnerNick,
 } from './db.js';
 import { taskForDay, matchProgress } from '../public/js/daily.js';
 import { initBots, fakeOnline, notifyUserWaiting, fillQuadRoom, noteBotGame } from './bots.js';
@@ -706,6 +706,7 @@ async function handleHello(client, msg) {
   const off = Number(msg.tz);
   client.tzOffset = Number.isFinite(off) && Math.abs(off) <= 840 ? off : 0;
   const pts = await getPoints({ userId, deviceId: client.deviceId });
+  client.ownerId = pts.ownerId || null;
   client.points = pts.points;
   client.veteran = pts.veteran;
   client.streakBest = pts.streakBest;
@@ -780,9 +781,19 @@ async function handleHello(client, msg) {
   const liveRoom = rooms.get(client.roomId);
   const missed = (!liveRoom || liveRoom.status !== 'playing') ? takeResult(msg.token) : null;
 
+  /* Signed in on this device once, arriving without a pass now. Not a guest —
+     somebody whose login fell off, whose points have been going to the device
+     ever since, and who was never told. The name goes down with the greeting so
+     the screen can offer the way back in. Decided here rather than higher up
+     because a reconnect can restore the account from the old socket, and
+     telling someone who is signed in that they are a guest would be worse than
+     saying nothing. */
+  const ownerNick = (!client.userId && client.ownerId)
+    ? await deviceOwnerNick(client.ownerId) : null;
+
   send(client, {
     t: 'hello_ok', token: client.token, nick: client.nick, online: onlineCount(),
-    authFailed,
+    authFailed, ownerNick,
     points: client.points || 0, veteran: Boolean(client.veteran),
     streak: client.streak || 0, streakBest: client.streakBest || 0,
     streakToday: Boolean(client.streakToday),

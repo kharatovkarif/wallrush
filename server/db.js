@@ -76,7 +76,7 @@ export async function clearNickNotice(userId) {
    A registered player carries them on the profile; a guest carries them on the
    device row, which is the only identity 94% of players ever have. */
 
-const BLANK = { points: 0, veteran: false, streak: 0, streakBest: 0, streakDay: null, freezeMonth: null, streakPrev: 0 };
+const BLANK = { points: 0, veteran: false, streak: 0, streakBest: 0, streakDay: null, freezeMonth: null, streakPrev: 0, ownerId: null };
 
 /* Read once on connect, and again on every reconnect — which on a phone that
    keeps losing signal is a great many times an hour. Everything after that
@@ -113,7 +113,7 @@ export async function getPoints({ userId, deviceId }) {
 
 async function readPoints({ userId, deviceId }) {
   if (!dbEnabled) return { ...BLANK };
-  const shape = (d, veteran) => ({
+  const shape = (d, veteran, ownerId = null) => ({
     points: d?.points || 0,
     veteran,
     streak: d?.streak || 0,
@@ -121,6 +121,10 @@ async function readPoints({ userId, deviceId }) {
     streakDay: d?.streak_day || null,
     freezeMonth: d?.freeze_month || null,
     streakPrev: d?.streak_prev || 0,
+    /* Whose device this is, when we are reading it as a guest's. The row
+       remembers the account that was signed in on it, and that is the only way
+       to tell a real guest from somebody whose login quietly fell off. */
+    ownerId,
   });
   try {
     if (userId) {
@@ -130,14 +134,48 @@ async function readPoints({ userId, deviceId }) {
     }
     if (deviceId) {
       const { data } = await supa.from('visitors')
-        .select('points, veteran, streak, streak_best, streak_day, freeze_month, streak_prev')
+        .select('points, veteran, streak, streak_best, streak_day, freeze_month, streak_prev, user_id')
         .eq('device_id', deviceId).maybeSingle();
-      return shape(data, Boolean(data?.veteran));
+      return shape(data, Boolean(data?.veteran), data?.user_id || null);
     }
   } catch (e) {
     console.error('getPoints failed:', e.message);
   }
   return { ...BLANK };
+}
+
+/* ---- the name on the device ----
+
+   A device row remembers the account that signed in on it. When a player turns
+   up with no pass at all we treated them as a plain guest and said nothing —
+   and 36% of everyone who has an account was playing that way, with over half
+   a million finished games counted against the device instead of the name they
+   registered. A login can fall off for reasons that are nobody's fault: the
+   token refresh failed while the database was down, or the browser threw its
+   storage away. Either way the honest thing is to say whose device this is and
+   offer the way back in.
+
+   Cached generously: it only ever runs for a device that has an owner and no
+   live session, and the answer changes about as often as people rename
+   themselves. */
+const OWNER_TTL = 10 * 60_000;
+const OWNER_MAX = 4_000;
+const ownerCache = new Map();
+
+export async function deviceOwnerNick(userId) {
+  if (!dbEnabled || !userId) return null;
+  const hit = ownerCache.get(userId);
+  if (hit && Date.now() - hit.at < OWNER_TTL) return hit.nick;
+  try {
+    const { data } = await supa.from('profiles').select('nick').eq('id', userId).maybeSingle();
+    const nick = data?.nick || null;
+    if (ownerCache.size > OWNER_MAX) ownerCache.clear();
+    ownerCache.set(userId, { at: Date.now(), nick });
+    return nick;
+  } catch (e) {
+    console.error('deviceOwnerNick failed:', e.message);
+    return null;
+  }
 }
 
 /* Puts a broken streak back. Nothing extra is stored: the row already holds

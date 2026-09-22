@@ -83,7 +83,7 @@
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
   <!-- Opens the connection to the ad host early. Costs one handshake and no
        download, and takes that handshake off the wait once Support is tapped. -->
-  <link rel="stylesheet" href="css/style.css?v=157">
+  <link rel="stylesheet" href="css/style.css?v=158">
   <!-- Are we inside somebody else's page? Every game portal forbids running
        your own ads inside theirs, and the ad scripts below start the moment
        the parser reaches them — long before any module could stop one. So the
@@ -110,6 +110,15 @@
         <span class="ib-text" id="install-banner-text" data-i18n="install_banner"></span>
         <button id="install-banner-go" data-i18n="install_now"></button>
         <button id="install-banner-close" aria-label="close">✕</button>
+      </div>
+      <!-- Signed in on this device once, playing without a pass now. The points
+           have been going to the device and nobody was told, so the first screen
+           says whose account this is and offers the one tap back in. -->
+      <div id="signin-banner" hidden>
+        <span class="ib-icon">👤</span>
+        <span class="ib-text" id="signin-banner-text"></span>
+        <button id="signin-banner-go" data-i18n="signin_now"></button>
+        <button id="signin-banner-close" aria-label="close">✕</button>
       </div>
       <header class="home-head">
         <!-- Language is reachable in one tap from the very first screen: the
@@ -1079,8 +1088,15 @@
         </div>
         <div class="setting-row" id="push-row" hidden>
           <span data-i18n="push_label"></span>
+          <!-- Proof, on demand. "Reminders are on" is a claim; a notification
+               that actually lands is the only way anyone can check it. -->
+          <button class="btn-mini" id="push-test" data-i18n="push_test" hidden></button>
           <label class="toggle"><input type="checkbox" id="push-toggle"><span></span></label>
         </div>
+        <!-- The row used to disappear entirely once a browser had been told no,
+             which left the player with reminders off, no switch, and no idea
+             why. It stays and explains itself instead. -->
+        <p class="setting-note" id="push-blocked-note" data-i18n="push_blocked_how" hidden></p>
       </div>
 
       <!-- The list itself lives on its own screen now -->
@@ -1123,7 +1139,7 @@
     <div id="toast" hidden></div>
   </div>
 
-  <script src="vendor/supabase.js?v=157" defer></script>
-  <script type="module" src="js/app.js?v=157"></script>
+  <script src="vendor/supabase.js?v=158" defer></script>
+  <script type="module" src="js/app.js?v=158"></script>
 </body>
 </html>

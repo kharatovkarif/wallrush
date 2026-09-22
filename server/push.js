@@ -71,6 +71,56 @@ export async function saveSub(sub, { deviceId, tzOffset, lang }) {
   }
 }
 
+/* A test notification, asked for from the profile.
+
+   The evening round only writes to people who have not played that day, so
+   somebody who plays every day can have reminders working perfectly and never
+   receive one. There was no way at all to tell that apart from a switch that
+   does nothing, which is what "it is broken" turned out to mean. This sends one
+   now, to the one device that asked.
+
+   One per half minute per device: the point is proof, and proof does not need
+   repeating. */
+const TEST_TEXT = {
+  ru: { title: '🔔 Уведомления работают', body: 'Так будут приходить напоминания о серии и партиях.' },
+  en: { title: '🔔 Notifications work', body: 'This is how reminders about your streak and games will arrive.' },
+  es: { title: '🔔 Las notificaciones funcionan', body: 'Así llegarán los recordatorios de tu racha y tus partidas.' },
+  fa: { title: '🔔 اعلان‌ها کار می‌کند', body: 'یادآوری‌های زنجیره و بازی‌ها این‌طور می‌رسد.' },
+  fr: { title: '🔔 Les notifications marchent', body: 'Voilà comment arriveront les rappels de série et de parties.' },
+  tr: { title: '🔔 Bildirimler çalışıyor', body: 'Seri ve maç hatırlatmaları böyle gelecek.' },
+};
+const TEST_GAP_MS = 30_000;
+const lastTest = new Map();
+
+export async function sendTestPush(endpoint, lang) {
+  if (!ready || !dbEnabled || !endpoint) return false;
+  const prev = lastTest.get(endpoint) || 0;
+  if (Date.now() - prev < TEST_GAP_MS) return false;
+  lastTest.set(endpoint, Date.now());
+  if (lastTest.size > 5_000) {
+    const cut = Date.now() - TEST_GAP_MS;
+    for (const [k, v] of lastTest) if (v < cut) lastTest.delete(k);
+  }
+  try {
+    const { data } = await supa.from('push_subs')
+      .select('endpoint, p256dh, auth, fails').eq('endpoint', endpoint).maybeSingle();
+    if (!data) return false;
+    const text = TEST_TEXT[String(lang || '').slice(0, 2)] || TEST_TEXT.en;
+    /* Not stamped as the evening message: a test the player asked for must not
+       spend their one reminder for the day. deliver() writes last_sent, so this
+       goes out on its own. */
+    await webpush.sendNotification(
+      { endpoint: data.endpoint, keys: { p256dh: data.p256dh, auth: data.auth } },
+      JSON.stringify({ ...text, url: '/?go=quick' }),
+      { TTL: 600 },
+    );
+    return true;
+  } catch (e) {
+    console.error('sendTestPush failed:', e?.statusCode || e.message);
+    return false;
+  }
+}
+
 export async function dropSub(endpoint) {
   if (!dbEnabled || !endpoint) return;
   try { await supa.from('push_subs').delete().eq('endpoint', endpoint); } catch { /* ignore */ }

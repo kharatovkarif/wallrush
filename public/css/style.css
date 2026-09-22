@@ -250,18 +250,18 @@ html.embedded .ad-slot { display: none !important; }
 .btn-mini { border: none; background: var(--blue); color: #fff; border-radius: 10px; padding: 7px 16px; font-size: 16px; cursor: pointer; }
 
 /* slim install banner pinned above the home header (competitor-style) */
-#install-banner {
+#install-banner, #signin-banner {
   display: flex; align-items: center; gap: 8px;
   background: var(--card); border-radius: 14px; padding: 10px 12px;
   margin: 2px 0 10px; box-shadow: var(--shadow); font-size: 13px;
 }
-#install-banner .ib-text { flex: 1; font-weight: 700; }
-#install-banner-go {
+#install-banner .ib-text, #signin-banner .ib-text { flex: 1; font-weight: 700; }
+#install-banner-go, #signin-banner-go {
   border: none; background: var(--blue); color: #fff; font-weight: 700;
   border-radius: 10px; padding: 8px 14px; font-size: 13px; cursor: pointer;
 }
-#install-banner-close { border: none; background: transparent; color: var(--muted); font-size: 15px; cursor: pointer; padding: 4px 6px; }
-html[data-theme="dark"] #install-banner { background: #1c2033; }
+#install-banner-close, #signin-banner-close { border: none; background: transparent; color: var(--muted); font-size: 15px; cursor: pointer; padding: 4px 6px; }
+html[data-theme="dark"] #install-banner, html[data-theme="dark"] #signin-banner { background: #1c2033; }
 
 /* create-room settings dialog */
 .cr-group { margin: 14px 0; text-align: left; }
@@ -760,9 +760,12 @@ a.btn-big { text-decoration: none; display: block; }
 
 .settings-box { background: var(--card); border-radius: 18px; box-shadow: var(--shadow); }
 .setting-row {
-  display: flex; align-items: center; justify-content: space-between;
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
   padding: 15px 18px; font-weight: 600;
 }
+.setting-row > span:first-child { flex: 1; }
+/* an explanation under a switch that cannot be turned on from here */
+.setting-note { margin: 0; padding: 0 18px 14px; font-size: 13px; font-weight: 500; color: var(--muted); line-height: 1.45; }
 .setting-row + .setting-row { border-top: 1px solid var(--bg2); }
 /* ============ support / advertise dialogs ============ */
 .modal-emoji { font-size: 34px; line-height: 1; margin-bottom: 4px; }

@@ -1,16 +1,16 @@
 // WallRush client app: screens, board UI, online play (WebSocket), AI mode, auth.
-import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, wallBetween, N } from './engine.js?v=157';
-import { aiMove } from './ai.js?v=157';
-import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=157';
-import { PACKS } from './packs.js?v=157';
-import { rankOf, nextRank } from './ranks.js?v=157';
-import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=157';
-import { checkNick, nickOk, randomNick } from './nick.js?v=157';
+import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, wallBetween, N } from './engine.js?v=158';
+import { aiMove } from './ai.js?v=158';
+import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=158';
+import { PACKS } from './packs.js?v=158';
+import { rankOf, nextRank } from './ranks.js?v=158';
+import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=158';
+import { checkNick, nickOk, randomNick } from './nick.js?v=158';
 import {
   embedded, initPortal, inPortal, portalAd, portalPlaying, portalHappy,
   portalLoaded, portalInviteCode, portalShowInvite, portalHideInvite, portalInstant,
   portalRoom, portalOnJoin, portalInviteLink, portalMuted, portalOnMute, portalUserName,
-} from './portal.js?v=157';
+} from './portal.js?v=158';
 
 /* ================= state ================= */
 const $ = (id) => document.getElementById(id);
@@ -285,7 +285,7 @@ function getAiWorker() {
   if (aiWorker === false) return null;
   if (!aiWorker) {
     try {
-      aiWorker = new Worker('js/ai-worker.js?v=157', { type: 'module' });
+      aiWorker = new Worker('js/ai-worker.js?v=158', { type: 'module' });
       aiWorker.onmessage = (e) => {
         const cb = aiPending.get(e.data.id);
         aiPending.delete(e.data.id);
@@ -836,6 +836,8 @@ function handleWsMessage(msg) {
         toast(t('auth_lost'));
       }
       if (!msg.authFailed) reauthTried = false;
+      // Not signed in here, but this device has an account. Say so.
+      showSigninBanner(msg.ownerNick);
       wsToken = msg.token;
       sessionStorage.setItem('wr_ws_token', wsToken);
       $('online-count').textContent = msg.online;
@@ -2805,6 +2807,8 @@ function updateProfileUI() {
   $('theme-toggle').checked = localStorage.getItem('wr_theme') === 'dark';
   const logged = Boolean(session && profile);
   $('guest-hint').hidden = logged;
+  // Signed in now, so the offer on the home screen has nothing left to offer.
+  if (logged) { const b = $('signin-banner'); if (b) b.hidden = true; }
   $('auth-buttons').hidden = logged; // always visible for guests, even if auth is broken —
                                      // tapping then explains WHY it is unavailable
   $('logged-box').hidden = !logged;
@@ -3740,6 +3744,45 @@ async function doInstall() {
   $('install-banner').hidden = true;
 }
 $('btn-install').addEventListener('click', doInstall);
+/* ---------- "you have an account and you are not in it" ----------
+
+   A third of everyone with an account was playing as a guest: a login can fall
+   off when a token refresh fails, and nothing on screen ever mentioned it, so
+   the points went to the device and the name stayed empty. The server knows
+   whose device this is and now says so. One tap fills the login box with the
+   nick, leaving only the password.
+
+   Dismissed for a day rather than for good — the reason for it is not something
+   the player chose, so it is fair to ask again tomorrow. */
+const SIGNIN_HUSH_MS = 24 * 3600e3;
+let signinNick = null;
+
+function showSigninBanner(nick) {
+  signinNick = nick || null;
+  const bar = $('signin-banner');
+  if (!bar) return;
+  const hushed = Number(localStorage.getItem('wr_signin_hush') || 0) > Date.now() - SIGNIN_HUSH_MS;
+  if (!signinNick || session || hushed || !config?.auth || !supabase) { bar.hidden = true; return; }
+  $('signin-banner-text').textContent = t('signin_banner').replace('%s', signinNick);
+  bar.hidden = false;
+}
+
+$('signin-banner-go').addEventListener('click', () => {
+  $('signin-banner').hidden = true;
+  if (!ensureAuthAvailable()) return;
+  show('screen-profile');
+  openAuthForm('login');
+  // The nick is accepted in place of the address, so the only thing missing
+  // is the password.
+  if (signinNick) $('auth-email').value = signinNick;
+  $('auth-password').focus();
+});
+
+$('signin-banner-close').addEventListener('click', () => {
+  localStorage.setItem('wr_signin_hush', String(Date.now()));
+  $('signin-banner').hidden = true;
+});
+
 $('install-banner-go').addEventListener('click', doInstall);
 $('install-banner-close').addEventListener('click', () => {
   $('install-banner').hidden = true; // just for this view — returns on next reload
@@ -3939,13 +3982,49 @@ $('btn-push-yes').addEventListener('click', async () => {
 // back — and the way in for everyone the prompt caught at a bad moment.
 function renderPushRow() {
   const row = $('push-row');
-  if (!pushSupported() || !config?.vapid || Notification.permission === 'denied') {
+  const note = $('push-blocked-note');
+  const test = $('push-test');
+  if (!pushSupported() || !config?.vapid) {
     row.hidden = true;
+    note.hidden = true;
     return;
   }
+  /* Blocked in the browser is not the same as off. The row used to vanish, so
+     the player had reminders they could not turn on and no explanation at all —
+     and only the browser's own settings can undo it. Say that, and keep the
+     switch where they left it. */
+  const blocked = Notification.permission === 'denied';
   row.hidden = false;
-  $('push-toggle').checked = Boolean(localStorage.getItem('wr_push'));
+  note.hidden = !blocked;
+  const on = Boolean(localStorage.getItem('wr_push')) && !blocked;
+  $('push-toggle').checked = on;
+  $('push-toggle').disabled = blocked;
+  test.hidden = !on;
 }
+
+/* One notification, right now, to this device. Reminders go out in the evening
+   and only to people who have not played that day, so someone who plays daily
+   can have them working perfectly and never see one — which is exactly how the
+   switch came to look broken. */
+$('push-test').addEventListener('click', async (e) => {
+  const btn = e.target;
+  btn.disabled = true;
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    const sub = await reg.pushManager.getSubscription();
+    if (!sub) { toast(t('push_test_fail')); return; }
+    const r = await fetch('/api/push/test', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ endpoint: sub.endpoint, lang }),
+    });
+    toast(t(r.ok ? 'push_test_sent' : 'push_test_fail'));
+  } catch {
+    toast(t('push_test_fail'));
+  } finally {
+    setTimeout(() => { btn.disabled = false; }, 5000);
+  }
+});
 
 $('push-toggle').addEventListener('change', async (e) => {
   const box = e.target;
@@ -3961,10 +4040,11 @@ $('push-toggle').addEventListener('change', async (e) => {
     box.disabled = false;
     box.checked = ok;
     toast(t(ok ? 'push_on' : 'push_blocked'));
-    if (!ok) renderPushRow();          // a refusal hides the row for good
+    renderPushRow();                   // blocked or on, the row says which
     return;
   }
   localStorage.removeItem('wr_push');
+  renderPushRow();
   try {
     const reg = await navigator.serviceWorker.ready;
     const sub = await reg.pushManager.getSubscription();
@@ -4146,6 +4226,11 @@ async function boot() {
     }
   }
   updateProfileUI();
+  /* The socket says hello before this line is reached, so the first greeting
+     arrives while accounts are still switched off as far as this page knows.
+     Ask again now that they are on, or the offer to sign back in would wait for
+     a reconnect that might not come for an hour. */
+  showSigninBanner(signinNick);
 }
 
 boot();

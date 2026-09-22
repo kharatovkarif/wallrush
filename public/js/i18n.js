@@ -352,6 +352,12 @@ export const I18N = {
     install_app: 'Приложение на экран',
     install_banner: 'Установи WallRush как приложение',
     install_now: 'Установить',
+    signin_banner: 'Играешь гостем — очки не идут в аккаунт %s',
+    signin_now: 'Войти',
+    push_blocked_how: 'Уведомления запрещены в настройках браузера. Разреши их для wallrush.online и вернись сюда.',
+    push_test: 'Проверить',
+    push_test_sent: 'Уведомление отправлено — должно прийти через пару секунд',
+    push_test_fail: 'Не получилось отправить, попробуй позже',
     install_ios: 'Установи на iPhone: «Поделиться» ⬆️ → «На экран «Домой»',
     legal_rules: 'Правила',
     legal_help: 'Помощь',
@@ -779,6 +785,12 @@ export const I18N = {
     install_app: 'Install the app',
     install_banner: 'Install WallRush as an app',
     install_now: 'Install',
+    signin_banner: 'You are playing as a guest — points are not going to %s',
+    signin_now: 'Sign in',
+    push_blocked_how: 'Notifications are blocked in your browser settings. Allow them for wallrush.online and come back here.',
+    push_test: 'Test',
+    push_test_sent: 'Notification sent — it should arrive in a couple of seconds',
+    push_test_fail: 'Could not send it, try again later',
     install_ios: 'Install on iPhone: Share ⬆️ → Add to Home Screen',
     legal_rules: 'Rules',
     legal_help: 'Help',
@@ -870,7 +882,7 @@ export const LANGS = [
 export const LANG_CODES = LANGS.map((l) => l.code);
 export const RTL = new Set(['fa']);
 
-const V = '157';
+const V = '158';
 
 // Loads a translation file on demand. Safe to call repeatedly and safe to fail:
 // if the request never lands, makeT keeps falling back to English.

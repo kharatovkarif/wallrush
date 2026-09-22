@@ -11,7 +11,7 @@ import { checkNick } from '../public/js/nick.js';
 import { localDay } from '../public/js/streak.js';
 import { taskForDay } from '../public/js/daily.js';
 import { packById } from '../public/js/packs.js';
-import { initPush, pushPublicKey, saveSub, dropSub, pushTick } from './push.js';
+import { initPush, pushPublicKey, saveSub, dropSub, pushTick, sendTestPush } from './push.js';
 import { mountPages } from './pages.js';
 import { logVisitLater, startWriteQueue, queueStatus, flushWrites } from './queue.js';
 import { dbEnabled, dbStatus, dbDetail, cleanEnv, likeEscape, supa, verifyUser, getProfile, createProfile, claimGuestProgress, leaderboard, dailyLeaderboard, sweepDayPoints, mskDay, myRank, myDayRank, publicProfile, clearNickNotice, restoreStreak, deleteAccount } from './db.js';
@@ -359,6 +359,16 @@ app.post('/api/push/subscribe', async (req, res) => {
     lang: String(req.body?.lang || '').slice(0, 8),
   });
   res.json({ ok });
+});
+
+// Proof that reminders reach this device, on demand from the profile.
+app.post('/api/push/test', async (req, res) => {
+  const ok = await sendTestPush(
+    String(req.body?.endpoint || '').slice(0, 600),
+    String(req.body?.lang || '').slice(0, 8),
+  );
+  if (!ok) return res.status(429).json({ ok: false });
+  res.json({ ok: true });
 });
 
 app.post('/api/push/unsubscribe', async (req, res) => {
