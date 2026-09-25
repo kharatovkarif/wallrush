@@ -1,7 +1,7 @@
 // WallRush service worker: caches the app shell so the game opens instantly
 // and the AI mode keeps working offline. Pages go network-first (fresh
 // deploys land right away), versioned assets go cache-first.
-const V = '158';
+const V = '159';
 const CACHE = 'wr-' + V;
 const SHELL = [
   '/',
@@ -14,6 +14,12 @@ const SHELL = [
   `/js/ranks.js?v=${V}`,
   `/js/streak.js?v=${V}`,
   `/js/nick.js?v=${V}`,
+  // the two sounds the game makes; imported on every load, so it belongs here
+  // with the rest of the shell. The video maker (clip.js and the muxer beside
+  // it) deliberately is not: it is a few dozen kilobytes that only the people
+  // who press the button ever pay for, and the fetch handler below keeps it
+  // once they have.
+  `/js/sfx.js?v=${V}`,
   `/js/portal.js?v=${V}`,
   `/js/ai-worker.js?v=${V}`,
   // Persian, Turkish, French and Spanish load on demand, so with no signal

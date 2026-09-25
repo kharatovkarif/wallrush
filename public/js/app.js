@@ -1,16 +1,17 @@
 // WallRush client app: screens, board UI, online play (WebSocket), AI mode, auth.
-import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, wallBetween, N } from './engine.js?v=158';
-import { aiMove } from './ai.js?v=158';
-import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=158';
-import { PACKS } from './packs.js?v=158';
-import { rankOf, nextRank } from './ranks.js?v=158';
-import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=158';
-import { checkNick, nickOk, randomNick } from './nick.js?v=158';
+import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, wallBetween, N } from './engine.js?v=159';
+import { scheduleTick } from './sfx.js?v=159';
+import { aiMove } from './ai.js?v=159';
+import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=159';
+import { PACKS } from './packs.js?v=159';
+import { rankOf, nextRank } from './ranks.js?v=159';
+import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=159';
+import { checkNick, nickOk, randomNick } from './nick.js?v=159';
 import {
   embedded, initPortal, inPortal, portalAd, portalPlaying, portalHappy,
   portalLoaded, portalInviteCode, portalShowInvite, portalHideInvite, portalInstant,
   portalRoom, portalOnJoin, portalInviteLink, portalMuted, portalOnMute, portalUserName,
-} from './portal.js?v=158';
+} from './portal.js?v=159';
 
 /* ================= state ================= */
 const $ = (id) => document.getElementById(id);
@@ -58,35 +59,14 @@ let portalMute = false;
 let audioCtx = null;
 // soft = somebody else's move, three seats away from mattering to me yet:
 // audible, so the table feels alive, but not the sound that means "your turn"
+// The sounds themselves live in sfx.js, so the video of a finished game can be
+// given exactly these and not an imitation of them.
 function tick(mine, wall = false, soft = false) {
   if (!soundOn || portalMute) return;
-  const vol = soft ? 0.35 : 1;
   try {
     audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
     if (audioCtx.state === 'suspended') audioCtx.resume();
-    const t0 = audioCtx.currentTime;
-    const o = audioCtx.createOscillator();
-    const g = audioCtx.createGain();
-    if (wall) {
-      o.type = 'sine';
-      o.frequency.setValueAtTime(mine ? 340 : 270, t0);
-      o.frequency.exponentialRampToValueAtTime(mine ? 180 : 140, t0 + 0.1); // falling thud
-      g.gain.setValueAtTime(0.0001, t0);
-      g.gain.exponentialRampToValueAtTime(0.3 * vol, t0 + 0.006);
-      g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.14);
-      o.connect(g).connect(audioCtx.destination);
-      o.start(t0);
-      o.stop(t0 + 0.15);
-    } else {
-      o.type = 'triangle';
-      o.frequency.value = mine ? 660 : 500; // my move rings higher than theirs
-      g.gain.setValueAtTime(0.0001, t0);
-      g.gain.exponentialRampToValueAtTime(0.22 * vol, t0 + 0.008);
-      g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.09);
-      o.connect(g).connect(audioCtx.destination);
-      o.start(t0);
-      o.stop(t0 + 0.1);
-    }
+    scheduleTick(audioCtx, audioCtx.destination, audioCtx.currentTime, { mine, wall, soft });
   } catch { /* no audio — fine */ }
 }
 
@@ -285,7 +265,7 @@ function getAiWorker() {
   if (aiWorker === false) return null;
   if (!aiWorker) {
     try {
-      aiWorker = new Worker('js/ai-worker.js?v=158', { type: 'module' });
+      aiWorker = new Worker('js/ai-worker.js?v=159', { type: 'module' });
       aiWorker.onmessage = (e) => {
         const cb = aiPending.get(e.data.id);
         aiPending.delete(e.data.id);
@@ -2575,6 +2555,11 @@ function startReplay() {
   replay = { idx: 0, timer: null, playing: false, savedState: game.state };
   $('overlay-gameover').hidden = true;
   $('replay-bar').hidden = false;
+  // A video of the last game is not a video of this one.
+  clipReady = null;
+  clipBusy = false;
+  clipLabel(t('clip_save'));
+  $('rp-clip').hidden = !clipCanRun();
   playReplay(true);
 }
 
@@ -2590,6 +2575,103 @@ $('btn-replay').addEventListener('click', startReplay);
 $('rp-close').addEventListener('click', () => {
   stopReplay();
   $('overlay-gameover').hidden = false; // back to the win/lose screen
+});
+
+/* ---------- the match as a video ----------
+
+   Made here on the phone out of the positions the game already kept, and it
+   never leaves the phone: nothing is uploaded and the server is not told. The
+   work is real work, though — a few seconds of encoding — so the button says
+   what it is doing rather than going quiet.
+
+   Two taps, deliberately. The share sheet may only be opened from a tap, and
+   by the time the video is ready the tap that started it is long gone; iOS
+   refuses it then. So the first tap makes the file and the second sends it. */
+let clipReady = null;       // { blob, name, mime }
+let clipBusy = false;
+
+/* Whether this browser can make a video at all. Written out here rather than
+   asked of clip.js, because asking would mean downloading clip.js on every
+   finished game just to find out — and the point of keeping it separate is
+   that it is fetched only when somebody actually wants a video. */
+function clipCanRun() {
+  const codecs = typeof VideoEncoder !== 'undefined' && typeof VideoFrame !== 'undefined';
+  const recorder = typeof MediaRecorder !== 'undefined'
+    && typeof HTMLCanvasElement !== 'undefined'
+    && Boolean(HTMLCanvasElement.prototype.captureStream);
+  return codecs || recorder;
+}
+
+function clipLabel(text, { ready = false, busy = false } = {}) {
+  const b = $('rp-clip');
+  b.textContent = text;
+  b.disabled = busy;
+  b.classList.toggle('ready', ready);
+}
+
+async function shareClip() {
+  const { blob, name, mime } = clipReady;
+  try {
+    const file = new File([blob], name, { type: mime });
+    if (navigator.canShare?.({ files: [file] })) {
+      await navigator.share({ files: [file], text: 'wallrush.online' });
+      return;
+    }
+  } catch (e) {
+    // "share cancelled" lands here too, and a cancel is not a failure — fall
+    // through to the download, which is what they can do instead.
+    if (e?.name === 'AbortError') return;
+  }
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 30_000);
+}
+
+$('rp-clip').addEventListener('click', async () => {
+  if (clipBusy) return;
+  if (clipReady) { shareClip(); return; }
+  if (!game?.history || game.history.length < 2) return;
+
+  clipBusy = true;
+  playReplay(false);                       // one thing on the screen at a time
+  clipLabel(t('clip_making').replace('%n', '0'), { busy: true });
+  try {
+    const { makeClip } = await import('./clip.js?v=159');
+    const last = game.history[game.history.length - 1];
+    const winner = last?.winner ?? game.state?.winner ?? null;
+    const quad = isQuad();
+    const names = [];
+    const count = quad ? 4 : 2;
+    for (let i = 0; i < count; i++) {
+      names.push(i === game.myIndex ? myNick()
+        : quad ? (game.seats?.[i]?.nick || '—') : String(game.oppNick || '—'));
+    }
+    const out = await makeClip({
+      history: game.history,
+      turns: viewTurns(),
+      seatColors: Array.from({ length: count }, (_, i) => seatColor(i)),
+      names,
+      mySeat: game.myIndex,
+      winner,
+      resultLine: winner === null ? '' : t('clip_result').replace('%s', names[winner] || ''),
+      movesLine: t('clip_moves').replace('%n', String(game.history.length - 1)),
+    }, (p) => clipLabel(t('clip_making').replace('%n', String(Math.round(p * 100))), { busy: true }));
+
+    const stamp = new Date().toISOString().slice(0, 10);
+    clipReady = { blob: out.blob, mime: out.mime, name: `wallrush-${stamp}.${out.ext}` };
+    clipLabel(t('clip_ready'), { ready: true });
+  } catch (e) {
+    console.warn('clip failed', e);
+    clipLabel(t('clip_save'));
+    toast(t('clip_fail'));
+  } finally {
+    clipBusy = false;
+  }
 });
 $('rp-play').addEventListener('click', () => playReplay(!replay?.playing));
 $('rp-start').addEventListener('click', () => { if (replay) { playReplay(false); replay.idx = 0; renderReplayFrame(); } });

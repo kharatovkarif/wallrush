@@ -352,6 +352,12 @@ export const I18N = {
     install_app: 'Приложение на экран',
     install_banner: 'Установи WallRush как приложение',
     install_now: 'Установить',
+    clip_save: '🎬 Сделать видео партии',
+    clip_making: 'Делаю видео… %n%',
+    clip_ready: '✓ Готово — сохранить или отправить',
+    clip_fail: 'Видео не получилось. Попробуй ещё раз',
+    clip_result: 'Победил %s',
+    clip_moves: 'ходов: %n',
     signin_banner: 'Играешь гостем — очки не идут в аккаунт %s',
     signin_now: 'Войти',
     push_blocked_how: 'Уведомления запрещены в настройках браузера. Разреши их для wallrush.online и вернись сюда.',
@@ -785,6 +791,12 @@ export const I18N = {
     install_app: 'Install the app',
     install_banner: 'Install WallRush as an app',
     install_now: 'Install',
+    clip_save: '🎬 Make a video of this game',
+    clip_making: 'Making the video… %n%',
+    clip_ready: '✓ Ready — save or send it',
+    clip_fail: 'The video did not work. Try again',
+    clip_result: '%s wins',
+    clip_moves: 'moves: %n',
     signin_banner: 'You are playing as a guest — points are not going to %s',
     signin_now: 'Sign in',
     push_blocked_how: 'Notifications are blocked in your browser settings. Allow them for wallrush.online and come back here.',
@@ -882,7 +894,7 @@ export const LANGS = [
 export const LANG_CODES = LANGS.map((l) => l.code);
 export const RTL = new Set(['fa']);
 
-const V = '158';
+const V = '159';
 
 // Loads a translation file on demand. Safe to call repeatedly and safe to fail:
 // if the request never lands, makeT keeps falling back to English.
