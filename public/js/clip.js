@@ -9,12 +9,12 @@
    The file is made on the phone and stays there. Nothing is uploaded, the
    server never learns a clip was made, and the database is not touched. */
 
-import { scheduleTick } from './sfx.js?v=159';
+import { scheduleTick } from './sfx.js?v=160';
 
 import {
   W, H, FPS, RATE, LEAD_MS, MOVE_ANIM, WALL_ANIM,
   lerp, clamp01, spin, spinWall, geometry, buildTimeline, frameState,
-} from './clipmath.js?v=159';
+} from './clipmath.js?v=160';
 
 const SEATS = {
   blue:   { ball: ['#cfe1ff', '#6f9cf9', '#2f6df6', '#143a8f'], wall: ['#7aa3fb', '#2f6df6', '#1a48b8'], flat: '#2f6df6' },
@@ -378,7 +378,7 @@ const codecSupported = async (config) => {
 };
 
 async function encodeMp4(art, audio, onProgress) {
-  const { Muxer, ArrayBufferTarget } = await import('../vendor/mp4-muxer.js?v=159');
+  const { Muxer, ArrayBufferTarget } = await import('../vendor/mp4-muxer.js?v=160');
 
   /* H.264 baseline first: it is the one profile every phone made in the last
      decade can play, and on an iPhone it is decoded in hardware. Main and high

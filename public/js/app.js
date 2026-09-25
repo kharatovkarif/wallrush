@@ -1,17 +1,17 @@
 // WallRush client app: screens, board UI, online play (WebSocket), AI mode, auth.
-import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, wallBetween, N } from './engine.js?v=159';
-import { scheduleTick } from './sfx.js?v=159';
-import { aiMove } from './ai.js?v=159';
-import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=159';
-import { PACKS } from './packs.js?v=159';
-import { rankOf, nextRank } from './ranks.js?v=159';
-import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=159';
-import { checkNick, nickOk, randomNick } from './nick.js?v=159';
+import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, wallBetween, N } from './engine.js?v=160';
+import { scheduleTick } from './sfx.js?v=160';
+import { aiMove } from './ai.js?v=160';
+import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=160';
+import { PACKS } from './packs.js?v=160';
+import { rankOf, nextRank } from './ranks.js?v=160';
+import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=160';
+import { checkNick, nickOk, randomNick } from './nick.js?v=160';
 import {
   embedded, initPortal, inPortal, portalAd, portalPlaying, portalHappy,
   portalLoaded, portalInviteCode, portalShowInvite, portalHideInvite, portalInstant,
   portalRoom, portalOnJoin, portalInviteLink, portalMuted, portalOnMute, portalUserName,
-} from './portal.js?v=159';
+} from './portal.js?v=160';
 
 /* ================= state ================= */
 const $ = (id) => document.getElementById(id);
@@ -265,7 +265,7 @@ function getAiWorker() {
   if (aiWorker === false) return null;
   if (!aiWorker) {
     try {
-      aiWorker = new Worker('js/ai-worker.js?v=159', { type: 'module' });
+      aiWorker = new Worker('js/ai-worker.js?v=160', { type: 'module' });
       aiWorker.onmessage = (e) => {
         const cb = aiPending.get(e.data.id);
         aiPending.delete(e.data.id);
@@ -2584,9 +2584,10 @@ $('rp-close').addEventListener('click', () => {
    work is real work, though — a few seconds of encoding — so the button says
    what it is doing rather than going quiet.
 
-   Two taps, deliberately. The share sheet may only be opened from a tap, and
-   by the time the video is ready the tap that started it is long gone; iOS
-   refuses it then. So the first tap makes the file and the second sends it. */
+   One tap, and the file is saved. There was a share sheet here and it cost a
+   second tap: a share sheet may only be opened from a touch, and by the time
+   the video is ready the touch that started it is long gone, which iOS refuses.
+   A download has no such rule, so the download is what happens. */
 let clipReady = null;       // { blob, name, mime }
 let clipBusy = false;
 
@@ -2609,19 +2610,8 @@ function clipLabel(text, { ready = false, busy = false } = {}) {
   b.classList.toggle('ready', ready);
 }
 
-async function shareClip() {
-  const { blob, name, mime } = clipReady;
-  try {
-    const file = new File([blob], name, { type: mime });
-    if (navigator.canShare?.({ files: [file] })) {
-      await navigator.share({ files: [file], text: 'wallrush.online' });
-      return;
-    }
-  } catch (e) {
-    // "share cancelled" lands here too, and a cancel is not a failure — fall
-    // through to the download, which is what they can do instead.
-    if (e?.name === 'AbortError') return;
-  }
+function saveClip() {
+  const { blob, name } = clipReady;
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
@@ -2629,19 +2619,20 @@ async function shareClip() {
   document.body.appendChild(a);
   a.click();
   a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 30_000);
+  // Long enough for a slow phone to have finished writing the file.
+  setTimeout(() => URL.revokeObjectURL(url), 60_000);
 }
 
 $('rp-clip').addEventListener('click', async () => {
   if (clipBusy) return;
-  if (clipReady) { shareClip(); return; }
+  if (clipReady) { saveClip(); return; }   // already made — just save it again
   if (!game?.history || game.history.length < 2) return;
 
   clipBusy = true;
   playReplay(false);                       // one thing on the screen at a time
   clipLabel(t('clip_making').replace('%n', '0'), { busy: true });
   try {
-    const { makeClip } = await import('./clip.js?v=159');
+    const { makeClip } = await import('./clip.js?v=160');
     const last = game.history[game.history.length - 1];
     const winner = last?.winner ?? game.state?.winner ?? null;
     const quad = isQuad();
@@ -2664,7 +2655,8 @@ $('rp-clip').addEventListener('click', async () => {
 
     const stamp = new Date().toISOString().slice(0, 10);
     clipReady = { blob: out.blob, mime: out.mime, name: `wallrush-${stamp}.${out.ext}` };
-    clipLabel(t('clip_ready'), { ready: true });
+    saveClip();                            // straight to the phone, no second tap
+    clipLabel(t('clip_saved'), { ready: true });
   } catch (e) {
     console.warn('clip failed', e);
     clipLabel(t('clip_save'));
