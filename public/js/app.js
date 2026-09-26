@@ -1,17 +1,17 @@
 // WallRush client app: screens, board UI, online play (WebSocket), AI mode, auth.
-import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, wallBetween, N } from './engine.js?v=160';
-import { scheduleTick } from './sfx.js?v=160';
-import { aiMove } from './ai.js?v=160';
-import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=160';
-import { PACKS } from './packs.js?v=160';
-import { rankOf, nextRank } from './ranks.js?v=160';
-import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=160';
-import { checkNick, nickOk, randomNick } from './nick.js?v=160';
+import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, wallBetween, N } from './engine.js?v=161';
+import { scheduleTick } from './sfx.js?v=161';
+import { aiMove } from './ai.js?v=161';
+import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=161';
+import { PACKS } from './packs.js?v=161';
+import { rankOf, nextRank } from './ranks.js?v=161';
+import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=161';
+import { checkNick, nickOk, randomNick } from './nick.js?v=161';
 import {
   embedded, initPortal, inPortal, portalAd, portalPlaying, portalHappy,
   portalLoaded, portalInviteCode, portalShowInvite, portalHideInvite, portalInstant,
   portalRoom, portalOnJoin, portalInviteLink, portalMuted, portalOnMute, portalUserName,
-} from './portal.js?v=160';
+} from './portal.js?v=161';
 
 /* ================= state ================= */
 const $ = (id) => document.getElementById(id);
@@ -265,7 +265,7 @@ function getAiWorker() {
   if (aiWorker === false) return null;
   if (!aiWorker) {
     try {
-      aiWorker = new Worker('js/ai-worker.js?v=160', { type: 'module' });
+      aiWorker = new Worker('js/ai-worker.js?v=161', { type: 'module' });
       aiWorker.onmessage = (e) => {
         const cb = aiPending.get(e.data.id);
         aiPending.delete(e.data.id);
@@ -2632,7 +2632,7 @@ $('rp-clip').addEventListener('click', async () => {
   playReplay(false);                       // one thing on the screen at a time
   clipLabel(t('clip_making').replace('%n', '0'), { busy: true });
   try {
-    const { makeClip } = await import('./clip.js?v=160');
+    const { makeClip } = await import('./clip.js?v=161');
     const last = game.history[game.history.length - 1];
     const winner = last?.winner ?? game.state?.winner ?? null;
     const quad = isQuad();
@@ -2649,6 +2649,9 @@ $('rp-clip').addEventListener('click', async () => {
       names,
       mySeat: game.myIndex,
       winner,
+      // the clip wears whatever theme the player set: a dark-theme player who
+      // gets back a bright video is right to say the colours are wrong
+      theme: document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light',
       resultLine: winner === null ? '' : t('clip_result').replace('%s', names[winner] || ''),
       movesLine: t('clip_moves').replace('%n', String(game.history.length - 1)),
     }, (p) => clipLabel(t('clip_making').replace('%n', String(Math.round(p * 100))), { busy: true }));

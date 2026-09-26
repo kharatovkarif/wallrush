@@ -9,12 +9,19 @@
    The file is made on the phone and stays there. Nothing is uploaded, the
    server never learns a clip was made, and the database is not touched. */
 
-import { scheduleTick } from './sfx.js?v=160';
+import { scheduleTick } from './sfx.js?v=161';
 
 import {
   W, H, FPS, RATE, LEAD_MS, MOVE_ANIM, WALL_ANIM,
   lerp, clamp01, spin, spinWall, geometry, buildTimeline, frameState,
-} from './clipmath.js?v=160';
+} from './clipmath.js?v=161';
+
+/* The picture is flat colour and slow gradients, which is exactly what a low
+   ceiling turns into visible banding across the board. Raised until the board
+   looked like the board. Nothing like this much is actually spent: most frames
+   are identical to the one before, so a nineteen-second clip lands well under
+   what this would allow. */
+const BITRATE = 6_000_000;
 
 const SEATS = {
   blue:   { ball: ['#cfe1ff', '#6f9cf9', '#2f6df6', '#143a8f'], wall: ['#7aa3fb', '#2f6df6', '#1a48b8'], flat: '#2f6df6' },
@@ -23,6 +30,40 @@ const SEATS = {
   green:  { ball: ['#c8f4da', '#5fd095', '#21a35a', '#0c5730'], wall: ['#5fd095', '#21a35a', '#14663a'], flat: '#21a35a' },
 };
 const NEUTRAL = { wall: ['#48547e', '#2b3355', '#161c34'], flat: '#2b3355' };
+
+/* The two themes, copied out of style.css rather than invented. A clip in
+   colours the game does not use reads as somebody else's game — and a player
+   who set the dark theme and got back a bright blue video is right to say the
+   colours are wrong.
+
+   Every value here has a twin in the stylesheet: change one and change both.
+   Search for `--bg`, `#board` and `.grid-line`. */
+const THEMES = {
+  light: {
+    page: '#eef1f7',                                  // --bg
+    wash: ['rgba(255,120,120,.06)', 'rgba(124,92,255,.04)', 'rgba(61,123,255,.06)'],
+    paper: 'rgba(120,120,160,.07)',                   // the graph-paper grid on body
+    text: '#1d2440',                                  // --text
+    muted: 'rgba(139,147,175,.95)',                   // --muted
+    board: ['#fdfdff', '#f0f1f8', '#e9ebf4'],
+    bezel: '#c9d2e2',                                 // --bezel
+    rim: '#98a5c0',
+    lines: 'rgba(95, 115, 165, .30)',                 // .grid-line
+    shade: 'rgba(45, 65, 120, .45)',
+  },
+  dark: {
+    page: '#12141f',
+    wash: ['rgba(90,110,220,.06)', 'rgba(40,50,110,.05)', 'rgba(47,109,246,.06)'],
+    paper: 'rgba(140,150,210,.05)',
+    text: '#e8eaf6',
+    muted: 'rgba(139,147,180,.95)',
+    board: ['#272e4a', '#1d2340', '#171c33'],
+    bezel: '#2c3349',
+    rim: '#1a2033',
+    lines: 'rgba(185, 200, 235, .17)',
+    shade: 'rgba(0, 0, 0, .55)',
+  },
+};
 
 /* ---------- small drawing helpers ---------- */
 
@@ -58,23 +99,25 @@ function drawBoardBase(ctx, art) {
   const { cols, rows, geo } = art;
   const { bx: BX, by: BY, bw: BOARD, bh } = geo;
 
+  const th = art.theme;
+
   ctx.save();
-  ctx.shadowColor = 'rgba(45, 65, 120, .45)';
+  ctx.shadowColor = th.shade;
   ctx.shadowBlur = 46;
   ctx.shadowOffsetY = 20;
   rrect(ctx, BX - 22, BY - 22, BOARD + 44, bh + 44, 34);
-  ctx.fillStyle = '#98a5c0';
+  ctx.fillStyle = th.rim;
   ctx.fill();
   ctx.restore();
 
   rrect(ctx, BX - 20, BY - 20, BOARD + 40, bh + 40, 32);
-  ctx.fillStyle = '#c9d2e2';
+  ctx.fillStyle = th.bezel;
   ctx.fill();
 
   const bg = ctx.createLinearGradient(BX, BY, BX + BOARD * 0.35, BY + bh);
-  bg.addColorStop(0, '#fdfdff');
-  bg.addColorStop(0.7, '#f0f1f8');
-  bg.addColorStop(1, '#e9ebf4');
+  bg.addColorStop(0, th.board[0]);
+  bg.addColorStop(0.7, th.board[1]);
+  bg.addColorStop(1, th.board[2]);
   rrect(ctx, BX, BY, BOARD, bh, 26);
   ctx.fillStyle = bg;
   ctx.fill();
@@ -83,7 +126,7 @@ function drawBoardBase(ctx, art) {
   ctx.save();
   rrect(ctx, BX, BY, BOARD, bh, 26);
   ctx.clip();
-  ctx.fillStyle = 'rgba(95, 115, 165, .30)';
+  ctx.fillStyle = th.lines;
   for (let i = 1; i < Math.max(cols, rows); i++) {
     const at = geo.pad + i * (geo.u + geo.g) - geo.g / 2;
     if (i < cols) ctx.fillRect(BX + at, BY + geo.pad / 2, 1.6, bh - geo.pad);
@@ -245,60 +288,71 @@ function drawPawn(ctx, art, seat, r, c, alpha = 1) {
 /* ---------- everything around the board ---------- */
 
 function drawChrome(ctx, art) {
-  const bg = ctx.createLinearGradient(0, 0, W * 0.4, H);
-  bg.addColorStop(0, '#111a33');
-  bg.addColorStop(0.55, '#0d1428');
-  bg.addColorStop(1, '#070b18');
-  ctx.fillStyle = bg;
+  const th = art.theme;
+
+  /* The page behind the board, and it is the game's own page: the flat colour,
+     the three faint tints over it, and the graph paper. Copied rather than
+     approximated, because "almost the right background" is exactly what makes a
+     clip look like it belongs to some other game. */
+  ctx.fillStyle = th.page;
   ctx.fillRect(0, 0, W, H);
+  const wash = ctx.createLinearGradient(0, 0, 0, H);
+  wash.addColorStop(0, th.wash[0]);
+  wash.addColorStop(0.4, th.wash[1]);
+  wash.addColorStop(1, th.wash[2]);
+  ctx.fillStyle = wash;
+  ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = th.paper;
+  for (let x = 40; x < W; x += 40) ctx.fillRect(x, 0, 1, H);
+  for (let y = 40; y < H; y += 40) ctx.fillRect(0, y, W, 1);
 
   ctx.textAlign = 'center';
-  ctx.fillStyle = '#ffffff';
-  ctx.font = '800 54px system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
-  ctx.fillText('WallRush', W / 2, 92);
+  ctx.fillStyle = th.text;
+  ctx.font = '800 44px system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
+  ctx.fillText('WallRush', W / 2, 76);
   ctx.textAlign = 'left';
 
   // who played, in their own colours
   const names = art.names;
   const PAD = 34;               // never closer than this to either edge
-  ctx.textAlign = 'left';
+  const ROW = 124;
   if (names.length <= 2) {
     const a = names[0] || '', b = names[1] || '';
     // one line, measured as one line: "vs" has a space either side of it, and
     // the whole thing shrinks together so the two names stay the same size
-    fitFont(ctx, `${a}  vs  ${b}`, W - 2 * PAD, 34);
+    fitFont(ctx, `${a}  vs  ${b}`, W - 2 * PAD, 32);
     const sep = ctx.measureText('  vs  ').width;
     const wa = ctx.measureText(a).width, wb = ctx.measureText(b).width;
     let x = (W - (wa + sep + wb)) / 2;
     ctx.fillStyle = SEATS[art.seatColors[0]]?.flat || '#2f6df6';
-    ctx.fillText(a, x, 170);
+    ctx.fillText(a, x, ROW);
     x += wa;
-    ctx.fillStyle = 'rgba(255,255,255,.45)';
-    ctx.fillText('vs', x + (sep - ctx.measureText('vs').width) / 2, 170);
+    ctx.fillStyle = th.muted;
+    ctx.fillText('vs', x + (sep - ctx.measureText('vs').width) / 2, ROW);
     x += sep;
     ctx.fillStyle = SEATS[art.seatColors[1]]?.flat || '#e33d52';
-    ctx.fillText(b, x, 170);
+    ctx.fillText(b, x, ROW);
   } else {
-    const dot = 9, lead = 26, gap = 18;
-    const px = fitFont(ctx, names.join(''), W - 2 * PAD - names.length * lead - (names.length - 1) * gap, 27);
+    const dot = 8, lead = 24, gap = 18;
+    const px = fitFont(ctx, names.join(''), W - 2 * PAD - names.length * lead - (names.length - 1) * gap, 26);
     const widths = names.map(n => ctx.measureText(n).width + lead);
     const total = widths.reduce((sum, v) => sum + v, 0) + gap * (names.length - 1);
     let x = (W - total) / 2;
     for (let i = 0; i < names.length; i++) {
       ctx.fillStyle = SEATS[art.seatColors[i]]?.flat || '#2f6df6';
       ctx.beginPath();
-      ctx.arc(x + dot, 170 - px * 0.32, dot, 0, Math.PI * 2);
+      ctx.arc(x + dot, ROW - px * 0.32, dot, 0, Math.PI * 2);
       ctx.fill();
-      ctx.fillStyle = '#e8ecf7';
-      ctx.fillText(names[i], x + lead, 170);
+      ctx.fillStyle = th.text;
+      ctx.fillText(names[i], x + lead, ROW);
       x += widths[i] + gap;
     }
   }
-  ctx.textAlign = 'center';
 
-  ctx.fillStyle = 'rgba(255,255,255,.34)';
-  ctx.font = '600 30px system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
-  ctx.fillText('wallrush.online', W / 2, H - 58);
+  ctx.textAlign = 'center';
+  ctx.fillStyle = th.muted;
+  ctx.font = '600 28px system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
+  ctx.fillText('wallrush.online', W / 2, H - 52);
 }
 
 function drawResult(ctx, art, alpha) {
@@ -307,14 +361,14 @@ function drawResult(ctx, art, alpha) {
   ctx.globalAlpha = alpha;
   ctx.textAlign = 'center';
   const color = art.winner !== null && art.winner !== undefined
-    ? (SEATS[art.seatColors[art.winner]]?.flat || '#ffffff') : '#ffffff';
+    ? (SEATS[art.seatColors[art.winner]]?.flat || art.theme.text) : art.theme.text;
   ctx.fillStyle = color;
-  fitFont(ctx, art.resultLine, W - 68, 46, 800);
-  ctx.fillText(art.resultLine, W / 2, 1082);
+  fitFont(ctx, art.resultLine, W - 68, 44, 800);
+  ctx.fillText(art.resultLine, W / 2, 1068);
   if (art.movesLine) {
-    ctx.fillStyle = 'rgba(255,255,255,.55)';
-    fitFont(ctx, art.movesLine, W - 68, 28, 600);
-    ctx.fillText(art.movesLine, W / 2, 1128);
+    ctx.fillStyle = art.theme.muted;
+    fitFont(ctx, art.movesLine, W - 68, 26, 600);
+    ctx.fillText(art.movesLine, W / 2, 1110);
   }
   ctx.restore();
 }
@@ -378,7 +432,7 @@ const codecSupported = async (config) => {
 };
 
 async function encodeMp4(art, audio, onProgress) {
-  const { Muxer, ArrayBufferTarget } = await import('../vendor/mp4-muxer.js?v=160');
+  const { Muxer, ArrayBufferTarget } = await import('../vendor/mp4-muxer.js?v=161');
 
   /* H.264 baseline first: it is the one profile every phone made in the last
      decade can play, and on an iPhone it is decoded in hardware. Main and high
@@ -395,7 +449,7 @@ async function encodeMp4(art, audio, onProgress) {
   ];
   let codec = null, family = null;
   for (const [c, f] of tries) {
-    if (await codecSupported({ codec: c, width: W, height: H, bitrate: 2_000_000, framerate: FPS })) {
+    if (await codecSupported({ codec: c, width: W, height: H, bitrate: BITRATE, framerate: FPS })) {
       codec = c; family = f; break;
     }
   }
@@ -427,7 +481,15 @@ async function encodeMp4(art, audio, onProgress) {
     output: (chunk, meta) => muxer.addVideoChunk(chunk, meta),
     error: (e) => { failure = e; },
   });
-  video.configure({ codec, width: W, height: H, bitrate: 2_000_000, framerate: FPS });
+  video.configure({
+    codec, width: W, height: H, bitrate: BITRATE, framerate: FPS,
+    /* Variable, not constant. Most of this clip is a board that does not move,
+       so a constant rate would spend the same bits on a still frame as on a
+       pawn crossing it. Letting it vary puts the bits where something happens
+       and costs nothing where nothing does. */
+    bitrateMode: 'variable',
+    latencyMode: 'quality',
+  });
 
   let sound = null;
   if (audioOk) {
@@ -531,7 +593,7 @@ async function recordLive(art, audio, onProgress) {
     'video/mp4',
   ];
   const mime = types.find(t => MediaRecorder.isTypeSupported?.(t)) || '';
-  const rec = new MediaRecorder(stream, mime ? { mimeType: mime, videoBitsPerSecond: 2_000_000 } : {});
+  const rec = new MediaRecorder(stream, mime ? { mimeType: mime, videoBitsPerSecond: BITRATE } : {});
   const parts = [];
   rec.ondataavailable = (e) => { if (e.data.size) parts.push(e.data); };
   const stopped = new Promise(r => { rec.onstop = r; });
@@ -578,6 +640,7 @@ export async function makeClip(opts, onProgress) {
     winner: opts.winner ?? null,
     resultLine: opts.resultLine || '',
     movesLine: opts.movesLine || '',
+    theme: THEMES[opts.theme === 'dark' ? 'dark' : 'light'],
   };
   art.geo = geometry(cols, rows);
   art.time = buildTimeline(history);

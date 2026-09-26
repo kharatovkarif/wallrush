@@ -15,7 +15,7 @@ export const RATE = 48000;                      // audio
 // fill: the duel and the table of four are square, the race board is taller
 // than it is wide, and a clip where the race board runs off the bottom is
 // worse than one where it is a little smaller.
-export const SLOT_Y = 296, SLOT_W = 660, SLOT_H = 700;
+export const SLOT_Y = 175, SLOT_W = 690, SLOT_H = 810;
 
 export const LEAD_MS = 500;                     // a moment on the opening position
 export const END_MS = 2000;                     // the result, held long enough to read
