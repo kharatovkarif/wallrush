@@ -12,8 +12,8 @@
  */
 import {
   W, H, SLOT_Y, SLOT_W, SLOT_H, LEAD_MS, END_MS, MOVE_ANIM,
-  SLOT_MIN, SLOT_MAX, BUDGET_MS,
-  geometry, buildTimeline, frameState, spin, spinWall,
+  SLOT_MAX, BUDGET_MS, LONG_AFTER, TAIL_MOVES, TAIL_SLOT, HEAD_MS,
+  geometry, buildTimeline, frameState, spin, spinWall, dedupeHistory,
 } from '../public/js/clipmath.js';
 
 let failures = 0;
@@ -41,9 +41,22 @@ console.log('\nthe length of the clip');
   const short = buildTimeline(new Array(5).fill({}));      // 4 moves
   ok(short.slot === SLOT_MAX, `a short game is not stretched (${short.slot}ms a move)`);
 
-  const long = buildTimeline(new Array(121).fill({}));     // 120 moves
-  ok(long.slot === SLOT_MIN, `a long one is hurried along (${long.slot}ms a move)`);
-  ok(long.total <= 45_000, `and still ends (${Math.round(long.total / 1000)}s)`);
+  /* A long game: the opening fast-forwards and the end plays properly. The
+     even pace this replaced turned 140 moves into 45 seconds of a pawn jumping
+     three times a second. */
+  for (const moves of [60, 140, 400]) {
+    const long = buildTimeline(new Array(moves + 1).fill({}));
+    ok(long.total <= 30_000, `${moves} moves still fit in half a minute (${(long.total / 1000).toFixed(1)}s)`);
+    ok(long.slots.slice(-TAIL_MOVES).every(v => v === TAIL_SLOT),
+       `${moves} moves: the last ${TAIL_MOVES} play at a watchable pace`);
+    ok(long.fast === moves - TAIL_MOVES && long.speedup > 1,
+       `${moves} moves: the opening fast-forwards (×${long.speedup})`);
+  }
+  const edge = buildTimeline(new Array(LONG_AFTER + 1).fill({}));
+  ok(edge.fast === 0, `${LONG_AFTER} moves is still played at one even pace`);
+  const head = buildTimeline(new Array(141).fill({}));
+  ok(Math.abs(head.starts[head.fast] - LEAD_MS - HEAD_MS) < head.fast,
+     'the whole fast part takes the time it was given');
 
   const middling = buildTimeline(new Array(41).fill({}));  // 40 moves
   ok(Math.abs(middling.steps * middling.slot - BUDGET_MS) < middling.slot,
@@ -83,6 +96,29 @@ console.log('\nthe right position at the right moment');
 
   const past = frameState(art, art.time.total * 3);
   ok(past.base.n === 3, 'and cannot run off the end of the history');
+}
+
+console.log('\nfast-forward still shows every move');
+{
+  const history = Array.from({ length: 141 }, (_, n) => ({ n }));
+  const art = { history, time: buildTimeline(history) };
+  let seen = new Set();
+  for (let ms = 0; ms <= art.time.total; ms += 5) seen.add(frameState(art, ms).next.n);
+  ok(seen.size === 141, `every one of the 141 positions is on screen at some point (${seen.size})`);
+  const inFast = frameState(art, art.time.starts[10] + 1);
+  ok(inFast.i === 10 && inFast.base.n === 10, 'mid-fast-forward it is between the right two positions');
+  const done = frameState(art, art.time.starts[art.time.fast] - 1);
+  ok(done.p > 0.9, 'a fast move has finished walking before the next one starts');
+}
+
+console.log('\nthe same position twice is not a pause');
+{
+  const a = { pawns: [{ r: 8, c: 4 }, { r: 0, c: 4 }], walls: [], turn: 0 };
+  const b = { pawns: [{ r: 7, c: 4 }, { r: 0, c: 4 }], walls: [], turn: 1 };
+  const c = { pawns: [{ r: 7, c: 4 }, { r: 0, c: 4 }], walls: [{}], turn: 0 };
+  const out = dedupeHistory([a, a, b, b, b, null, c, c]);
+  ok(out.length === 3 && out[0] === a && out[1] === b && out[2] === c, 'repeats are dropped, order kept');
+  ok(dedupeHistory([a, b, a]).length === 3, 'a position that comes back later is kept — that is a real move');
 }
 
 /* ---------- 4. the board is turned, not mirrored ---------- */

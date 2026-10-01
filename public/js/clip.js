@@ -9,12 +9,12 @@
    The file is made on the phone and stays there. Nothing is uploaded, the
    server never learns a clip was made, and the database is not touched. */
 
-import { scheduleTick } from './sfx.js?v=161';
+import { scheduleTick } from './sfx.js?v=162';
 
 import {
-  W, H, FPS, RATE, LEAD_MS, MOVE_ANIM, WALL_ANIM,
-  lerp, clamp01, spin, spinWall, geometry, buildTimeline, frameState,
-} from './clipmath.js?v=161';
+  W, H, FPS, RATE,
+  lerp, clamp01, spin, spinWall, geometry, buildTimeline, frameState, dedupeHistory,
+} from './clipmath.js?v=162';
 
 /* The picture is flat colour and slow gradients, which is exactly what a low
    ceiling turns into visible banding across the board. Raised until the board
@@ -399,8 +399,30 @@ function drawFrame(ctx, art, ms) {
     drawPawn(ctx, art, i, lerp(a.r, b.r, f.p), lerp(a.c, b.c, f.p), alpha);
   }
 
-  const endAt = LEAD_MS + art.time.steps * art.time.slot;
-  drawResult(ctx, art, clamp01((ms - endAt) / 320));
+  // Say when it is fast-forwarding. Without it the opening of a long game looks
+  // like a broken video rather than a quick one.
+  if (art.time.fast && f.i >= 0 && f.i < art.time.fast) drawFastBadge(ctx, art);
+
+  drawResult(ctx, art, clamp01((ms - art.time.endOfMoves) / 320));
+}
+
+// "⏩ ×6" under the board — numbers and a symbol, so it needs no translation
+function drawFastBadge(ctx, art) {
+  const { geo } = art;
+  const text = `⏩ ×${art.time.speedup}`;
+  ctx.save();
+  ctx.font = '700 26px system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
+  const w = ctx.measureText(text).width + 34, h = 44;
+  const x = (W - w) / 2, y = geo.by + geo.bh + 34;
+  rrect(ctx, x, y, w, h, h / 2);
+  ctx.fillStyle = art.theme.text;
+  ctx.globalAlpha = 0.86;
+  ctx.fill();
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = art.theme.page;
+  ctx.textAlign = 'center';
+  ctx.fillText(text, W / 2, y + 31);
+  ctx.restore();
 }
 
 /* ---------- the sound of it ---------- */
@@ -410,15 +432,19 @@ async function renderAudio(art) {
   const OAC = window.OfflineAudioContext || window.webkitOfflineAudioContext;
   if (!OAC) return null;
   const ctx = new OAC(1, Math.ceil(RATE * seconds), RATE);
-  const { steps, slot } = art.time;
+  const { steps, starts, fast } = art.time;
   for (let i = 0; i < steps; i++) {
-    const at = (LEAD_MS + i * slot) / 1000;
     const before = art.history[i], after = art.history[i + 1];
+    const wall = (after.walls || []).length > (before.walls || []).length;
+    /* While the opening fast-forwards, a tick for every pawn step is a machine
+       gun. Walls still knock — they are what changes the board — and the
+       pawns are silent until the game is back at its own pace. */
+    if (i < fast && !wall) continue;
     const mover = before.turn;
-    scheduleTick(ctx, ctx.destination, at, {
+    scheduleTick(ctx, ctx.destination, starts[i] / 1000, {
       mine: mover === art.mySeat,
-      wall: (after.walls || []).length > (before.walls || []).length,
-      soft: art.quad && mover !== art.mySeat,
+      wall,
+      soft: (art.quad && mover !== art.mySeat) || i < fast,
     });
   }
   return ctx.startRendering();
@@ -432,7 +458,7 @@ const codecSupported = async (config) => {
 };
 
 async function encodeMp4(art, audio, onProgress) {
-  const { Muxer, ArrayBufferTarget } = await import('../vendor/mp4-muxer.js?v=161');
+  const { Muxer, ArrayBufferTarget } = await import('../vendor/mp4-muxer.js?v=162');
 
   /* H.264 baseline first: it is the one profile every phone made in the last
      decade can play, and on an iPhone it is decoded in hardware. Main and high
@@ -622,7 +648,7 @@ async function recordLive(art, audio, onProgress) {
 /* ---------- what the page calls ---------- */
 
 export async function makeClip(opts, onProgress) {
-  const history = (opts.history || []).filter(Boolean);
+  const history = dedupeHistory(opts.history || []);
   if (history.length < 2) throw new Error('nothing_to_show');
   const first = history[0];
   const cols = first.cols || 9, rows = first.rows || 9;
