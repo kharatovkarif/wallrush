@@ -4,7 +4,7 @@ import http from 'http';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { WebSocketServer } from 'ws';
-import { attachWs, realOnline, onlineUserIds } from './rooms.js';
+import { attachWs, realOnline, onlineUserIds, roomStats } from './rooms.js';
 import { fakeOnline, botStatus } from './bots.js';
 import { RANKS } from '../public/js/ranks.js';
 import { checkNick } from '../public/js/nick.js';
@@ -14,7 +14,7 @@ import { packById } from '../public/js/packs.js';
 import { initPush, pushPublicKey, saveSub, dropSub, pushTick, sendTestPush } from './push.js';
 import { mountPages } from './pages.js';
 import { logVisitLater, startWriteQueue, queueStatus, flushWrites } from './queue.js';
-import { dbEnabled, dbStatus, dbDetail, cleanEnv, likeEscape, supa, verifyUser, getProfile, createProfile, claimGuestProgress, leaderboard, dailyLeaderboard, sweepDayPoints, mskDay, myRank, myDayRank, publicProfile, clearNickNotice, restoreStreak, deleteAccount } from './db.js';
+import { dbEnabled, dbStatus, dbDetail, cleanEnv, likeEscape, supa, verifyUser, getProfile, createProfile, claimGuestProgress, leaderboard, dailyLeaderboard, sweepDayPoints, mskDay, myRank, myDayRank, publicProfile, clearNickNotice, restoreStreak, deleteAccount, cacheStats } from './db.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -2190,14 +2190,29 @@ function survive(kind, err) {
 process.on('unhandledRejection', (err) => survive('unhandled-rejection', err));
 process.on('uncaughtException', (err) => survive('uncaught-exception', err));
 
-// A line an hour, so that "it died at four in the morning" has something to
-// read next to it — chiefly whether memory was climbing before it went.
-setInterval(() => {
+/* A line every half hour, so that "it died at four in the morning" has
+   something to read next to it — chiefly whether memory was climbing before it
+   went, and which part of it.
+
+   The four memory numbers answer different questions. heap is JavaScript's own
+   objects: that one climbing is a real leak in our code. external and buffers
+   are memory held outside it (sockets, TLS, compression). rss is everything the
+   process holds, and is what Railway's RAM graph draws: rss climbing while heap
+   stays flat means the memory is not ours to free, it is the allocator keeping
+   what it once used. The counts after it say which container grew. */
+const MB = (n) => Math.round(n / 1048576);
+function healthLine() {
   const m = process.memoryUsage();
-  console.log(`[health] uptime ${Math.round(process.uptime() / 60)}min, ` +
-    `heap ${Math.round(m.heapUsed / 1048576)}MB, rss ${Math.round(m.rss / 1048576)}MB, ` +
-    `online ${realOnline()}`);
-}, 30 * 60 * 1000);
+  const r = roomStats(), c = cacheStats(), q = queueStatus();
+  return `[health] uptime ${Math.round(process.uptime() / 60)}min, ` +
+    `heap ${MB(m.heapUsed)}/${MB(m.heapTotal)}MB, external ${MB(m.external)}MB, ` +
+    `buffers ${MB(m.arrayBuffers)}MB, rss ${MB(m.rss)}MB, online ${realOnline()} | ` +
+    `clients ${r.clients} tokens ${r.tokens} results ${r.results} rooms ${r.rooms} ` +
+    `(bot-only ${r.botOnlyRooms}) | cache points ${c.points} owners ${c.owners} ` +
+    `streaks ${c.streaks} ranks ${c.ranks} | queue ${q.visitsHeld}/${q.matchesHeld}/${q.dayRowsHeld}`;
+}
+setInterval(() => console.log(healthLine()), 30 * 60 * 1000);
+setTimeout(() => console.log(healthLine()), 60 * 1000);   // a baseline right after boot
 
 app.get('/healthz', (req, res) => {
   const m = process.memoryUsage();
@@ -2206,6 +2221,9 @@ app.get('/healthz', (req, res) => {
     uptimeSec: Math.round(process.uptime()),
     heapMB: Math.round(m.heapUsed / 1048576),
     rssMB: Math.round(m.rss / 1048576),
+    externalMB: Math.round(m.external / 1048576),
+    rooms: roomStats(),
+    caches: cacheStats(),
     online: realOnline(),
     db: dbEnabled ? 'on' : 'off',
     writes: queueStatus(),

@@ -175,6 +175,27 @@ export function onlineUserIds() {
 
 export function realOnline() { return clients.size; } // for the owner's admin page
 
+/* What the server is holding in memory, by container. Printed with the hourly
+   [health] line and served on /healthz, so that memory creeping up on the
+   Railway graph can be matched to the thing that is growing instead of being
+   guessed at. */
+export function roomStats() {
+  const byStatus = {};
+  let botOnly = 0;
+  for (const r of rooms.values()) {
+    byStatus[r.status] = (byStatus[r.status] || 0) + 1;
+    if (r.players.every(p => p.isBot)) botOnly++;
+  }
+  return {
+    clients: clients.size,
+    tokens: byToken.size,
+    results: lastResults.size,
+    rooms: rooms.size,
+    roomsByStatus: byStatus,
+    botOnlyRooms: botOnly,
+  };
+}
+
 function broadcastLobby() {
   const msg = { t: 'lobby', rooms: lobbyRooms(), online: onlineCount() };
   for (const c of clients.values()) if (c.inLobby) send(c, msg);

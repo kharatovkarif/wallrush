@@ -952,3 +952,15 @@ export async function friendList(a) {
   if (error) { console.error('friendList failed:', error.message); return []; }
   return data || [];
 }
+
+
+/* How full each cache is, for the [health] line. Every one of these is capped,
+   so a number pinned at its cap is fine and a number past it is the leak. */
+export function cacheStats() {
+  return {
+    points: pointsCache.size,
+    owners: ownerCache.size,
+    streaks: streakDone.size,
+    ranks: rankCache.size,
+  };
+}
