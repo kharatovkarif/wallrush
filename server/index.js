@@ -5,7 +5,7 @@ import http from 'http';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { WebSocketServer } from 'ws';
-import { attachWs, realOnline, onlineUserIds, roomStats } from './rooms.js';
+import { attachWs, realOnline, onlineUserIds, roomStats, endingStats } from './rooms.js';
 import { fakeOnline, botStatus } from './bots.js';
 import { RANKS } from '../public/js/ranks.js';
 import { checkNick } from '../public/js/nick.js';
@@ -719,186 +719,236 @@ const mskDdMm = (ymd) => {
 };
 
 const ADMIN_CSS = `
+  /* The owner's palette, darkest to lightest, and nothing else for surfaces:
+     #06141B #11212D #253745 #4A5C6A #9BA8AB #CCD0CF. Depth comes from stacking
+     those six as layers — the way the reference picture stacks its capsules —
+     not from borders. Green and red are kept for one job only, up and down,
+     and toned down to sit inside the slate. */
   :root {
-    --bg: #0b0d16; --card: #151827; --line: #23273d;
-    --ink: #e8ecf8; --dim: #8892b0; --faint: #6b7391;
-    --accent: #7c4dff; --accent-soft: rgba(124, 77, 255, .16);
-    --up: #21c07a; --down: #e35d6a;
+    --c1: #06141B; --c2: #11212D; --c3: #253745; --c4: #4A5C6A; --c5: #9BA8AB; --c6: #CCD0CF;
+    --c25: #1a2c39;
+    --bg: var(--c1); --card: var(--c2); --line: rgba(74, 92, 106, .35);
+    --ink: var(--c6); --dim: var(--c5); --faint: #74858C;
+    --accent: var(--c6); --accent-soft: rgba(204, 208, 207, .10);
+    --up: #7FC8A9; --down: #E39A9F;
+    --lift: 0 18px 34px rgba(0, 0, 0, .40), inset 0 1px 0 rgba(204, 208, 207, .07);
+    --lift-sm: 0 10px 22px rgba(0, 0, 0, .32), inset 0 1px 0 rgba(204, 208, 207, .06);
   }
   * { box-sizing: border-box; }
-  /* an admin page you hold in your hand: no text selection lag on tap, no
-     grey flash box on the buttons, no rubber-band overscroll at the edges */
-  html { -webkit-text-size-adjust: 100%; overscroll-behavior-y: none; }
-  a, button, .card2, .dayrow, .geo, .pcard, .an-btn, .tabs a { -webkit-tap-highlight-color: transparent; }
+  html { -webkit-text-size-adjust: 100%; overscroll-behavior-y: none; background: var(--c1); }
+  a, button, .card2, .dayrow, .geo, .pcard, .an-btn, .tabs a, .seg a, .li { -webkit-tap-highlight-color: transparent; }
   a, button { touch-action: manipulation; }
-  body { font-family: system-ui, sans-serif; background: var(--bg); color: var(--ink); margin: 0; padding: 14px 14px 30px; }
-  h1 { font-size: 20px; margin: 4px 0 4px; }
-  h2 { font-size: 15px; margin: 22px 0 8px; color: #aab3d0; }
-  .sect { font-size: 11px; letter-spacing: .8px; text-transform: uppercase; color: var(--faint); margin: 16px 0 7px; }
-  a { color: var(--accent); text-decoration: none; }
-  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; }
-  .c { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 11px 13px; }
-  .c b { font-size: 23px; display: block; line-height: 1.15; }
-  .c span { font-size: 11px; color: var(--dim); display: block; margin-top: 2px; }
-  .c.hi b { color: var(--accent); } .c.good b { color: var(--up); }
-  table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
-  th, td { text-align: left; padding: 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
-  th { color: var(--dim); font-size: 11px; position: sticky; top: 0; background: var(--bg); }
-  tr.click { cursor: pointer; } tr.click:active { background: var(--card); }
-  .wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  body {
+    margin: 0; color: var(--ink); min-height: 100vh;
+    font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; -webkit-font-smoothing: antialiased;
+    background:
+      radial-gradient(120% 55% at 0% 0%, rgba(155, 168, 171, .20), transparent 55%),
+      linear-gradient(180deg, #0b1d27 0%, var(--c1) 55%);
+    background-attachment: fixed;
+    padding: 18px 16px 30px;
+  }
+  a { color: var(--c6); text-decoration: none; }
+  h1 { font-size: 20px; margin: 4px 0; }
+  h2 { font-size: 22px; font-weight: 800; letter-spacing: -.02em; margin: 6px 4px 14px; color: var(--c6); }
+  .sect, .h { font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
+              color: var(--c5); margin: 26px 4px 10px; }
+  .subsect { font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--c5); margin: 26px 4px 10px; }
+  .note { color: var(--faint); font-size: 12.5px; line-height: 1.6; margin: 8px 4px; }
+  .back { display: inline-flex; align-items: center; gap: 6px; margin: 0 0 14px; font-size: 14px; font-weight: 600;
+          background: var(--c2); border-radius: 999px; padding: 8px 14px; box-shadow: var(--lift-sm); }
+
+  /* ---------- header on every page ---------- */
+  .adm-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 18px; }
+  .brand { font-weight: 800; font-size: 19px; letter-spacing: -.01em; }
+  .brand small { display: block; font-weight: 500; font-size: 12px; color: var(--c5); letter-spacing: 0; }
+  .livepill { display: flex; align-items: center; gap: 8px; background: var(--c2); border-radius: 999px;
+              padding: 8px 14px 8px 12px; box-shadow: var(--lift-sm); font-size: 13px; color: var(--c5); flex: none; }
+  .livepill b { color: var(--c6); font-size: 15px; }
+  .livepill .dot, .live-strip .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--up);
+              box-shadow: 0 0 0 4px rgba(127, 200, 169, .15); flex: none; animation: lpulse 2.4s infinite; }
+  @keyframes lpulse { 50% { opacity: .45; } }
+
+  /* ---------- switches: one capsule, the chosen part lifted out of it ---------- */
+  .seg, .tabs { display: flex; background: var(--c2); border-radius: 999px; padding: 4px; margin: 0 0 20px;
+                box-shadow: inset 0 2px 6px rgba(0, 0, 0, .35); gap: 0; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+  .seg::-webkit-scrollbar, .tabs::-webkit-scrollbar { display: none; }
+  .seg a, .tabs a { flex: 1; text-align: center; padding: 9px 12px; border-radius: 999px; color: var(--c5);
+                    font-size: 13px; font-weight: 600; white-space: nowrap; background: none; border: 0; }
+  .seg a.on, .tabs a.on { background: var(--c4); color: var(--c6);
+                          box-shadow: 0 6px 16px rgba(0, 0, 0, .35), inset 0 1px 0 rgba(204, 208, 207, .12); }
+
+  /* ---------- the hero and the stack under it ---------- */
+  .hero { position: relative; z-index: 3; border-radius: 30px; padding: 22px 22px 16px;
+          background: linear-gradient(160deg, #2c4253, var(--c3) 55%, #1d3040); box-shadow: var(--lift); }
+  .hero .k { font-size: 12.5px; color: var(--c5); font-weight: 700; letter-spacing: .05em; text-transform: uppercase; }
+  .hero .v { font-size: 52px; font-weight: 800; letter-spacing: -.03em; line-height: 1.05; margin: 4px 0 8px; font-variant-numeric: tabular-nums; }
+  .hero .d { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; font-size: 13px; color: var(--c5); }
+  .hero svg { display: block; width: 100%; height: 58px; margin-top: 12px; overflow: visible; }
+  .pill { border-radius: 999px; padding: 3px 10px; font-weight: 700; font-size: 12.5px; white-space: nowrap; }
+  .pill.up { background: rgba(127, 200, 169, .14); color: var(--up); }
+  .pill.down { background: rgba(227, 154, 159, .14); color: var(--down); }
+  .pill.flat { background: var(--accent-soft); color: var(--c5); }
+  .stack { display: flex; flex-direction: column; margin-top: -26px; }
+  .layer { position: relative; border-radius: 30px; padding: 42px 22px 20px; margin-top: -26px; box-shadow: var(--lift); }
+  .layer:first-child { margin-top: 0; }
+  .layer.l1 { background: var(--c2); z-index: 2; }
+  .layer.l2 { background: var(--c25); z-index: 1; }
+  .cells { display: grid; grid-template-columns: 1fr 1fr; gap: 16px 14px; }
+  .cell .k { font-size: 12.5px; color: var(--c5); }
+  .cell .v { font-size: 25px; font-weight: 800; letter-spacing: -.02em; font-variant-numeric: tabular-nums; margin-top: 2px; line-height: 1.15; }
+  .cell .s { font-size: 12px; margin-top: 3px; color: var(--faint); }
+  .cell .s.up { color: var(--up); } .cell .s.down { color: var(--down); }
+
+  /* ---------- lists: one capsule, rows inside it ---------- */
+  .list { background: var(--c2); border-radius: 24px; overflow: hidden; box-shadow: var(--lift-sm); }
+  .li { display: flex; align-items: center; gap: 12px; padding: 14px 18px; color: var(--c6); }
+  .li + .li { border-top: 1px solid var(--line); }
+  .li .ic { width: 38px; height: 38px; border-radius: 13px; background: var(--c3); display: grid; place-items: center; font-size: 17px; flex: none; }
+  .li .ic.warn { background: rgba(227, 154, 159, .16); }
+  .li .t { flex: 1; min-width: 0; }
+  .li .t b { display: block; font-size: 14.5px; }
+  .li .t small { color: var(--c5); font-size: 12px; }
+  .li .n { font-weight: 800; font-size: 17px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .li .go { color: var(--c4); font-size: 20px; margin-left: -4px; }
+  .li .n.warn { color: var(--down); } .li .n.ok { color: var(--up); }
+  .meter { height: 8px; border-radius: 999px; background: var(--c3); overflow: hidden; margin-top: 8px; }
+  .meter i { display: block; height: 100%; border-radius: 999px; background: linear-gradient(90deg, var(--c4), var(--c5)); }
+
+  /* ---------- the older building blocks, in the same language ---------- */
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 12px; }
+  .card2, .c { background: var(--c2); border-radius: 24px; padding: 16px 16px 14px; display: flex; flex-direction: column;
+               min-width: 0; box-shadow: var(--lift-sm); border: 0; }
+  .c b { font-size: 25px; font-weight: 800; display: block; line-height: 1.15; letter-spacing: -.02em; }
+  .c span { font-size: 12px; color: var(--c5); display: block; margin-top: 3px; }
+  .c.hi b, .c.good b { color: var(--c6); }
+  .c2-top { display: flex; align-items: center; gap: 6px; min-width: 0; }
+  .c2-ic { font-size: 14px; flex: none; }
+  .c2-label { font-size: 12.5px; color: var(--c5); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .c2-val { font-size: 27px; font-weight: 800; margin: 6px 0 0; line-height: 1.1; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+  .c2-foot { display: flex; flex-direction: column; align-items: flex-start; gap: 5px; margin-top: 10px; }
+  .c2-was { font-size: 11px; color: var(--faint); }
+  .delta { display: inline-flex; align-items: center; gap: 3px; font-size: 11.5px; font-weight: 700; padding: 3px 9px; border-radius: 999px; }
+  .delta.up { color: var(--up); background: rgba(127, 200, 169, .14); }
+  .delta.down { color: var(--down); background: rgba(227, 154, 159, .14); }
+  .delta.flat { color: var(--c5); background: var(--accent-soft); font-weight: 600; }
+  .totals-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 0; background: var(--c2);
+                 border-radius: 24px; overflow: hidden; box-shadow: var(--lift-sm); }
+  .totals-grid > div { padding: 14px 16px; border-top: 1px solid var(--line); }
+  .totals-grid .t2 { grid-column: span 2; } .totals-grid .t3 { grid-column: span 3; }
+  .totals-grid b { display: block; font-size: 18px; font-weight: 800; line-height: 1.2; }
+  .totals-grid i { display: block; font-style: normal; font-size: 11px; color: var(--c5); margin-top: 3px; }
+  .cmp-note { font-size: 12px; line-height: 1.55; color: var(--faint); margin: -8px 4px 16px; }
+  .cmp-note b { color: var(--c5); }
+  .live-strip { display: flex; align-items: center; gap: 10px; background: var(--c2); border-radius: 22px;
+                padding: 13px 16px; margin-bottom: 12px; flex-wrap: wrap; box-shadow: var(--lift-sm); }
+  .live-strip .ls-main { font-size: 14px; } .live-strip .ls-main b { font-size: 17px; margin-right: 3px; }
+  .live-strip .ls-sub { font-size: 12px; color: var(--faint); flex-basis: 100%; margin: -4px 0 0 18px; }
+  .live-strip.bad { background: linear-gradient(160deg, rgba(227, 154, 159, .18), var(--c2)); }
+  .live-strip.bad .dot { background: var(--down); box-shadow: 0 0 0 4px rgba(227, 154, 159, .18); }
+  .live-strip .ls-warn { font-size: 12.5px; color: var(--down); flex-basis: 100%; margin: 2px 0 0 18px; font-weight: 600; }
+  .dayrow, .pcard, .geo, .person, .adreq { background: var(--c2); border-radius: 22px; padding: 14px 16px; margin-bottom: 10px;
+                                          box-shadow: var(--lift-sm); border: 0; display: block; }
+  .dayrow { display: flex; align-items: center; gap: 12px; }
+  .dayrow .d { font-size: 15px; font-weight: 800; min-width: 76px; }
+  .dayrow .m { display: flex; gap: 18px; flex: 1; flex-wrap: wrap; }
+  .dayrow .m i { font-style: normal; font-size: 11px; color: var(--c5); display: block; }
+  .dayrow .m u { text-decoration: none; font-size: 16px; font-weight: 700; }
+  .dayrow .go, .pc-go { color: var(--c4); font-size: 22px; }
+  .geo .top { display: flex; align-items: baseline; gap: 8px; }
+  .geo .name { font-size: 14.5px; font-weight: 600; flex: 1; }
+  .geo .pct { font-size: 16px; font-weight: 800; color: var(--c6); }
+  .geo .num { font-size: 11.5px; color: var(--c5); margin-left: 6px; }
+  .geo .track { height: 8px; background: var(--c3); border-radius: 999px; margin-top: 9px; overflow: hidden; }
+  .geo .track i { display: block; height: 100%; border-radius: 999px; background: linear-gradient(90deg, var(--c4), var(--c5)); }
+  .pcard { display: flex; align-items: center; gap: 12px; }
+  .pc-avatar { width: 40px; height: 40px; border-radius: 14px; flex: none; background: var(--c3); display: grid; place-items: center; font-weight: 800; color: var(--c6); }
+  .pc-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+  .pc-info b { font-size: 14.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; gap: 5px; }
+  .pc-info small { font-size: 12px; color: var(--c5); }
+  .pc-right { text-align: right; flex: none; } .pc-right b { font-size: 16px; display: block; } .pc-right small { font-size: 10.5px; color: var(--c5); }
+  .badge-reg { color: var(--up); font-size: 12px; }
+  .person b.nick { font-size: 22px; font-weight: 800; }
+  .kv { display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; margin-top: 12px; font-size: 13.5px; }
+  .kv span { color: var(--c5); }
+  .adreq.done { opacity: .5; }
+  .ar-top { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; margin-bottom: 8px; }
+  .ar-top b { font-size: 15.5px; line-height: 1.3; }
+  .ar-price { font-size: 20px; font-weight: 800; white-space: nowrap; }
+  .ar-price small { font-size: 11px; font-weight: 600; color: var(--c5); }
+  .ar-line { font-size: 13.5px; line-height: 1.7; color: var(--c5); } .ar-line b { color: var(--c6); }
+  .ar-line a { display: inline-block; margin-top: 6px; background: var(--c3); border-radius: 999px; padding: 6px 13px; font-weight: 600; font-size: 13px; }
+  .search-box { width: 100%; padding: 13px 18px; border-radius: 999px; border: 0; background: var(--c2); color: var(--c6);
+                font: inherit; font-size: 14.5px; margin-bottom: 12px; box-shadow: inset 0 2px 6px rgba(0, 0, 0, .35); outline: none; }
+  .search-box::placeholder { color: var(--c4); }
+  .rv-reply-form { display: flex; gap: 8px; width: 100%; margin: 10px 0 0; }
+  .rv-reply-form .search-box { margin: 0; flex: 1; }
+  .rv-reply-go { border: 0; border-radius: 999px; padding: 0 16px; background: var(--c4); color: var(--c6); font: inherit; font-size: 13px; font-weight: 700; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  th { color: var(--c5); font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; position: sticky; top: 0; background: var(--c1); }
+  tr.click { cursor: pointer; } tr.click:active { background: var(--c2); }
+  .wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; background: var(--c2); border-radius: 22px; padding: 4px 10px; box-shadow: var(--lift-sm); }
+  .wrap th { background: var(--c2); }
   .chart { display: flex; align-items: flex-end; gap: 5px; height: 120px; padding-top: 14px; }
   .bar { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; height: 100%; }
-  .bar .fill { width: 100%; background: linear-gradient(180deg, #9b7bff, var(--accent)); border-radius: 5px 5px 0 0; min-height: 2px; }
-  .bar small { font-size: 10px; color: #cfd6ee; margin: 3px 0 1px; } .bar span { font-size: 9px; color: #667; }
-  .tabs { display: flex; gap: 8px; margin: 12px 0; flex-wrap: wrap; }
-  .tabs a { background: var(--card); border: 1px solid var(--line); border-radius: 11px; padding: 8px 13px; font-size: 13px; color: #cfd6ee; }
-  .tabs a.on { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
-  .person { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 14px; margin-bottom: 12px; }
-  .person b.nick { font-size: 20px; }
-  .kv { display: grid; grid-template-columns: auto 1fr; gap: 4px 14px; margin-top: 10px; font-size: 13px; }
-  .kv span { color: var(--dim); }
-  .back { display: inline-block; margin-bottom: 10px; font-size: 14px; }
-  /* day rows */
-  .dayrow { display: flex; align-items: center; gap: 10px; background: var(--card); border: 1px solid var(--line);
-            border-radius: 13px; padding: 12px 14px; margin-bottom: 8px; }
-  .dayrow .d { font-size: 15px; font-weight: 700; min-width: 74px; }
-  .dayrow .m { display: flex; gap: 16px; flex: 1; flex-wrap: wrap; }
-  .dayrow .m i { font-style: normal; font-size: 11px; color: var(--dim); display: block; }
-  .dayrow .m u { text-decoration: none; font-size: 15px; font-weight: 600; }
-  .dayrow .go { color: var(--accent); font-size: 20px; }
-  /* country rows */
-  .geo { background: var(--card); border: 1px solid var(--line); border-radius: 13px; padding: 11px 13px; margin-bottom: 7px; }
-  .geo .top { display: flex; align-items: baseline; gap: 8px; }
-  .geo .name { font-size: 14px; font-weight: 600; flex: 1; }
-  .geo .pct { font-size: 15px; font-weight: 700; color: var(--accent); }
-  .geo .num { font-size: 11px; color: var(--dim); margin-left: 6px; }
-  .geo .track { height: 6px; background: var(--line); border-radius: 4px; margin-top: 7px; overflow: hidden; }
-  .geo .track i { display: block; height: 100%; background: linear-gradient(90deg, #9b7bff, var(--accent)); border-radius: 4px; }
-  .note { color: var(--faint); font-size: 12px; line-height: 1.6; }
-  /* ---------- new: bottom nav + card dashboard ---------- */
-  .adm-body { padding-bottom: 76px; }
-  .adm-nav {
-    position: fixed; left: 0; right: 0; bottom: 0; z-index: 50;
-    display: flex; background: rgba(11, 13, 22, .92); backdrop-filter: blur(10px);
-    border-top: 1px solid var(--line); padding: 6px 2px calc(6px + env(safe-area-inset-bottom));
-  }
-  .an-btn {
-    flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px;
-    padding: 6px 2px; font-size: 10.5px; font-weight: 600; color: var(--faint);
-  }
-  .an-ic { font-size: 19px; filter: grayscale(1) opacity(.6); }
-  .an-btn.on { color: var(--accent); }
-  .an-btn.on .an-ic { filter: none; }
-  .live-strip {
-    display: flex; align-items: center; gap: 9px; background: var(--card); border: 1px solid var(--line);
-    border-radius: 13px; padding: 11px 14px; margin-bottom: 12px; flex-wrap: wrap;
-  }
-  .live-strip .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--up); flex: none; animation: lpulse 2s infinite; }
-  .live-strip .ls-main { font-size: 13.5px; }
-  .live-strip .ls-main b { font-size: 17px; margin-right: 3px; }
-  .live-strip .ls-sub { font-size: 11.5px; color: var(--faint); flex-basis: 100%; margin: -4px 0 0 17px; }
-  .live-strip.bad { border-color: #e05263; background: rgba(224, 82, 99, .10); }
-  .live-strip.bad .dot { background: #e05263; }
-  .live-strip .ls-warn { font-size: 12px; color: #ff8a96; flex-basis: 100%; margin: 2px 0 0 17px; font-weight: 600; }
-  @keyframes lpulse { 50% { opacity: .35; } }
-  .cmp-note { font-size: 11.5px; line-height: 1.5; color: #7c86a6; background: #15182a; border: 1px solid var(--line);
-              border-radius: 11px; padding: 8px 12px; margin: 0 0 10px; }
-  .cmp-note b { color: #aab3d0; }
-  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-  .card2 { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 13px 14px 12px;
-           display: flex; flex-direction: column; min-width: 0; }
-  .c2-top { display: flex; align-items: center; gap: 6px; min-width: 0; }
-  .c2-ic { font-size: 14px; opacity: .9; flex: none; }
-  .c2-label { font-size: 11.5px; color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .c2-val { font-size: 27px; font-weight: 800; margin: 5px 0 0; line-height: 1.1; letter-spacing: -.5px; }
-  .c2-foot { display: flex; flex-direction: column; align-items: flex-start; gap: 5px; margin-top: 9px; }
-  .c2-was { font-size: 10.5px; color: var(--faint); white-space: nowrap; }
-  .delta { display: inline-flex; align-items: center; gap: 3px; font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 999px; }
-  .delta.up { color: var(--up); background: rgba(33, 192, 122, .15); }
-  .delta.down { color: var(--down); background: rgba(227, 61, 82, .15); }
-  .delta.flat { color: var(--dim); background: var(--line); font-weight: 600; }
-  /* six tracks so 3-up then 2-up fills the block exactly — no orphan cell */
-  .totals-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 1px;
-                 background: var(--line); border: 1px solid var(--line); border-radius: 13px; overflow: hidden; }
-  .totals-grid > div { background: var(--card); padding: 11px 12px; }
-  .totals-grid .t2 { grid-column: span 2; } .totals-grid .t3 { grid-column: span 3; }
-  .totals-grid b { display: block; font-size: 17px; font-weight: 800; line-height: 1.2; }
-  .totals-grid i { display: block; font-style: normal; font-size: 10.5px; color: var(--dim); margin-top: 3px; }
-  .pcard { display: flex; align-items: center; gap: 12px; background: var(--card); border: 1px solid var(--line); border-radius: 15px; padding: 11px 13px; margin-bottom: 8px; }
-  .pcard:active { background: #1f2438; }
-  .pc-avatar { width: 38px; height: 38px; border-radius: 50%; flex: none; background: linear-gradient(135deg, #9b7bff, var(--accent)); display: grid; place-items: center; font-weight: 700; color: #fff; }
-  .pc-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-  .pc-info b { font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; gap: 5px; }
-  .pc-info small { font-size: 11.5px; color: var(--dim); }
-  .pc-right { text-align: right; flex: none; }
-  .pc-right b { font-size: 16px; display: block; }
-  .pc-right small { font-size: 10px; color: var(--dim); }
-  .badge-reg { color: var(--up); font-size: 12px; }
-  .pc-go { color: var(--faint); font-size: 18px; flex: none; }
-  .search-box { width: 100%; padding: 11px 14px; border-radius: 12px; border: 1px solid var(--line); background: var(--card); color: var(--ink); font-size: 14px; margin-bottom: 10px; }
-  .subsect { font-size: 13px; font-weight: 700; color: #cfd6ee; margin: 20px 0 8px; }
-  .refresh-bar { display: flex; align-items: center; justify-content: center; flex-wrap: wrap;
-                 gap: 10px 14px; margin: 20px 0 6px; font-size: 12px; color: var(--faint); }
-  .rb-btn { background: var(--card); border: 1px solid var(--line); border-radius: 11px; color: #cfd6ee;
-            font: inherit; font-size: 13px; padding: 9px 16px; cursor: pointer; }
-  .rb-btn:active { background: var(--accent); border-color: var(--accent); color: #fff; }
-  .rb-auto { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
-  .rb-auto input { width: 15px; height: 15px; accent-color: var(--accent); }
-  .rb-time { flex-basis: 100%; text-align: center; }
+  .bar .fill { width: 100%; background: linear-gradient(180deg, var(--c5), var(--c4)); border-radius: 8px 8px 0 0; min-height: 2px; }
+  .bar small { font-size: 10px; color: var(--c6); margin: 3px 0 1px; } .bar span { font-size: 9px; color: var(--c4); }
 
-  /* ---------- the part you feel ----------
-     Anything tappable dips under the finger and springs back. The dip is a
-     transform, so it costs nothing and never reflows the page. */
-  .card2, .dayrow, .geo, .pcard, .tabs a, .rb-btn, .an-btn, .c {
-    transition: transform .12s cubic-bezier(.2,.7,.3,1), background-color .16s, border-color .16s;
-  }
-  .dayrow:active, .geo:active, .pcard:active, .c:active { transform: scale(.978); background: #1b1f31; }
-  .card2:active { transform: scale(.978); }
-  .tabs a:active, .rb-btn:active { transform: scale(.94); }
-  .an-btn:active { transform: scale(.9); }
-  .tabs a.on { box-shadow: 0 4px 14px -4px var(--accent); }
-
-  /* section swap: content fades in rather than the page blinking white */
-  .adm-body { animation: sectionIn .26s cubic-bezier(.2,.7,.3,1); }
-  @keyframes sectionIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
-  .adm-body.leaving { opacity: .32; transition: opacity .12s; }
-  /* thin bar across the top while the next section is on its way */
-  #admProg {
-    position: fixed; top: 0; left: 0; height: 2.5px; width: 0; z-index: 90; opacity: 0;
-    background: linear-gradient(90deg, #9b7bff, var(--accent)); box-shadow: 0 0 8px var(--accent);
-    transition: width .2s ease-out, opacity .2s;
-  }
-  #admProg.on { opacity: 1; }
-
-  /* ---------- 14-day chart you can drag your finger across ---------- */
-.rv-reply-form{display:flex;gap:6px;width:100%;margin:8px 0 0}
-.rv-reply-form .search-box{margin:0;flex:1}
-.rv-reply-go{border:0;border-radius:10px;padding:0 14px;background:var(--accent);color:#fff;font:inherit;font-size:13px;font-weight:600}
-.tchart { position: relative; margin: 4px 0 2px; touch-action: pan-y; user-select: none; -webkit-user-select: none; }
-  .tchart { padding-top: 46px; }
+  /* ---------- the 14-day chart ---------- */
+  .tchart { position: relative; margin: 4px 0 2px; padding-top: 46px; touch-action: pan-y; user-select: none; -webkit-user-select: none;
+            background: var(--c2); border-radius: 26px; padding: 50px 14px 12px; box-shadow: var(--lift-sm); }
   .tchart svg { display: block; width: 100%; height: 170px; overflow: visible; }
-  .tc-line { fill: none; stroke: #b9a3ff; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+  .tc-line { fill: none; stroke: var(--c6); stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
   .tc-grid { stroke: var(--line); stroke-width: 1; }
-  .tc-ax { fill: var(--faint); font-size: 9.5px; }
-  .tc-cross { stroke: #cfc4ff; stroke-width: 1; opacity: 0; }
-  .tc-dot { fill: #fff; stroke: var(--accent); stroke-width: 3; opacity: 0; }
+  .tc-ax { fill: var(--c4); font-size: 9.5px; }
+  .tc-cross { stroke: var(--c5); stroke-width: 1; opacity: 0; }
+  .tc-dot { fill: var(--c1); stroke: var(--c6); stroke-width: 3; opacity: 0; }
   .tchart.live .tc-cross, .tchart.live .tc-dot { opacity: 1; }
-  /* the bubble sits in its own strip above the plot, so it never covers the
-     line you are trying to read */
-  .tc-tip {
-    position: absolute; top: 0; pointer-events: none; opacity: 0; transform: translateX(-50%);
-    background: #232842; border: 1px solid #34395a; border-radius: 10px; padding: 5px 10px;
-    font-size: 11.5px; white-space: nowrap; line-height: 1.35;
-    box-shadow: 0 8px 20px -8px #000; transition: opacity .14s;
-  }
+  .tc-tip { position: absolute; top: 10px; pointer-events: none; opacity: 0; transform: translateX(-50%);
+            background: var(--c3); border-radius: 14px; padding: 6px 12px; font-size: 11.5px; white-space: nowrap; line-height: 1.35;
+            box-shadow: 0 10px 24px rgba(0, 0, 0, .45); transition: opacity .14s; }
   .tchart.live .tc-tip { opacity: 1; }
   .tc-tip b { font-size: 14px; font-weight: 800; margin-left: 5px; }
-  .tc-tip i { font-style: normal; color: var(--dim); }
+  .tc-tip i { font-style: normal; color: var(--c5); }
   .tc-tip u { display: block; text-decoration: none; color: var(--faint); font-size: 10.5px; }
-  .tc-hint { font-size: 11px; color: var(--faint); text-align: center; margin: 4px 0 0; }
+  .tc-hint { font-size: 11.5px; color: var(--faint); text-align: center; margin: 8px 0 0; }
+
+  /* ---------- bottom: refresh, then the floating menu ---------- */
+  .adm-body { padding-bottom: 104px; animation: sectionIn .26s cubic-bezier(.2, .7, .3, 1); }
+  .adm-body.leaving { opacity: .32; transition: opacity .12s; }
+  @keyframes sectionIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+  .refresh-bar { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 10px 14px;
+                 margin: 26px 0 6px; font-size: 12px; color: var(--faint); }
+  .rb-btn { background: var(--c2); border: 0; border-radius: 999px; color: var(--c6); font: inherit; font-size: 13px;
+            font-weight: 600; padding: 10px 18px; cursor: pointer; box-shadow: var(--lift-sm); }
+  .rb-auto { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
+  .rb-auto input { width: 15px; height: 15px; accent-color: var(--c5); }
+  .rb-time { flex-basis: 100%; text-align: center; }
+  .adm-nav { position: fixed; left: 12px; right: 12px; bottom: calc(12px + env(safe-area-inset-bottom)); z-index: 50;
+             display: grid; grid-template-columns: repeat(5, 1fr); background: rgba(17, 33, 45, .92);
+             backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); border-radius: 26px; padding: 7px;
+             box-shadow: 0 18px 40px rgba(0, 0, 0, .55), inset 0 1px 0 rgba(204, 208, 207, .08); max-width: 560px; margin: 0 auto; }
+  .an-btn { display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 8px 0; border-radius: 19px;
+            color: var(--c4); font-size: 10.5px; font-weight: 600; }
+  .an-btn svg { width: 21px; height: 21px; }
+  .an-btn.on { background: var(--c3); color: var(--c6); }
+  #admProg { position: fixed; top: 0; left: 0; height: 2.5px; width: 0; z-index: 90; opacity: 0;
+             background: var(--c6); transition: width .2s ease-out, opacity .2s; }
+  #admProg.on { opacity: 1; }
+
+  /* the part you feel: anything tappable dips under the finger */
+  .card2, .dayrow, .geo, .pcard, .seg a, .tabs a, .rb-btn, .an-btn, .c, .li, .back {
+    transition: transform .12s cubic-bezier(.2, .7, .3, 1), background-color .16s;
+  }
+  .dayrow:active, .geo:active, .pcard:active, .c:active, a.li:active { transform: scale(.978); }
+  .card2:active { transform: scale(.978); }
+  .seg a:active, .tabs a:active, .rb-btn:active, .back:active { transform: scale(.94); }
+  .an-btn:active { transform: scale(.9); }
+  @media (min-width: 700px) { .adm-body, .adm-top { max-width: 620px; margin-left: auto; margin-right: auto; } }
   @media (prefers-reduced-motion: reduce) {
     .adm-body { animation: none; }
-    .card2, .dayrow, .geo, .pcard, .tabs a, .rb-btn, .an-btn, .c { transition: none; }
+    .card2, .dayrow, .geo, .pcard, .seg a, .tabs a, .rb-btn, .an-btn, .c, .li, .back { transition: none; }
   }`;
 
 const nowMskHms = () => {
@@ -910,13 +960,14 @@ const nowMskHm = () => nowMskHms().slice(0, 5);
 // The five sections the owner actually checks, reached from a fixed bottom
 // bar instead of scrolling past everything else to get to one of them.
 const NAV_ITEMS = [
-  ['obzor', '📊', 'Обзор'],
-  ['people', '👥', 'Люди'],
-  ['audience', '🌍', 'Аудитория'],
-  ['sources', '📈', 'Источники'],
-  ['days', '📅', 'Дни'],
-  ['reviews', '⭐', 'Отзывы'],
+  ['obzor', 'Обзор', '<path d="M4 13h4v7H4zM10 8h4v12h-4zM16 4h4v16h-4z"/>'],
+  ['people', 'Игроки', '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.6 3.4-5.5 6.5-5.5s5.7 1.9 6.5 5.5"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18.5 14.8c1.6.8 2.6 2.5 3 5.2"/>'],
+  ['sources', 'Откуда', '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.6 3.8 5.6 3.8 9s-1.3 6.4-3.8 9c-2.5-2.6-3.8-5.6-3.8-9S9.5 5.6 12 3z"/>'],
+  ['reviews', 'Отзывы', '<path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z"/>'],
+  ['watch', 'Честность', '<path d="M12 3l7 3v5c0 4.5-3 8.3-7 10-4-1.7-7-5.5-7-10V6z"/>'],
 ];
+// Sections that are not on the menu light up the one they belong to.
+const NAV_PARENT = { days: 'obzor', audience: 'sources' };
 /* Живы ли боты — так, чтобы это было видно сразу, а не пришлось искать.
 
    Они существуют внутри процесса и не оставляют следов, пока их партия не
@@ -954,9 +1005,20 @@ const renderBotStrip = () => {
 </div>`;
 };
 
-const bottomNav = (active) => `<nav class="adm-nav">${NAV_ITEMS.map(([id, ic, label]) =>
-  `<a class="an-btn ${active === id ? 'on' : ''}" href="/admin?key=${ADMIN_KEY}&view=${id}"><span class="an-ic">${ic}</span>${label}</a>`
-).join('')}</nav>`;
+const bottomNav = (active) => {
+  const on = NAV_PARENT[active] || active;
+  return `<nav class="adm-nav">${NAV_ITEMS.map(([id, label, icon]) =>
+    `<a class="an-btn ${on === id ? 'on' : ''}" href="/admin?key=${ADMIN_KEY}&view=${id}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${icon}</svg>${label}</a>`
+  ).join('')}</nav>`;
+};
+
+// "Пятница, 13 ноября" in Moscow time, for the header
+const WEEKDAY_RU = ['Воскресенье', 'Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота'];
+const MONTH_RU_GEN = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'];
+const mskDateLong = () => {
+  const d = new Date(Date.now() + 3 * 3600e3);
+  return `${WEEKDAY_RU[d.getUTCDay()]}, ${d.getUTCDate()} ${MONTH_RU_GEN[d.getUTCMonth()]}`;
+};
 
 // The page used to carry <meta http-equiv="refresh" content="60">, which
 // reloaded it out from under whoever was reading — mid-scroll, mid-tap, every
@@ -966,11 +1028,15 @@ const bottomNav = (active) => `<nav class="adm-nav">${NAV_ITEMS.map(([id, ic, la
 // the background.
 const adminPage = (title, body, active = 'obzor') => `<!DOCTYPE html><html lang="ru"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="theme-color" content="#12141f">
+<meta name="theme-color" content="#06141B">
 <meta http-equiv="Cache-Control" content="no-store">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%237c4dff'/%3E%3Crect x='6' y='9' width='9' height='6' rx='2' fill='white'/%3E%3Crect x='17' y='9' width='9' height='6' rx='2' fill='white'/%3E%3Crect x='6' y='17' width='20' height='6' rx='2' fill='white'/%3E%3C/svg%3E">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23253745'/%3E%3Crect x='6' y='9' width='9' height='6' rx='2' fill='white'/%3E%3Crect x='17' y='9' width='9' height='6' rx='2' fill='white'/%3E%3Crect x='6' y='17' width='20' height='6' rx='2' fill='white'/%3E%3C/svg%3E">
 <title>${title}</title><style>${ADMIN_CSS}</style></head><body>
 <div id="admProg"></div>
+<header class="adm-top">
+  <div class="brand">WallRush<small>${mskDateLong()} · ${nowMskHm()} МСК</small></div>
+  <div class="livepill"><span class="dot"></span><b>${realOnline().toLocaleString('ru')}</b> сейчас</div>
+</header>
 <div class="adm-body">${body}
 <div class="refresh-bar">
   <button type="button" class="rb-btn" onclick="admReload()">↻ Обновить</button>
@@ -1002,7 +1068,7 @@ window.admReload = function () {
 
 /* ---------- numbers count up when they come into view ---------- */
 function countUp(root) {
-  var els = root.querySelectorAll('.c2-val, .totals-grid b');
+  var els = root.querySelectorAll('.c2-val, .totals-grid b, .hero .v, .cell .v, .li .n');
   if (!window.IntersectionObserver) return;
   var io = new IntersectionObserver(function (entries) {
     entries.forEach(function (e) {
@@ -1095,8 +1161,8 @@ function chart(root) {
     var grad = document.createElementNS(NS, 'linearGradient');
     grad.setAttribute('id', 'tcFill'); grad.setAttribute('x1', '0'); grad.setAttribute('y1', '0');
     grad.setAttribute('x2', '0'); grad.setAttribute('y2', '1');
-    grad.innerHTML = '<stop offset="0" stop-color="#7c4dff" stop-opacity=".38"/>' +
-                     '<stop offset="1" stop-color="#7c4dff" stop-opacity="0"/>';
+    grad.innerHTML = '<stop offset="0" stop-color="#8FB3C9" stop-opacity=".38"/>' +
+                     '<stop offset="1" stop-color="#8FB3C9" stop-opacity="0"/>';
     svg.appendChild(grad);
     var area = document.createElementNS(NS, 'path');
     area.setAttribute('d', a); area.setAttribute('fill', 'url(#tcFill)');
@@ -1420,9 +1486,24 @@ app.get('/admin', async (req, res) => {
   const cnt = async (q) => (await q).count || 0;
   const today = mskDayStart(Date.now());
   const todayStartIso = new Date(today * dayMs - 3 * 3600e3).toISOString();
-  const view = ['obzor', 'people', 'audience', 'sources', 'days', 'reviews'].includes(String(req.query.view))
+  const view = ['obzor', 'people', 'audience', 'sources', 'days', 'reviews', 'watch'].includes(String(req.query.view))
     ? String(req.query.view) : 'obzor';
 
+
+  /* Taking somebody off the leaderboards, or putting them back. A flag hides
+     the account from both tables and stops it gaining points; nothing is
+     deleted, and the same link undoes it. The decision is the owner's — the
+     page only shows who plays more than a person can. */
+  if (req.query.flag) {
+    const who = String(req.query.flag);
+    const on = req.query.on === '1';
+    try {
+      if (/^u:[0-9a-f-]{36}$/.test(who)) await supa.from('profiles').update({ flagged: on }).eq('id', who.slice(2));
+      else if (/^d:[A-Za-z0-9-]{8,64}$/.test(who)) await supa.from('visitors').update({ flagged: on }).eq('device_id', who.slice(2));
+      if (on) await supa.rpc('day_points_drop', { w: who });
+    } catch (e) { console.error('flag failed:', e.message); }
+    return res.redirect(`/admin?key=${ADMIN_KEY}&view=watch`);
+  }
 
   // answering a review, from the form under it
   if (req.query.reply) {
@@ -1583,7 +1664,8 @@ ${pager}`;
     }).join('');
     const rest = list.slice(30).reduce((s, c) => s + c.people, 0);
 
-    content = `
+    content = `<h2>Откуда</h2>
+<div class="seg"><a class="${view === 'audience' ? 'on' : ''}" href="/admin?key=${ADMIN_KEY}&view=audience">Страны и звания</a><a class="${view === 'sources' ? 'on' : ''}" href="/admin?key=${ADMIN_KEY}&view=sources">Источники</a></div>
 <p class="sect">🔥 Серии дней <span class="note" style="font-weight:400">— живая = играл сегодня или вчера</span></p>
 <div class="grid2">
   ${statCard('🔥', 'Живых серий', num(streakAliveN), null)}
@@ -1628,7 +1710,8 @@ ${rest ? `<p class="note">+ ещё ${num(rest)} чел. из остальных 
         <div class="num">${num(c.people)} чел. · сыграли ${pPlayed}% · вернулись ${pKept}% · ${num(c.games)} партий</div>
       </div>`;
     }).join('');
-    content = `<h2>Откуда приходят игроки</h2>
+    content = `<h2>Откуда</h2>
+<div class="seg"><a class="${view === 'audience' ? 'on' : ''}" href="/admin?key=${ADMIN_KEY}&view=audience">Страны и звания</a><a class="${view === 'sources' ? 'on' : ''}" href="/admin?key=${ADMIN_KEY}&view=sources">Источники</a></div>
 <div class="tabs">${pTab('all', 'За всё время')}${pTab('week', 'За 7 дней')}${pTab('today', 'Сегодня')}</div>
 ${rowsHtml || '<p class="note">Пока нет данных за этот период.</p>'}
 <p class="note"><b>Определяется само.</b> Instagram, TikTok, Facebook и Telegram открывают ссылки во встроенном браузере, который называет себя по имени — такие заходы распознаются без всяких меток. Google, Яндекс, Reddit и обычные сайты видно по переходу. «Прямые» — это те, кто набрал адрес руками с экрана видео: их не определить никак.</p>
@@ -1697,6 +1780,61 @@ ${total > list.length ? `<p class="note">Цифры выше — по всем $
 ${bad.map(card).join('') || '<p class="note">Пока никто не жаловался.</p>'}
 <p class="sect" style="margin-top:22px">🙂 Довольные (4–5)</p>
 ${list.filter(r => r.stars >= 4).map(card).join('') || '<p class="note">Пока пусто.</p>'}`;
+  } else if (view === 'watch') {
+    /* ----- fair play -----
+       Half of all players finish six games a day and ninety-nine in a hundred
+       stay under about a hundred. Somebody on several hundred a day, every day,
+       is a script or a farm, and the rules forbid both. */
+    const since = new Date(Date.now() + 3 * 3600e3 - 7 * dayMs).toISOString().slice(0, 10);
+    const { data: heavy } = await supa.from('points_days')
+      .select('day, who, nick, kind, points, wins, losses')
+      .gte('day', since).neq('kind', 'bot').gte('wins', 100)
+      .order('wins', { ascending: false }).limit(300);
+    const by = new Map();
+    for (const r of heavy || []) {
+      const g = r.wins + r.losses;
+      if (g < 150) continue;
+      const e = by.get(r.who) || { who: r.who, nick: r.nick, kind: r.kind, days: 0, max: 0, games: 0, wins: 0, pts: 0 };
+      e.days++; e.max = Math.max(e.max, g); e.games += g; e.wins += r.wins; e.pts += r.points; e.nick = r.nick;
+      by.set(r.who, e);
+    }
+    const sus = [...by.values()].sort((a, b) => b.max - a.max).slice(0, 40);
+    const ids = sus.filter(x => x.who.startsWith('u:')).map(x => x.who.slice(2));
+    const flagged = new Set();
+    if (ids.length) {
+      const { data: fl } = await supa.from('profiles').select('id').in('id', ids).is('flagged', true);
+      for (const f of fl || []) flagged.add('u:' + f.id);
+    }
+    const [flAcc, flDev] = await Promise.all([
+      cnt(supa.from('profiles').select('id', { count: 'exact', head: true }).is('flagged', true)),
+      cnt(supa.from('visitors').select('device_id', { count: 'exact', head: true }).is('flagged', true)),
+    ]);
+    const row = (x) => {
+      const off = flagged.has(x.who);
+      return `<div class="adreq${off ? ' done' : ''}">
+        <div class="ar-top"><b>${esc(x.nick)}${x.kind === 'guest' ? ' <span class="note">гость</span>' : ''}</b><span class="ar-price">${num(x.max)} <small>в день</small></span></div>
+        <div class="ar-line">Дней с 150+ партиями: <b>${x.days}</b> · побед <b>${x.games ? Math.round(100 * x.wins / x.games) : 0}%</b> · очков за эти дни <b>${num(x.pts)}</b></div>
+        <div class="ar-line"><a href="/admin?key=${ADMIN_KEY}&flag=${encodeURIComponent(x.who)}&on=${off ? '0' : '1'}">${off ? '↩︎ вернуть в рейтинг' : '🚫 убрать из рейтинга'}</a></div>
+      </div>`;
+    };
+    const ends = endingStats();
+    const END_RU = { goal: 'дошёл до цели', resign: 'сдался', opponent_left: 'вышел или пропала связь', timeout: 'кончилось время', move_timeout: 'не сделал ход за 30 сек', quad_goal: 'на четверых: дошёл до цели', quad_last_standing: 'на четверых: остался один' };
+    const endRows = (o) => {
+      const total = Object.values(o).reduce((a, b) => a + b, 0);
+      return total ? Object.entries(o).sort((a, b) => b[1] - a[1]).map(([k, v]) =>
+        `<div class="ar-line">${esc(END_RU[k] || k)}: <b>${num(v)}</b> · ${Math.round(100 * v / total)}%</div>`).join('') : '<p class="note">Пока ни одной партии.</p>';
+    };
+    content = `<h2>Честная игра</h2>
+<div class="grid2">
+  ${statCard('🚫', 'Аккаунтов убрано', num(flAcc))}
+  ${statCard('📵', 'Устройств убрано', num(flDev))}
+</div>
+<p class="sect">🤖 Играют больше, чем может человек — за 7 дней</p>
+<p class="note" style="margin:0 0 10px">Обычный игрок — 6 партий в день, 99 из 100 — меньше ста. Здесь те, у кого было 150 и больше за день. «Убрать из рейтинга» скрывает из обеих таблиц и останавливает очки; ничего не удаляется, вернуть можно той же кнопкой.</p>
+${sus.map(row).join('') || '<p class="note">Никого.</p>'}
+<p class="sect" style="margin-top:22px">🏁 Чем кончаются партии — с последнего запуска сервера</p>
+<div class="adreq"><div class="ar-top"><b>Человек против человека</b></div>${endRows(ends.human)}</div>
+<div class="adreq"><div class="ar-top"><b>С ботом за столом</b></div>${endRows(ends.bot)}</div>`;
   } else if (view === 'days') {
     // ----- days: each day a block with its own numbers, plus a 14-day chart -----
     const fromTs = new Date((today - 13) * dayMs - 3 * 3600e3).toISOString();
@@ -1767,7 +1905,11 @@ ${blocks.join('') || '<p class="note">Подневная история пише
     // all time" used to be counted straight out of visit_log, which keeps only
     // the last 7 days — it read 244,777 when the real figure was 1,639,335.
     const todayStr = new Date(Date.now() + 3 * 3600e3).toISOString().slice(0, 10);
-    const [cur, prev, dataStart, tot, dailyTook, dailyDone] = await Promise.all([
+    const dayStr = (d) => new Date(d * dayMs).toISOString().slice(0, 10);
+    const since7 = new Date(Date.now() + 3 * 3600e3 - 7 * dayMs).toISOString().slice(0, 10);
+    const countIn = (table, col, from, to) =>
+      cnt(supa.from(table).select(col, { count: 'exact', head: true }).gte('created_at', from).lt('created_at', to));
+    const [cur, prev, dataStart, tot, dailyTook, dailyDone, spark, regsNow, regsPrev, revNow, revPrev, unreplied, heavy] = await Promise.all([
       periodStats(range.from, range.to),
       periodStats(range.prevFrom, range.prevTo),
       supa.rpc('admin_data_start').then(r => r.data || null),
@@ -1776,6 +1918,18 @@ ${blocks.join('') || '<p class="note">Подневная история пише
       // so this counts everyone who moved it at all and everyone who finished.
       cnt(supa.from('daily_progress').select('key', { count: 'exact', head: true }).eq('day', todayStr)),
       cnt(supa.from('daily_progress').select('key', { count: 'exact', head: true }).eq('day', todayStr).eq('done', true)),
+      // the line under the big number: people per day, the last two weeks
+      supa.rpc('admin_days', { from_day: dayStr(today - 13), to_day: dayStr(today) }).then(r => r.data || []),
+      countIn('profiles', 'id', range.from, range.to),
+      countIn('profiles', 'id', range.prevFrom, range.prevTo),
+      countIn('reviews', 'id', range.from, range.to),
+      countIn('reviews', 'id', range.prevFrom, range.prevTo),
+      // written in the last month, with words in them, not hidden, not answered
+      cnt(supa.from('reviews').select('id', { count: 'exact', head: true })
+        .is('reply', null).eq('hidden', false).not('body', 'is', null)
+        .gte('created_at', new Date(Date.now() - 30 * dayMs).toISOString())),
+      supa.from('points_days').select('who, wins, losses').gte('day', since7).neq('kind', 'bot').gte('wins', 100)
+        .limit(400).then(r => r.data || []),
     ]);
     const dailyTask = taskForDay(todayStr);
     const totalPeople = Number(tot.people || 0);
@@ -1785,53 +1939,91 @@ ${blocks.join('') || '<p class="note">Подневная история пише
     const regs = Number(tot.regs || 0);
     // A window that reaches back further than the statistics themselves cannot
     // be compared to anything, so say so instead of printing a made-up number.
-    // When there is nothing to compare against, the note below the tabs says so
-    // once; the cards just drop their footer rather than repeating it four times.
     const short = dataStart && new Date(range.prevFrom) < new Date(`${dataStart}T00:00:00+03:00`);
-    const cmp = (c, p) => short ? null : pct(c, p);
-    const was = (p) => short ? undefined : num(p);
+    const cmp = (c, pv) => short ? null : pct(c, pv);
     const pTab = (id, label) => `<a class="${period === id ? 'on' : ''}" href="/admin?key=${ADMIN_KEY}&view=obzor&p=${id}">${label}</a>`;
+    const arrow = (d) => d === null ? '' : d > 0 ? `↑ ${d}%` : d < 0 ? `↓ ${Math.abs(d)}%` : '= как было';
+    const tone = (d) => d === null ? '' : d > 0 ? 'up' : d < 0 ? 'down' : '';
+    const cell = (label, value, d) =>
+      `<div class="cell"><div class="k">${esc(label)}</div><div class="v">${value}</div><div class="s ${tone(d)}">${arrow(d)}</div></div>`;
+
+    // the line: two weeks of people, scaled to the box
+    const pts = [];
+    const byDay = new Map(spark.map(b => [Number(b.bucket), Number(b.people || 0)]));
+    for (let i = 13; i >= 0; i--) pts.push(byDay.get(today - i) || 0);
+    const hi = Math.max(1, ...pts);
+    const xy = pts.map((v, i) => `${(i * 300 / 13).toFixed(1)},${(52 - 46 * v / hi).toFixed(1)}`);
+    const sparkSvg = `<svg viewBox="0 0 300 58" preserveAspectRatio="none" aria-hidden="true">
+  <defs><linearGradient id="sg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#9BA8AB" stop-opacity=".32"/><stop offset="1" stop-color="#9BA8AB" stop-opacity="0"/></linearGradient></defs>
+  <path d="M${xy.join(' L')} L300,58 L0,58Z" fill="url(#sg)"/>
+  <path d="M${xy.join(' L')}" fill="none" stroke="#CCD0CF" stroke-width="2" vector-effect="non-scaling-stroke" stroke-linejoin="round" stroke-linecap="round"/>
+</svg>`;
+
+    // who plays more than a person can: 150+ games in a day, last 7 days
+    const heavyWho = new Set(heavy.filter(r => r.wins + r.losses >= 150).map(r => r.who));
+    const bots = botStatus();
+    const botTrouble = !bots.ready ? 'не запустились'
+      : bots.lastError ? 'сбой в лобби'
+      : bots.awake === 0 ? 'ни одного за столом'
+      : bots.idle === 0 ? 'свободных нет' : '';
+
+    const heroLabel = { today: 'Игроков сегодня', yesterday: 'Игроков вчера', week: 'Игроков за 7 дней', month: 'Игроков за 30 дней' }[period];
+    const dActive = cmp(cur.active, prev.active);
+    const returning = Math.max(0, cur.active - cur.newPeople);
+    const returningPrev = Math.max(0, prev.active - prev.newPeople);
+    const taskPct = dailyTook ? Math.round(100 * dailyDone / dailyTook) : 0;
 
     content = `
-<div class="live-strip">
-  <span class="dot"></span>
-  <span class="ls-main"><b>${num(realOnline())}</b> реально на сайте</span>
-  <span class="ls-sub">на витрине «онлайн ${num(realOnline() + fakeOnline())}»</span>
+<div class="seg">${pTab('today', 'Сегодня')}${pTab('yesterday', 'Вчера')}${pTab('week', '7 дней')}${pTab('month', '30 дней')}</div>
+
+<div class="hero">
+  <div class="k">${heroLabel}</div>
+  <div class="v">${num(cur.active)}</div>
+  <div class="d">${dActive === null
+      ? `<span class="pill flat">сравнить не с чем</span>`
+      : `<span class="pill ${tone(dActive) || 'flat'}">${arrow(dActive)}</span>${esc(range.vs)} · было ${num(prev.active)}`}</div>
+  ${sparkSvg}
 </div>
-${botStrip()}
-<div class="tabs">${pTab('today', 'Сегодня')}${pTab('yesterday', 'Вчера')}${pTab('week', '7 дней')}${pTab('month', '30 дней')}</div>
-<p class="cmp-note">${short
-      ? `📅 ${esc(range.label)} · сравнивать не с чем — статистика ведётся с ${dataStart ? mskDdMm(dataStart) : '—'}`
-      : period === 'today'
-        ? `📅 День ещё идёт — прожито до <b>${nowMskHm()}</b>. Поэтому сравниваем со <b>вчера к ${nowMskHm()}</b>, а не с целыми вчерашними сутками. В разделе «Дни» у вчера стоит цифра за все 24 часа — она будет больше, и это нормально.`
-        : `📅 ${esc(range.label)} · проценты — против того же отрезка: <b>${esc(range.vs)}</b>`}</p>
-<div class="grid2">
-  ${statCard('🆕', 'Новых людей', num(cur.newPeople), cmp(cur.newPeople, prev.newPeople), was(prev.newPeople), range.vs)}
-  ${statCard('👋', 'Заходили', num(cur.active), cmp(cur.active, prev.active), was(prev.active), range.vs)}
-  ${statCard('🎮', 'Партий сыграно', num(cur.games), cmp(cur.games, prev.games), was(prev.games), range.vs)}
-  ${statCard('🤝', 'Живых матчей', num(cur.humans), cmp(cur.humans, prev.humans), was(prev.humans), range.vs)}
+<div class="stack">
+  <div class="layer l1"><div class="cells">
+    ${cell('Новых', num(cur.newPeople), cmp(cur.newPeople, prev.newPeople))}
+    ${cell('Вернулись', num(returning), cmp(returning, returningPrev))}
+    ${cell('Партий', num(cur.games), cmp(cur.games, prev.games))}
+    ${cell('С живыми', num(cur.humans), cmp(cur.humans, prev.humans))}
+  </div></div>
+  <div class="layer l2"><div class="cells">
+    ${cell('Регистраций', num(regsNow), cmp(regsNow, regsPrev))}
+    ${cell('Отзывов', num(revNow), cmp(revNow, revPrev))}
+  </div></div>
 </div>
-<p class="subsect">За всё время</p>
-<div class="totals-grid">
-  <div class="t2"><b>${num(totalPeople)}</b><i>людей</i></div>
-  <div class="t2"><b>${num(totalGames)}</b><i>партий</i></div>
-  <div class="t2"><b>${num(humansTotal)}</b><i>🤝 живых</i></div>
-  <div class="t3"><b>${num(installs)}</b><i>📲 установили</i></div>
-  <div class="t3"><b>${num(regs)}</b><i>✔ регистраций</i></div>
+${period === 'today' && !short ? `<p class="cmp-note" style="margin-top:12px">День ещё идёт: сравнение со вчера к ${nowMskHm()}, а не с целыми сутками.</p>` : ''}
+
+<p class="h">Требует внимания</p>
+<div class="list">
+  <a class="li" href="/admin?key=${ADMIN_KEY}&view=watch"><div class="ic ${heavyWho.size ? 'warn' : ''}">🛡</div><div class="t"><b>Слишком много партий</b><small>150+ в день за неделю · проверить</small></div><div class="n ${heavyWho.size ? 'warn' : 'ok'}">${heavyWho.size || '✓'}</div><span class="go">›</span></a>
+  <a class="li" href="/admin?key=${ADMIN_KEY}&view=reviews"><div class="ic">⭐</div><div class="t"><b>Отзывы без ответа</b><small>с текстом, за 30 дней</small></div><div class="n">${num(unreplied)}</div><span class="go">›</span></a>
+  <div class="li"><div class="ic ${botTrouble ? 'warn' : ''}">🤖</div><div class="t"><b>Боты</b><small>${bots.ready ? `${bots.awake} за столом из ${bots.total} · свободных ${bots.idle}` : 'не запущены'}</small></div><div class="n ${botTrouble ? 'warn' : 'ok'}">${botTrouble ? esc(botTrouble) : '✓'}</div></div>
 </div>
-<p class="subsect">🎯 Задача дня</p>
-<p class="note" style="margin:0 0 10px">Сегодня: <b>${esc(TASK_RU[dailyTask.id] || dailyTask.id)}</b> · награда +${dailyTask.reward} очков</p>
-<div class="grid2">
-  ${statCard('🎯', 'Взялись', num(dailyTook))}
-  ${statCard('✅', 'Выполнили', num(dailyDone))}
+
+<p class="h">Задача дня</p>
+<div class="list">
+  <div class="li"><div class="ic">🎯</div><div class="t"><b>${esc(TASK_RU[dailyTask.id] || dailyTask.id)}</b><small>взялись ${num(dailyTook)} · выполнили ${num(dailyDone)} · награда +${dailyTask.reward}</small><div class="meter"><i style="width:${taskPct}%"></i></div></div><div class="n">${taskPct}%</div></div>
 </div>
-<p class="note">«Взялись» — сдвинули задачу хотя бы на шаг. Задача одна для всех и меняется каждый день сама, по дате.</p>`;
+
+<p class="h">Подробнее</p>
+<div class="list">
+  <a class="li" href="/admin?key=${ADMIN_KEY}&view=days"><div class="ic">📅</div><div class="t"><b>По дням</b><small>две недели: новые, заходы, партии, по часам</small></div><span class="go">›</span></a>
+</div>
+
+<p class="h">За всё время</p>
+<div class="list">
+  <div class="li"><div class="ic">👥</div><div class="t"><b>Игроков</b><small>${dataStart ? 'считаем с ' + mskDdMm(dataStart) : 'с самого начала'}</small></div><div class="n">${num(totalPeople)}</div></div>
+  <div class="li"><div class="ic">🎮</div><div class="t"><b>Партий</b><small>из них с живыми ${num(humansTotal)}</small></div><div class="n">${num(totalGames)}</div></div>
+  <div class="li"><div class="ic">✔︎</div><div class="t"><b>Аккаунтов</b><small>установили на экран ${num(installs)}</small></div><div class="n">${num(regs)}</div></div>
+</div>`;
   }
 
-  res.send(adminPage('WallRush — статистика', `
-<h1>🧱 WallRush — статистика</h1>
-<p class="note" style="margin:0 0 14px">Всё время московское.</p>
-${content}`, view));
+  res.send(adminPage('WallRush — статистика', content, view));
 });
 
 // one day's page: hour-by-hour breakdown (people + games per MSK hour)
