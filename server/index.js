@@ -1,5 +1,6 @@
 // WallRush server: static frontend + REST API + WebSocket game server.
 import express from 'express';
+import compression from 'compression';
 import http from 'http';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -18,6 +19,14 @@ import { dbEnabled, dbStatus, dbDetail, cleanEnv, likeEscape, supa, verifyUser, 
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
+
+/* Everything we send is squeezed before it goes. Railway charges for every
+   gigabyte that leaves the server, and nothing here was compressed: a first
+   visit cost 674 KB of HTML, JavaScript and CSS that gzip brings to 193 KB.
+   Text compresses about three and a half times; images and the video maker's
+   files the browser has already cached are skipped by the library on its own.
+   The game's socket is not touched — it is a few kilobytes a match anyway. */
+app.use(compression({ threshold: 1024 }));
 app.use(express.json());
 
 /* Pages a search engine can read: the Russian landing page, the rules, help,
