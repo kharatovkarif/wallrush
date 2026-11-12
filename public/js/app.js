@@ -1,16 +1,16 @@
 // WallRush client app: screens, board UI, online play (WebSocket), AI mode, auth.
-import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, wallBetween, N } from './engine.js?v=164';
-import { scheduleTick } from './sfx.js?v=164';
-import { aiMove } from './ai.js?v=164';
-import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=164';
-import { rankOf, nextRank } from './ranks.js?v=164';
-import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=164';
-import { checkNick, nickOk, randomNick } from './nick.js?v=164';
+import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, wallBetween, N } from './engine.js?v=165';
+import { scheduleTick } from './sfx.js?v=165';
+import { aiMove } from './ai.js?v=165';
+import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=165';
+import { rankOf, nextRank } from './ranks.js?v=165';
+import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=165';
+import { checkNick, nickOk, randomNick } from './nick.js?v=165';
 import {
   embedded, initPortal, inPortal, portalAd, portalPlaying, portalHappy,
   portalLoaded, portalInviteCode, portalShowInvite, portalHideInvite, portalInstant,
   portalRoom, portalOnJoin, portalInviteLink, portalMuted, portalOnMute, portalUserName,
-} from './portal.js?v=164';
+} from './portal.js?v=165';
 
 /* ================= state ================= */
 const $ = (id) => document.getElementById(id);
@@ -264,7 +264,7 @@ function getAiWorker() {
   if (aiWorker === false) return null;
   if (!aiWorker) {
     try {
-      aiWorker = new Worker('js/ai-worker.js?v=164', { type: 'module' });
+      aiWorker = new Worker('js/ai-worker.js?v=165', { type: 'module' });
       aiWorker.onmessage = (e) => {
         const cb = aiPending.get(e.data.id);
         aiPending.delete(e.data.id);
@@ -2113,11 +2113,21 @@ function onGameOver(iWon, reason) {
   portalPlaying(false);
   if (iWon) portalHappy();
   renderGame();
-  const reasonKey = {
-    goal: 'reason_goal', timeout: 'reason_timeout', move_timeout: 'reason_move_timeout',
-    opponent_left: 'reason_opponent_left', resign: 'reason_resign',
-    last_standing: 'reason_last_standing', left: 'reason_you_left',
-  }[reason] || 'reason_goal';
+  /* Whose clock, whose connection, who gave up. The server sends one reason to
+     both players, and the words used to be the same for both — so the player
+     whose own connection dropped came back to "Defeat: opponent left the
+     game", and reviews called it a bug where the one who leaves wins. The
+     reason is the same fact seen from two chairs; say it from this one. */
+  const mine = {
+    timeout: 'reason_your_timeout', move_timeout: 'reason_your_move_timeout',
+    resign: 'reason_you_resigned', opponent_left: 'reason_you_dropped', left: 'reason_you_left',
+  };
+  const theirs = {
+    timeout: 'reason_opp_timeout', move_timeout: 'reason_opp_move_timeout',
+    resign: 'reason_opp_resigned', opponent_left: 'reason_opponent_left',
+  };
+  const neutral = { goal: 'reason_goal', last_standing: 'reason_last_standing' };
+  const reasonKey = (iWon ? theirs[reason] : mine[reason]) || neutral[reason] || 'reason_goal';
   setTimeout(() => {
     $('result-emoji').textContent = iWon ? '🏆' : '😔';
     $('result-title').textContent = iWon ? t('game_win') : t('game_lose');
@@ -2617,7 +2627,7 @@ $('rp-clip').addEventListener('click', async () => {
   playReplay(false);                       // one thing on the screen at a time
   clipLabel(t('clip_making').replace('%n', '0'), { busy: true });
   try {
-    const { makeClip } = await import('./clip.js?v=164');
+    const { makeClip } = await import('./clip.js?v=165');
     const last = game.history[game.history.length - 1];
     const winner = last?.winner ?? game.state?.winner ?? null;
     const quad = isQuad();

@@ -344,6 +344,13 @@ export const I18N = {
     qr_playing: 'ещё играет',
     reason_last_standing: 'остался один за столом',
     reason_you_left: 'вы вышли из игры',
+    reason_opp_timeout: 'у соперника вышло время',
+    reason_opp_move_timeout: 'соперник не сделал ход за 30 секунд',
+    reason_opp_resigned: 'соперник сдался',
+    reason_your_timeout: 'у вас вышло время',
+    reason_your_move_timeout: 'вы не сделали ход за 30 секунд',
+    reason_you_resigned: 'вы сдались',
+    reason_you_dropped: 'связь пропала, и вы не успели вернуться',
     task_quad_play: 'Сыграй %n партии на четверых',
     finish_label: 'ФИНИШ',
     auth_error: 'Неверная почта или пароль',
@@ -711,6 +718,13 @@ export const I18N = {
     qr_playing: 'still playing',
     reason_last_standing: 'last one at the table',
     reason_you_left: 'you left the game',
+    reason_opp_timeout: 'your opponent ran out of time',
+    reason_opp_move_timeout: 'your opponent made no move within 30 seconds',
+    reason_opp_resigned: 'your opponent resigned',
+    reason_your_timeout: 'you ran out of time',
+    reason_your_move_timeout: 'you made no move within 30 seconds',
+    reason_you_resigned: 'you resigned',
+    reason_you_dropped: 'your connection dropped and you did not make it back in time',
     task_quad_play: 'Play %n four-player games',
     finish_label: 'FINISH',
     auth_error: 'Wrong email or password',
@@ -750,7 +764,7 @@ export const LANGS = [
 export const LANG_CODES = LANGS.map((l) => l.code);
 export const RTL = new Set(['fa']);
 
-const V = '164';
+const V = '165';
 
 // Loads a translation file on demand. Safe to call repeatedly and safe to fail:
 // if the request never lands, makeT keeps falling back to English.

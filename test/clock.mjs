@@ -11,7 +11,7 @@
  *   node test/clock.mjs
  */
 import { EventEmitter } from 'node:events';
-import { attachWs, _setClocksForTest, moveGrace } from '../server/rooms.js';
+import { attachWs, _setClocksForTest, moveGrace, grantedOf, endingStats } from '../server/rooms.js';
 import { pawnMoves } from '../public/js/engine.js';
 
 let failures = 0;
@@ -255,6 +255,27 @@ console.log('\nfour at the table, one pulls the plug');
 
   for (const w of ws) w.shut();
   await tick(GRACE + 120);
+}
+
+/* ---------- 7. today's table gets what was really granted ----------
+ *
+ * Past 1500 points in a day the database pays half a win, past 3000 a quarter.
+ * The day's board was written with the figure from before that rule, so a
+ * player on six hundred games a day stood on it with 14 000 points. */
+console.log('\nthe day board and the daily limit');
+{
+  ok(grantedOf(1000, 25, 1025) === 25, 'an ordinary win is written whole');
+  ok(grantedOf(2000, 25, 2013) === 13, 'past the first limit, half is written — what the database gave');
+  ok(grantedOf(5000, 25, 5006) === 6, 'past the second, a quarter');
+  ok(grantedOf(1000, 25, null) === 25, 'database unreachable: the asked-for figure stands');
+  ok(grantedOf(1000, 25, 1000) === 0, 'a flagged account gains nothing, and nothing is written');
+  ok(grantedOf(1000, 25, 1300) === 25, 'never more than was asked for, whatever else moved the total');
+  ok(grantedOf(100, -10, 90) === -10, 'a loss is written whole');
+  ok(grantedOf(5, -10, 0) === -5, 'a loss that hit the floor is written as what was really lost');
+  ok(grantedOf(100, -10, 140) === 0, 'and a loss is never written as a gain');
+  const e = endingStats();
+  const all = Object.values(e.human).reduce((a, b) => a + b, 0) + Object.values(e.bot).reduce((a, b) => a + b, 0);
+  ok(all > 0 && (e.human.opponent_left || 0) > 0, `endings are counted by reason (${JSON.stringify(e.human)})`);
 }
 
 console.log(failures ? `\n${failures} FAILURES` : '\nall good');

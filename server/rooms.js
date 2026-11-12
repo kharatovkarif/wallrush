@@ -179,6 +179,18 @@ export function realOnline() { return clients.size; } // for the owner's admin p
    [health] line and served on /healthz, so that memory creeping up on the
    Railway graph can be matched to the thing that is growing instead of being
    guessed at. */
+/* How games end, counted since the server started. Kept in memory and cheap:
+   the reviews say "the game ends for no reason" and "he left and I lost", and
+   without a tally of endings there is nothing to hold those against. Split by
+   whether a bot sat at the table, because a bot never drops its connection. */
+const endings = { human: {}, bot: {} };
+function noteEnding(room, reason) {
+  const side = room.players.some(p => p.isBot) ? 'bot' : 'human';
+  const key = (isQuad(room) ? 'quad_' : '') + reason;
+  endings[side][key] = (endings[side][key] || 0) + 1;
+}
+export function endingStats() { return endings; }
+
 export function roomStats() {
   const byStatus = {};
   let botOnly = 0;
@@ -490,11 +502,37 @@ async function bumpDaily(room, pl, won) {
    would leave no trace at all. */
 function persistPoints(pl, delta, result = null) {
   if (!delta && !result) return;
-  if (delta) {
-    if (pl.isBot) addBotPoints(pl.nick, delta);
-    else addPoints({ userId: pl.userId, deviceId: pl.deviceId }, delta);
+  if (!delta || pl.isBot) {
+    if (delta) addBotPoints(pl.nick, delta);
+    addDayPoints(pl, delta, result);
+    return;
   }
-  addDayPoints(pl, delta, result);
+  /* The database has the last word on what a win is worth: past 1500 points
+     in a day it pays half, past 3000 a quarter. Today's table used to be
+     written with the figure from before that rule — so somebody playing six
+     hundred games a day stood on it with 14 000 points for a day in which
+     their real total had moved by a third of that. The day's board now gets
+     what was actually granted, and so does the number the player carries. */
+  const before = (pl.points || 0) - delta;
+  addPoints({ userId: pl.userId, deviceId: pl.deviceId }, delta)
+    .then((total) => {
+      const granted = grantedOf(before, delta, total);
+      if (typeof total === 'number') pl.points = total;
+      addDayPoints(pl, granted, result);
+    })
+    .catch(() => addDayPoints(pl, delta, result));
+}
+
+/* What the database really added. `total` is the new balance it reported, or
+   not a number when it could not be reached — then the unadjusted figure
+   stands, because a day's board with a slightly generous number is better
+   than one with a hole in it. A gain is never reported as more than was asked
+   for, nor as a loss. */
+export function grantedOf(before, delta, total) {
+  if (typeof total !== 'number' || !Number.isFinite(total)) return delta;
+  const real = total - before;
+  if (delta > 0) return Math.max(0, Math.min(delta, real));
+  return Math.min(0, Math.max(delta, real));
 }
 
 // Updates the in-memory totals straight away so the game_over message is
@@ -560,6 +598,7 @@ function awardPoints(room, w, l) {
 async function finish(room, winnerIdx, reason) {
   if (room.status !== 'playing') return;
   room.status = 'over';
+  noteEnding(room, reason);
   clearTimeout(room.moveTimer);
   for (const pl of room.players) clearTimeout(pl.graceTimer);
   const quad = isQuad(room);
