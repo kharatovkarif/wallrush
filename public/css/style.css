@@ -98,7 +98,7 @@ html[data-theme="dark"] .btn-support { color: #ffd76a; background: rgba(255, 199
 
 /* Support / advertise pair on the home screen: visible under the game cards,
    deliberately quieter than the play buttons so the game stays the focus. */
-.side-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 14px; }
+.side-row { display: grid; grid-template-columns: 1fr; gap: 10px; margin-top: 14px; }
 .side-btn {
   border: none; border-radius: 15px; padding: 13px 10px; cursor: pointer;
   font: inherit; font-size: 14px; font-weight: 600;
@@ -107,9 +107,7 @@ html[data-theme="dark"] .btn-support { color: #ffd76a; background: rgba(255, 199
 }
 .side-btn:active { transform: scale(.97); }
 .side-support { color: #7a5b00; background: rgba(255, 199, 0, .18); box-shadow: none; }
-.side-ads { color: var(--violet-dark); background: rgba(47, 109, 246, .12); box-shadow: none; }
 html[data-theme="dark"] .side-support { color: #ffd76a; background: rgba(255, 199, 0, .12); }
-html[data-theme="dark"] .side-ads { color: #8fb2ff; background: rgba(47, 109, 246, .16); }
 
 /* USDT address block inside the support dialog */
 .wallet { background: var(--bg2); border-radius: 14px; padding: 11px; margin-top: 10px; text-align: center; }
@@ -790,38 +788,6 @@ a.btn-big { text-decoration: none; display: block; }
 .fmt b { display: block; font-size: 14px; }
 .fmt small { display: block; color: var(--muted); font-size: 12px; line-height: 1.4; margin-top: 2px; }
 
-/* ---------- the advertising page ---------- */
-.ads-hero { text-align: center; margin-bottom: 18px; }
-.ads-hero h3 { font-size: 22px; text-wrap: balance; }
-.ads-hero .hint { margin-top: 6px; font-size: 15px; text-wrap: balance; }
-.ads-hero .modal-emoji { font-size: 40px; margin-bottom: 8px; }
-
-/* Reach, up front and in two columns — the first thing an advertiser looks
-   for, and the reason most of them stop reading if they cannot find it. */
-.ads-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
-.ads-stat {
-  background: var(--bg2); border-radius: 14px; padding: 13px 12px; text-align: center;
-}
-/* "5 000+" is one left-to-right token even in Persian — without the isolation
-   the browser reorders it to "+000 5" */
-.ads-stat b {
-  display: block; font-size: 21px; line-height: 1.1; color: var(--blue);
-  direction: ltr; unicode-bidi: isolate;
-}
-.ads-stat small { display: block; color: var(--muted); font-size: 12px; line-height: 1.35; margin-top: 3px; }
-
-.ads-cta { margin-top: 22px; text-align: center; }
-.ads-cta > b { display: block; font-size: 17px; }
-.ads-cta .hint { margin: 6px 0 14px; text-wrap: balance; }
-.ads-cta .btn-big + .btn-big { margin-top: 10px; }
-/* the address is the label, so it has to survive a narrow phone */
-.ads-mail { font-size: 15px; word-break: break-all; }
-.ads-copy {
-  display: block; margin: 10px auto 0; padding: 6px 12px;
-  border: none; background: none; cursor: pointer;
-  font: inherit; font-size: 13px; color: var(--muted); text-decoration: underline;
-}
-
 /* ============ daily streak ============ */
 /* The flame never becomes a different object — it is recoloured and grown, so
    each tier reads as the same fire levelling up rather than a new trophy. */
@@ -1318,35 +1284,6 @@ html[data-theme="dark"] .fr-row { border-top-color: rgba(255,255,255,.06); }
 html[data-theme="dark"] .rv-tabs button { background: #171a28; }
 html[data-theme="dark"] .rv-bt { background: #262c42; }
 
-/* ---------- advertising page ---------- */
-.ads-live { background: var(--card); border-radius: var(--radius); padding: 16px;
-            box-shadow: var(--shadow); margin-bottom: 16px; }
-.ads-day { margin: 0 0 12px; font-size: 13px; color: var(--muted); }
-.ads-day b { color: var(--text); }
-.ads-flags { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0 10px; }
-.ads-flag { background: var(--bg2); border-radius: 999px; padding: 5px 11px; font-size: 14px; }
-.ads-flag b { font-size: 12.5px; color: var(--muted); font-weight: 600; }
-.ads-h { margin: 22px 0 10px; font-size: 16px; }
-.packs { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-.pack { display: flex; flex-direction: column; gap: 4px; text-align: left; border: 0;
-        background: var(--card); border-radius: 16px; padding: 13px 14px; font: inherit;
-        box-shadow: var(--shadow); cursor: pointer; transition: transform .12s ease; }
-.pack:active { transform: scale(.978); }
-.pack-wide { grid-column: 1 / -1; }
-.pk-name { font-size: 13px; font-weight: 600; color: var(--text); line-height: 1.3; }
-.pk-days { font-size: 11.5px; color: var(--muted); }
-.pk-price { font-size: 19px; font-weight: 700; color: var(--blue); margin-top: 2px; }
-.pk-price i { font-size: 11px; font-style: normal; color: var(--green); font-weight: 600; }
-html[data-theme="dark"] .ads-live, html[data-theme="dark"] .pack { background: #171a28; }
-html[data-theme="dark"] .ads-flag { background: #262c42; }
-
-/* ---------- advertising enquiry form ---------- */
-#overlay-adreq .modal { text-align: left; }
-#overlay-adreq .cr-label { margin: 14px 0 6px; }
-#overlay-adreq .cr-opts { flex-wrap: wrap; }
-#overlay-adreq .input { margin-top: 8px; }
-#adreq-hint { margin: 6px 0 0; font-size: 12px; }
-#adreq-pack { appearance: none; -webkit-appearance: none; background-image: none; }
 /* the enquiry form's dropdowns: native lists, so the phone shows its own
    picker — a custom one would be prettier and worse on every device */
 .input.select { appearance: none; -webkit-appearance: none; background-repeat: no-repeat;

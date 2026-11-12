@@ -11,7 +11,6 @@ import { RANKS } from '../public/js/ranks.js';
 import { checkNick } from '../public/js/nick.js';
 import { localDay } from '../public/js/streak.js';
 import { taskForDay } from '../public/js/daily.js';
-import { packById } from '../public/js/packs.js';
 import { initPush, pushPublicKey, saveSub, dropSub, pushTick, sendTestPush } from './push.js';
 import { mountPages } from './pages.js';
 import { logVisitLater, startWriteQueue, queueStatus, flushWrites } from './queue.js';
@@ -397,92 +396,6 @@ app.post('/api/resolve-login', async (req, res) => {
   res.json({ email: u.user.email });
 });
 
-/* ---------- the advertising page ----------
-   It used to show four rounded numbers and an invitation to write. An
-   advertiser decides on reach, and "50 000+ a month" was both vague and wrong
-   by a factor of thirty — the game plays a million and a half matches a month.
-
-   So it shows yesterday. A day that has finished, counted from the same
-   statistics the owner reads, refreshed once an hour and named by its date, so
-   anyone can come back tomorrow and see it move. */
-
-let adsCache = { at: 0, data: null };
-const ADS_CACHE_MS = 30 * 60_000;
-
-async function adsStats() {
-  if (adsCache.data && Date.now() - adsCache.at < ADS_CACHE_MS) return adsCache.data;
-  const dayIso = new Date(Date.now() + 3 * 3600e3 - dayMs).toISOString().slice(0, 10);   // yesterday, MSK
-  const startIso = new Date(new Date(dayIso + 'T00:00:00+03:00').getTime()).toISOString();
-  const endIso = new Date(new Date(startIso).getTime() + dayMs).toISOString();
-  const [{ data: rows }, { data: hours }] = await Promise.all([
-    supa.rpc('ads_day_stats', { d: dayIso }),
-    supa.rpc('admin_buckets', { from_ts: startIso, to_ts: endIso, bucket_secs: 3600, offset_secs: 10800 }),
-  ]);
-  const list = rows || [];
-  const people = list.reduce((a, r) => a + Number(r.people || 0), 0);
-  const games = list.reduce((a, r) => a + Number(r.games || 0), 0);
-  // group the timezones into countries, then keep the ones big enough to mean
-  // something — a flag standing for four people is noise on a media kit
-  const byFlag = new Map();
-  for (const r of list) {
-    const flag = countryOf(r.tz).split(' ')[0];
-    byFlag.set(flag, (byFlag.get(flag) || 0) + Number(r.people || 0));
-  }
-  const countries = [...byFlag.entries()]
-    .map(([flag, n]) => ({ flag, pct: people ? Math.round(1000 * n / people) / 10 : 0 }))
-    .filter(c => c.pct >= 1.5 && c.flag !== '🏳️' && c.flag !== '🌍')
-    .sort((a, b) => b.pct - a.pct)
-    .slice(0, 10);
-  const hourly = (hours || []).map(h => Number(h.people || 0)).filter(n => n > 0);
-  const data = {
-    day: dayIso,
-    people, games,
-    countries,
-    countriesTotal: byFlag.size,
-    quietestHour: hourly.length ? Math.min(...hourly) : 0,
-    busiestHour: hourly.length ? Math.max(...hourly) : 0,
-  };
-  adsCache = { at: Date.now(), data };
-  return data;
-}
-
-app.get('/api/ads/stats', async (req, res) => {
-  if (!dbEnabled) return res.json(null);
-  try {
-    res.json(await adsStats());
-  } catch (e) {
-    console.error('ads stats failed:', e.message);
-    res.json(null);
-  }
-});
-
-// An enquiry, not a checkout. There is nothing here to take money with yet,
-// and a dead pay button loses the enquiry along with the payment.
-app.post('/api/ads/request', async (req, res) => {
-  if (!dbEnabled) return res.status(503).json({ error: 'db_off' });
-  const contact = String(req.body?.contact || '').trim().slice(0, 200);
-  if (contact.length < 3) return res.status(400).json({ error: 'no_contact' });
-  try {
-    await supa.from('ad_requests').insert({
-      pack: String(req.body?.pack || '').slice(0, 40) || null,
-      // where to write to them, kept apart from what to write: the first
-      // enquiries arrived as "Wathsapp" and as a phone number with no country
-      platform: ['telegram', 'whatsapp', 'instagram', 'email'].includes(String(req.body?.platform))
-        ? String(req.body.platform) : null,
-      contact,
-      site: String(req.body?.site || '').trim().slice(0, 200) || null,
-      about: String(req.body?.about || '').trim().slice(0, 500) || null,
-      audience: String(req.body?.audience || '').trim().slice(0, 120) || null,
-      lang: String(req.body?.lang || '').slice(0, 8) || null,
-      device_id: String(req.body?.device || '').slice(0, 64) || null,
-    });
-    res.json({ ok: true });
-  } catch (e) {
-    console.error('ad request failed:', e.message);
-    res.status(500).json({ error: 'failed' });
-  }
-});
-
 /* ---------- reviews ----------
    A star out of five, and a couple of words if the player feels like it.
    Four and five go on /reviews, the page search engines see. One to three
@@ -757,7 +670,7 @@ app.get('/reviews', async (req, res) => {
   <footer>
     Ratings are left inside the game after a match, by the players themselves — an account or ten matches played. Good and bad are both here, unedited; where we have answered, the answer is under the review.<br>
     <a href="/">Play</a> · <a href="/rules">Rules</a> · <a href="/help">Help</a> · <a href="/ru">Русский</a><br>
-    Contact: <a href="https://t.me/Karoboev">@Karoboev</a> · <a href="mailto:ads@wallrush.online">ads@wallrush.online</a>
+    Email: <a href="mailto:ads@wallrush.online">ads@wallrush.online</a>
   </footer>
 </div>
 </body>
@@ -769,36 +682,6 @@ app.get('/reviews', async (req, res) => {
    whether it played, how many games; plus live online and daily growth. */
 const ADMIN_KEY = cleanEnv(process.env.ADMIN_KEY) || 'karoboev777';
 
-// the ladder speaks six languages in the game; this page only needs one
-// the admin reads one language; the form speaks six
-const GEO_RU = {
-  world: 'весь мир', asia: 'Азия', europe: 'Европа', africa: 'Африка',
-  mideast: 'Ближний Восток', latam: 'Латинская Америка', namerica: 'Северная Америка', cis: 'СНГ',
-};
-// Turn a stored contact into something tappable: the whole point of the
-// enquiry is to answer it, and copying a handle by hand is where that stops.
-function contactLink(platform, contact) {
-  const v = String(contact || '').trim();
-  if (!v) return '';
-  if (platform === 'email') return 'mailto:' + encodeURIComponent(v).replace(/%40/g, '@');
-  if (platform === 'whatsapp') {
-    const digits = v.replace(/\D/g, '');
-    return digits.length >= 7 ? 'https://wa.me/' + digits : '';
-  }
-  if (platform === 'telegram') {
-    if (/t\.me\//i.test(v)) return v.startsWith('http') ? v : 'https://' + v;
-    return 'https://t.me/' + encodeURIComponent(v.replace(/^@/, ''));
-  }
-  if (platform === 'instagram') {
-    if (/instagram\.com\//i.test(v)) return v.startsWith('http') ? v : 'https://' + v;
-    return 'https://instagram.com/' + encodeURIComponent(v.replace(/^@/, ''));
-  }
-  return '';
-}
-
-const PLATFORM_RU = {
-  telegram: '✈️ ', whatsapp: '📱 ', instagram: '📸 ', email: '✉️ ',
-};
 const TASK_RU = {
   play4: 'сыграть 4 партии', win2: 'выиграть 2 партии', walls12: 'поставить 12 стен',
   win_human: 'выиграть 2 партии у живых', win_thrifty: 'выиграть, потратив ≤3 стен',
@@ -988,14 +871,6 @@ const ADMIN_CSS = `
   #admProg.on { opacity: 1; }
 
   /* ---------- 14-day chart you can drag your finger across ---------- */
-  .adreq{background:var(--card);border-radius:16px;padding:14px 16px;margin:0 0 10px;border:1px solid var(--line)}
-.adreq.done{opacity:.6}
-.ar-top{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:8px}
-.ar-top b{font-size:15px;line-height:1.3}
-.ar-price{font-size:20px;font-weight:800;color:var(--up);white-space:nowrap}
-.ar-line{font-size:13.5px;line-height:1.7;color:var(--ink)}
-.ar-line i{color:var(--dim);font-style:normal;display:inline-block;min-width:104px}
-.ar-write{font-weight:700}
 .rv-reply-form{display:flex;gap:6px;width:100%;margin:8px 0 0}
 .rv-reply-form .search-box{margin:0;flex:1}
 .rv-reply-go{border:0;border-radius:10px;padding:0 14px;background:var(--accent);color:#fff;font:inherit;font-size:13px;font-weight:600}
@@ -1041,7 +916,6 @@ const NAV_ITEMS = [
   ['sources', '📈', 'Источники'],
   ['days', '📅', 'Дни'],
   ['reviews', '⭐', 'Отзывы'],
-  ['ads', '📣', 'Реклама'],
 ];
 /* Живы ли боты — так, чтобы это было видно сразу, а не пришлось искать.
 
@@ -1546,17 +1420,9 @@ app.get('/admin', async (req, res) => {
   const cnt = async (q) => (await q).count || 0;
   const today = mskDayStart(Date.now());
   const todayStartIso = new Date(today * dayMs - 3 * 3600e3).toISOString();
-  const view = ['obzor', 'people', 'audience', 'sources', 'days', 'reviews', 'ads'].includes(String(req.query.view))
+  const view = ['obzor', 'people', 'audience', 'sources', 'days', 'reviews'].includes(String(req.query.view))
     ? String(req.query.view) : 'obzor';
 
-  // an enquiry is marked done, or put back
-  const handleId = Number(req.query.handle || 0), unhandleId = Number(req.query.unhandle || 0);
-  if (handleId || unhandleId) {
-    try {
-      await supa.from('ad_requests').update({ handled: Boolean(handleId) }).eq('id', handleId || unhandleId);
-    } catch (e) { console.error('ad request update failed:', e.message); }
-    return res.redirect(`/admin?key=${ADMIN_KEY}&view=ads`);
-  }
 
   // answering a review, from the form under it
   if (req.query.reply) {
@@ -1831,46 +1697,6 @@ ${total > list.length ? `<p class="note">Цифры выше — по всем $
 ${bad.map(card).join('') || '<p class="note">Пока никто не жаловался.</p>'}
 <p class="sect" style="margin-top:22px">🙂 Довольные (4–5)</p>
 ${list.filter(r => r.stars >= 4).map(card).join('') || '<p class="note">Пока пусто.</p>'}`;
-  } else if (view === 'ads') {
-    /* ----- who wants to buy advertising -----
-       The page shows yesterday's real figures and a price list; this is where
-       the answers land. Marking one done is a tick, not a delete: an enquiry
-       that came to nothing is still worth being able to look back at. */
-    const { data: reqs } = await supa.from('ad_requests')
-      .select('id, pack, platform, contact, site, about, audience, lang, handled, created_at')
-      .order('created_at', { ascending: false }).limit(200);
-    const list = reqs || [];
-    const open = list.filter(r => !r.handled);
-    const stats = await adsStats().catch(() => null);
-    /* One enquiry, written out so it can be answered without decoding it.
-       It used to print the stored id — "social-4" — and nothing else: no
-       price, no what, and a contact you had to copy by hand. */
-    const card = (r) => {
-      const p = packById(r.pack);
-      const write = contactLink(r.platform, r.contact);
-      return `<div class="adreq${r.handled ? ' done' : ''}">
-        <div class="ar-top">
-          <b>${p ? esc(p.ru) : esc(r.pack || 'пакет не выбран')}</b>
-          <span class="ar-price">${p ? '$' + p.price : '—'}</span>
-        </div>
-        <div class="ar-line"><i>Написать:</i> ${write
-          ? `<a class="ar-write" href="${write}" target="_blank" rel="noopener">${PLATFORM_RU[r.platform] || ''}${esc(r.contact)}</a>`
-          : `${PLATFORM_RU[r.platform] || ''}${esc(r.contact)}`}</div>
-        <div class="ar-line"><i>Рекламируют:</i> ${r.site ? `<b>${esc(r.site)}</b>` : '<span class="note">не указали</span>'}${r.about ? ' — ' + esc(r.about) : ''}</div>
-        <div class="ar-line"><i>Аудитория:</i> ${esc(GEO_RU[r.audience] || r.audience || 'не указали')}</div>
-        <div class="ar-line"><i>Пришла:</i> ${mskFmt(r.created_at)} · язык ${esc(r.lang || '—')}</div>
-        <div class="ar-line"><a href="/admin?key=${ADMIN_KEY}&view=ads&${r.handled ? 'unhandle' : 'handle'}=${r.id}">${r.handled ? '↩︎ вернуть в новые' : '✓ ответил, убрать из новых'}</a></div>
-      </div>`;
-    };
-    content = `<h2>Реклама</h2>
-<div class="grid2">
-  ${statCard('📣', 'Новых заявок', num(open.length))}
-  ${statCard('📋', 'Всего заявок', num(list.length))}
-</div>
-${stats ? `<p class="note">На странице рекламы сейчас показано за <b>${esc(stats.day)}</b>: ${num(stats.people)} игроков, ${num(stats.games)} партий, ${num(stats.quietestHour)} человек в самый тихий час, ${num(stats.countriesTotal)} стран. Обновляется само раз в полчаса.</p>` : ''}
-<p class="sect">📬 Новые — ответь и отметь</p>
-${open.map(card).join('') || '<p class="note">Пока никто не оставлял заявок.</p>'}
-${list.some(r => r.handled) ? `<p class="sect" style="margin-top:22px">✓ Обработанные</p>${list.filter(r => r.handled).map(card).join('')}` : ''}`;
   } else if (view === 'days') {
     // ----- days: each day a block with its own numbers, plus a 14-day chart -----
     const fromTs = new Date((today - 13) * dayMs - 3 * 3600e3).toISOString();

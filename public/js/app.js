@@ -1,17 +1,16 @@
 // WallRush client app: screens, board UI, online play (WebSocket), AI mode, auth.
-import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, wallBetween, N } from './engine.js?v=162';
-import { scheduleTick } from './sfx.js?v=162';
-import { aiMove } from './ai.js?v=162';
-import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=162';
-import { PACKS } from './packs.js?v=162';
-import { rankOf, nextRank } from './ranks.js?v=162';
-import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=162';
-import { checkNick, nickOk, randomNick } from './nick.js?v=162';
+import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, wallBetween, N } from './engine.js?v=163';
+import { scheduleTick } from './sfx.js?v=163';
+import { aiMove } from './ai.js?v=163';
+import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=163';
+import { rankOf, nextRank } from './ranks.js?v=163';
+import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=163';
+import { checkNick, nickOk, randomNick } from './nick.js?v=163';
 import {
   embedded, initPortal, inPortal, portalAd, portalPlaying, portalHappy,
   portalLoaded, portalInviteCode, portalShowInvite, portalHideInvite, portalInstant,
   portalRoom, portalOnJoin, portalInviteLink, portalMuted, portalOnMute, portalUserName,
-} from './portal.js?v=162';
+} from './portal.js?v=163';
 
 /* ================= state ================= */
 const $ = (id) => document.getElementById(id);
@@ -265,7 +264,7 @@ function getAiWorker() {
   if (aiWorker === false) return null;
   if (!aiWorker) {
     try {
-      aiWorker = new Worker('js/ai-worker.js?v=162', { type: 'module' });
+      aiWorker = new Worker('js/ai-worker.js?v=163', { type: 'module' });
       aiWorker.onmessage = (e) => {
         const cb = aiPending.get(e.data.id);
         aiPending.delete(e.data.id);
@@ -378,7 +377,6 @@ function show(screenId) {
     b.classList.toggle('active', b.dataset.screen === screenId));
   if (screenId === 'screen-leaderboard') loadLeaderboard();
   if (screenId === 'screen-reviews') loadReviews();
-  if (screenId === 'screen-ads') loadAdsStats();
   if (screenId === 'screen-profile') { updateProfileUI(); renderPushRow(); loadFriends(); } // points move every match
   if (screenId === 'screen-friends') { renderFriends(); loadFriends(); }
   if (screenId === 'screen-rooms') wsSend({ t: 'lobby_sub' });
@@ -2489,19 +2487,6 @@ if ($('wallet-copy')) {
   });
 }
 
-$('btn-open-ads').addEventListener('click', () => show('screen-ads'));
-
-// An address on the game's own domain rather than a personal mailbox: this is
-// the one line a possible advertiser judges the place by. Cloudflare Email
-// Routing forwards it straight into the same inbox as before.
-const ADS_EMAIL = 'ads@wallrush.online';
-$('ads-email-copy').addEventListener('click', async () => {
-  try { await navigator.clipboard.writeText(ADS_EMAIL); } catch { return; }
-  const b = $('ads-email-copy');
-  b.textContent = t('copied');
-  setTimeout(() => { b.textContent = t('ads_copy_mail'); }, 2000);
-});
-
 $('btn-to-menu').addEventListener('click', () => {
   if (game?.mode === 'online') wsSend({ t: 'rematch', yes: false });
   portalHideInvite();
@@ -2632,7 +2617,7 @@ $('rp-clip').addEventListener('click', async () => {
   playReplay(false);                       // one thing on the screen at a time
   clipLabel(t('clip_making').replace('%n', '0'), { busy: true });
   try {
-    const { makeClip } = await import('./clip.js?v=162');
+    const { makeClip } = await import('./clip.js?v=163');
     const last = game.history[game.history.length - 1];
     const winner = last?.winner ?? game.state?.winner ?? null;
     const quad = isQuad();
@@ -3443,123 +3428,6 @@ $('sound-toggle').addEventListener('change', (e) => {
   soundOn = e.target.checked;
   localStorage.setItem('wr_sound', soundOn ? '1' : '0');
   if (soundOn) tick(true); // preview
-});
-
-/* ================= the advertising page =================
-   Yesterday's real figures, fetched once when the page is opened. An
-   advertiser decides on reach, and a rounded promise decides nothing. */
-
-// The price cards, from the one list. Names and periods come from i18n, so
-// they read in the player's language; the prices are the same everywhere.
-function renderPacks() {
-  $('ads-packs').innerHTML = PACKS.map(p => `
-    <button class="pack${p.wide ? ' pack-wide' : ''}" data-pack="${p.id}">
-      <span class="pk-name">${esc(t(p.name))}</span>
-      <span class="pk-days">${esc(t(p.period))}</span>
-      <span class="pk-price">$${p.price}${p.save ? ` <i>${esc(t(p.save))}</i>` : ''}</span>
-    </button>`).join('');
-}
-
-async function loadAdsStats() {
-  renderPacks();
-  try {
-    const r = await (await fetch('/api/ads/stats')).json();
-    if (!r || !r.people) return;
-    const n = (x) => Number(x).toLocaleString(lang === 'ru' ? 'ru' : 'en-US');
-    $('ads-date').textContent = new Date(r.day + 'T12:00:00Z').toLocaleDateString(lang === 'en' ? 'en-GB' : lang);
-    $('ads-people').textContent = n(r.people);
-    $('ads-games').textContent = n(r.games);
-    // the quietest hour of the day says more than a peak: it is the number
-    // that holds at four in the morning
-    $('ads-quiet').textContent = n(r.quietestHour);
-    $('ads-geo').textContent = String(r.countriesTotal || 0);
-    $('ads-flags').innerHTML = (r.countries || [])
-      .map(c => `<span class="ads-flag">${c.flag} <b>${c.pct}%</b></span>`).join('');
-    $('ads-live').hidden = false;
-  } catch { /* the page still works without them */ }
-}
-
-/* The enquiry form. Everything that can be a list is a list: the first three
-   that arrived read "Wathsapp", a phone number with no country code, and one
-   usable email — a box you can type anything into gets anything typed into it.
-
-   Nothing is preselected for the contact. A default there would be answered by
-   accident, and an accidental answer is exactly how "Wathsapp" ended up in the
-   place where a phone number was supposed to go. */
-const ADREQ_PLATFORMS = {
-  telegram: { ph: '@nickname', hint: 'ads_req_h_tg', ok: (v) => /^@?[\w\d_]{4,}$/.test(v) || /t\.me\//i.test(v) },
-  whatsapp: { ph: '+998 90 123 45 67', hint: 'ads_req_h_wa', ok: (v) => /^\+\d[\d\s()-]{6,}$/.test(v) },
-  instagram: { ph: '@nickname', hint: 'ads_req_h_ig', ok: (v) => /^@?[\w\d._]{3,}$/.test(v) || /instagram\.com\//i.test(v) },
-  email: { ph: 'name@company.com', hint: 'ads_req_h_mail', ok: (v) => /^[^@\s]+@[^@\s.]+\.[^@\s]{2,}$/.test(v) },
-};
-
-function packOptions(selected) {
-  const sel = $('adreq-pack');
-  sel.innerHTML = PACKS.map(p =>
-    `<option value="${p.id}">$${p.price} · ${esc(t(p.name))} · ${esc(t(p.period))}</option>`).join('');
-  if (selected) sel.value = selected;
-}
-
-function syncAdreqContact() {
-  const p = ADREQ_PLATFORMS[$('adreq-platform').value];
-  const box = $('adreq-contact');
-  box.disabled = !p;
-  box.placeholder = p ? p.ph : '';
-  box.type = $('adreq-platform').value === 'whatsapp' ? 'tel' : 'text';
-  $('adreq-hint').textContent = p ? t(p.hint) : '';
-}
-
-function openAdReq(pack) {
-  packOptions(pack);
-  $('adreq-platform').value = '';
-  $('adreq-contact').value = '';
-  $('adreq-site').value = '';
-  $('adreq-about').value = '';
-  $('adreq-audience').value = 'world';
-  $('adreq-geo').hidden = true;
-  $('adreq-geo').value = '';
-  syncAdreqContact();
-  $('overlay-adreq').hidden = false;
-}
-
-$('ads-packs').addEventListener('click', (e) => {
-  const b = e.target.closest('.pack');
-  if (b) openAdReq(b.dataset.pack);
-});
-$('ads-leave').addEventListener('click', () => openAdReq(null));
-$('adreq-platform').addEventListener('change', () => { syncAdreqContact(); $('adreq-contact').focus(); });
-$('adreq-audience').addEventListener('change', () => {
-  const own = $('adreq-audience').value === 'own';
-  $('adreq-geo').hidden = !own;
-  if (own) $('adreq-geo').focus();
-});
-$('adreq-cancel').addEventListener('click', () => { $('overlay-adreq').hidden = true; });
-$('adreq-send').addEventListener('click', async () => {
-  const platform = $('adreq-platform').value;
-  if (!platform) { $('adreq-hint').textContent = t('ads_req_pick_first'); $('adreq-platform').focus(); return; }
-  const contact = $('adreq-contact').value.trim();
-  // A wrong contact is worse than none: we cannot reach them, and they are
-  // left thinking they are waiting for an answer.
-  if (!ADREQ_PLATFORMS[platform].ok(contact)) {
-    $('adreq-hint').textContent = t('ads_req_bad');
-    $('adreq-contact').focus();
-    return;
-  }
-  const geo = $('adreq-audience').value;
-  const audience = geo === 'own' ? ($('adreq-geo').value.trim() || 'world') : geo;
-  $('overlay-adreq').hidden = true;
-  toast(t('ads_req_sent'));
-  try {
-    await fetch('/api/ads/request', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        pack: $('adreq-pack').value, platform, contact,
-        site: $('adreq-site').value.trim(), about: $('adreq-about').value.trim(),
-        audience, device: deviceId, lang,
-      }),
-    });
-  } catch { /* they still have the telegram link */ }
 });
 
 /* ================= task of the day =================

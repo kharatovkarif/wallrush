@@ -83,7 +83,7 @@
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
   <!-- Opens the connection to the ad host early. Costs one handshake and no
        download, and takes that handshake off the wait once Support is tapped. -->
-  <link rel="stylesheet" href="css/style.css?v=162">
+  <link rel="stylesheet" href="css/style.css?v=163">
   <!-- Are we inside somebody else's page? Every game portal forbids running
        your own ads inside theirs, and the ad scripts below start the moment
        the parser reaches them — long before any module could stop one. So the
@@ -190,10 +190,9 @@
         </button>
       </div>
 
-      <!-- support the project / buy advertising — visible, but below the game -->
+      <!-- support the project — visible, but below the game -->
       <div class="side-row">
         <button class="side-btn side-support" id="btn-open-support" data-i18n="support_short"></button>
-        <button class="side-btn side-ads" id="btn-open-ads" data-i18n="ads_short"></button>
       </div>
 
       <div class="social-block">
@@ -311,60 +310,6 @@
         </div>
       </div>
     </div>
-
-    <!-- ============ ADVERTISE WITH US ============ -->
-    <!-- A screen of its own rather than a box floating over a blurred menu.
-         This is the one page a possible advertiser reads end to end, so it
-         gets the whole width: what the audience is, in numbers, before what
-         can be bought. -->
-    <section class="screen" id="screen-ads">
-      <header class="sub-head">
-        <button class="btn-back" data-back>‹</button>
-        <h2 data-i18n="ads_short_plain"></h2>
-      </header>
-
-      <div class="ads-page">
-        <div class="ads-hero">
-          <div class="modal-emoji">📣</div>
-          <h3 data-i18n="ads_title"></h3>
-          <p class="hint" data-i18n="ads_intro"></p>
-        </div>
-
-        <!-- The numbers come first: an advertiser decides on reach, and
-             sending them away to ask for it loses most of them. Deliberately
-             rounded down — every one of them holds on the game's worst day. -->
-        <!-- Yesterday, from the same statistics the owner reads. A finished
-             day with a date on it can be checked tomorrow against the next
-             one; "5000+" cannot be checked against anything. -->
-        <div class="ads-live" id="ads-live" hidden>
-          <p class="ads-day"><span data-i18n="ads_day_label"></span> <b id="ads-date"></b></p>
-          <div class="ads-stats">
-            <div class="ads-stat"><b id="ads-people">—</b><small data-i18n="ads_l_players"></small></div>
-            <div class="ads-stat"><b id="ads-games">—</b><small data-i18n="ads_l_games"></small></div>
-            <div class="ads-stat"><b id="ads-quiet">—</b><small data-i18n="ads_l_quiet"></small></div>
-            <div class="ads-stat"><b id="ads-geo">—</b><small data-i18n="ads_l_countries"></small></div>
-          </div>
-          <div class="ads-flags" id="ads-flags"></div>
-          <p class="hint" data-i18n="ads_auto"></p>
-        </div>
-
-        <!-- Prices, and a tap on one starts the conversation about it -->
-        <h3 class="ads-h" data-i18n="ads_price_title"></h3>
-        <!-- drawn from public/js/packs.js, so the prices here, the ones in
-             the form and the ones the admin page reads cannot drift apart -->
-        <div class="packs" id="ads-packs"></div>
-        <p class="hint" data-i18n="ads_promise"></p>
-
-        <div class="ads-cta">
-          <b data-i18n="ads_cta"></b>
-          <p class="hint" data-i18n="ads_foot"></p>
-          <button class="btn-big" id="ads-leave" data-i18n="ads_leave"></button>
-          <a class="btn-big btn-outline" id="ads-contact" href="https://t.me/Karoboev" target="_blank" rel="noopener noreferrer" data-i18n="ads_tg"></a>
-          <a class="btn-big btn-outline ads-mail" href="mailto:ads@wallrush.online?subject=WallRush%20—%20advertising">✉️ ads@wallrush.online</a>
-          <button class="ads-copy" id="ads-email-copy" data-i18n="ads_copy_mail"></button>
-        </div>
-      </div>
-    </section>
 
     <!-- ============ LANGUAGE PICKER (overlay) ============ -->
     <div class="overlay" id="overlay-lang" hidden>
@@ -767,61 +712,6 @@
       </div>
     </div>
 
-    <!-- Leaving a way to be reached. No payment: there is nothing here to
-         take money with yet, and a dead pay button loses the enquiry too.
-
-         Everything that can be a list is a list. The first three enquiries
-         arrived as "Wathsapp", a bare phone number with no country, and one
-         usable email — a box you can type anything into gets anything typed
-         into it. Nothing is preselected for the contact: choosing is the
-         point, and a default would be answered by accident. -->
-    <div class="overlay" id="overlay-adreq" hidden>
-      <div class="modal">
-        <div class="modal-emoji">📣</div>
-        <h2 data-i18n="ads_req_title"></h2>
-
-        <p class="cr-label" data-i18n="ads_req_pack"></p>
-        <select class="input select" id="adreq-pack"></select>
-
-        <p class="cr-label" data-i18n="ads_req_where"></p>
-        <select class="input select" id="adreq-platform">
-          <option value="" data-i18n="ads_req_choose"></option>
-          <option value="telegram">Telegram</option>
-          <option value="instagram">Instagram</option>
-          <option value="whatsapp">WhatsApp</option>
-          <option value="email" data-i18n="ads_req_email"></option>
-        </select>
-        <input class="input" id="adreq-contact" maxlength="200" autocomplete="off" disabled>
-        <p class="hint" id="adreq-hint"></p>
-
-        <p class="cr-label" data-i18n="ads_req_what"></p>
-        <input class="input" id="adreq-site" maxlength="200" autocomplete="off" data-i18n-ph="ads_req_what_ph">
-
-        <p class="cr-label" data-i18n="ads_req_desc"></p>
-        <textarea class="input rate-text" id="adreq-about" rows="2" maxlength="500" data-i18n-ph="ads_req_desc_ph"></textarea>
-
-        <p class="cr-label" data-i18n="ads_req_audience"></p>
-        <select class="input select" id="adreq-audience">
-          <option value="world" data-i18n="ads_req_world"></option>
-          <option value="asia" data-i18n="ads_geo_asia"></option>
-          <option value="europe" data-i18n="ads_geo_europe"></option>
-          <option value="africa" data-i18n="ads_geo_africa"></option>
-          <option value="mideast" data-i18n="ads_geo_mideast"></option>
-          <option value="latam" data-i18n="ads_geo_latam"></option>
-          <option value="namerica" data-i18n="ads_geo_namerica"></option>
-          <option value="cis" data-i18n="ads_geo_cis"></option>
-          <option value="own" data-i18n="ads_req_own_geo"></option>
-        </select>
-        <input class="input" id="adreq-geo" maxlength="120" autocomplete="off" data-i18n-ph="ads_req_geo_ph" hidden>
-
-        <p class="hint" data-i18n="ads_req_promise"></p>
-        <div class="modal-buttons">
-          <button class="btn-big" id="adreq-send" data-i18n="ads_req_send"></button>
-          <button class="btn-big btn-outline" id="adreq-cancel" data-i18n="cancel"></button>
-        </div>
-      </div>
-    </div>
-
     <div class="overlay" id="overlay-rate" hidden>
       <div class="modal">
         <div class="modal-emoji" id="rate-emoji">⭐</div>
@@ -1143,7 +1033,7 @@
     <div id="toast" hidden></div>
   </div>
 
-  <script src="vendor/supabase.js?v=162" defer></script>
-  <script type="module" src="js/app.js?v=162"></script>
+  <script src="vendor/supabase.js?v=163" defer></script>
+  <script type="module" src="js/app.js?v=163"></script>
 </body>
 </html>

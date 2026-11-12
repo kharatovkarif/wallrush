@@ -220,8 +220,8 @@ const navRow = (lang, here) => NAV[lang]
   .join('');
 
 const FOOT = {
-  ru: `WallRush — бесплатная онлайн-игра «Кворидор». <a href="/">Играть</a> · <a href="/ru/usloviya">Условия</a> · <a href="/ru/konfidencialnost">Конфиденциальность</a><br>Telegram: <a href="https://t.me/Karoboev">@Karoboev</a> · Реклама: <a href="mailto:ads@wallrush.online">ads@wallrush.online</a>`,
-  en: `WallRush — a free online game of Quoridor. <a href="/">Play</a> · <a href="/terms">Terms</a> · <a href="/privacy">Privacy</a><br>Telegram: <a href="https://t.me/Karoboev">@Karoboev</a> · Advertising: <a href="mailto:ads@wallrush.online">ads@wallrush.online</a>`,
+  ru: `WallRush — бесплатная онлайн-игра «Кворидор». <a href="/">Играть</a> · <a href="/ru/usloviya">Условия</a> · <a href="/ru/konfidencialnost">Конфиденциальность</a><br>Почта: <a href="mailto:ads@wallrush.online">ads@wallrush.online</a>`,
+  en: `WallRush — a free online game of Quoridor. <a href="/">Play</a> · <a href="/terms">Terms</a> · <a href="/privacy">Privacy</a><br>Email: <a href="mailto:ads@wallrush.online">ads@wallrush.online</a>`,
 };
 
 // The one thing that is not translated text: the game itself, described for a
