@@ -13,7 +13,7 @@ import { localDay } from '../public/js/streak.js';
 import { taskForDay } from '../public/js/daily.js';
 import { initPush, pushPublicKey, saveSub, dropSub, pushTick, sendTestPush } from './push.js';
 import { mountPages } from './pages.js';
-import { premiumConfigured, createCheckout, handleWebhook, claimByEmail, offerPrices, premiumState, cancelRenewal, CURRENCIES } from './premium.js';
+import { premiumConfigured, createCheckout, handleWebhook, claimByEmail, offerPrices, premiumState, cancelRenewal, CURRENCIES, syncFromLava, syncState, startPremiumSync } from './premium.js';
 import { logVisitLater, startWriteQueue, queueStatus, flushWrites } from './queue.js';
 import { dbEnabled, dbStatus, dbDetail, cleanEnv, likeEscape, supa, verifyUser, getProfile, createProfile, claimGuestProgress, leaderboard, dailyLeaderboard, sweepDayPoints, mskDay, myRank, myDayRank, publicProfile, clearNickNotice, restoreStreak, deleteAccount, cacheStats } from './db.js';
 
@@ -1870,6 +1870,8 @@ ${list.filter(r => r.stars >= 4).map(card).join('') || '<p class="note">Пока
     /* ----- Premium: who paid, when, how much; cancellations and refunds -----
        Read only when this page is opened: a few small queries, nothing that
        runs in the background or costs anything while nobody looks. */
+    // ask lava.top what has been paid before showing anything (bounded wait)
+    const sync = await Promise.race([syncFromLava({ sample: req.query.sync === '1' }), new Promise(r => setTimeout(() => r(syncState()), 8000))]);
     const nowIso = new Date().toISOString();
     const [{ data: events }, { data: contracts }, { count: tried }] = await Promise.all([
       supa.from('premium_events').select('event_type, contract_id, email, amount, currency, outcome, created_at')
@@ -1911,6 +1913,7 @@ ${list.filter(r => r.stars >= 4).map(card).join('') || '<p class="note">Пока
   ${statCard('🧾', 'Оплат и продлений', num(paidEv.length))}
   ${statCard('👀', 'Открыли оплату, не заплатили', num(tried || 0))}
 </div>
+<p class="note" style="margin:6px 0 6px">Сверка с lava.top: ${sync.ok ? `оплаченных счетов там ${num(sync.found)}, новых сейчас добавлено ${num(sync.applied)}` : `не удалась${sync.error ? ' — ' + esc(sync.error) : ''}`} · <a href="/admin?key=${ADMIN_KEY}&view=premium&sync=1">проверить ещё раз</a></p>
 <p class="note" style="margin:6px 0 14px">Суммы — до комиссии lava.top (8%). Деньги и возвраты — в кабинете lava.top → «Продажи». Возврат: игрок пишет на ads@wallrush.online в течение 14 дней с оплаты → возвращаешь в lava.top → Premium снимется сам.</p>
 <p class="sect">Покупатели</p>
 ${(contracts || []).map(buyer).join('') || '<p class="note">Пока никто не купил.</p>'}
@@ -2409,6 +2412,7 @@ server.listen(PORT, () => {
   console.log(`WallRush listening on :${PORT} (db: ${dbEnabled ? 'on' : 'off — guest mode'})`);
   startWriteQueue();
   initPush();
+  startPremiumSync();   // ask lava.top what was paid, in case a webhook never arrives
   // Hourly, so every timezone gets its own evening. The tick decides who is
   // due; most hours it finds nobody and does nothing.
   setInterval(() => {

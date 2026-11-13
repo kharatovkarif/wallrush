@@ -227,6 +227,13 @@ export async function handleWebhook(headers, rawBody) {
     return { status: 400 };
   }
   await logHook(headers, ev, 200, 'accepted');
+  return processEvent(ev, type, contractId);
+}
+
+/* One payment event, from the webhook or from asking lava.top directly
+   (syncFromLava). Either way it goes through the same door, keyed by
+   (event, contract), so the two routes can never count a payment twice. */
+export async function processEvent(ev, type, contractId) {
   const email = String(ev.buyer?.email || ev.email || '').toLowerCase();
 
   // first sight of this (event, contract) or a retry of one already handled
@@ -260,7 +267,10 @@ export async function handleWebhook(headers, rawBody) {
     const latest = mine?.[0]?.paid_until;
     if (latest && (!base || latest > base)) base = latest;
   }
-  const d = decide(type, { paidUntil: base, plan });
+  // a period runs from when it was paid, not from when we heard about it
+  const paidAt = Date.parse(ev.timestamp || ev.datetime || '');
+  const at = Number.isFinite(paidAt) && paidAt < Date.now() ? new Date(paidAt) : new Date();
+  const d = decide(type, { paidUntil: base, plan, now: at });
   const now = new Date().toISOString();
   const rootId = root?.contract_id || contractId;
 
@@ -333,4 +343,79 @@ export async function cancelRenewal(userId) {
     .eq('contract_id', st.contractId);
   console.log(`[premium] renewal cancelled from the game ${st.contractId}`);
   return { ok: true };
+}
+
+/* ---------- asking lava.top instead of waiting to be told ----------
+
+   The first real payment (13 Nov 2026) never reached the webhook. So the game
+   also asks: the list of completed invoices, every few minutes and whenever
+   the admin opens the Premium page. Each one goes through processEvent like a
+   webhook would, so whichever route sees a payment first wins and the other
+   finds it already done. */
+const DONE = new Set(['COMPLETED', 'SUCCESS', 'PAID']);
+let lastSync = { at: 0, ok: null, found: 0, applied: 0, error: null };
+export const syncState = () => ({ ...lastSync });
+
+function invoiceItems(json) {
+  if (Array.isArray(json)) return json;
+  return json?.items || json?.content || json?.data || json?.invoices || [];
+}
+
+export async function syncFromLava({ sample = false } = {}) {
+  if (!dbEnabled || !premiumConfigured()) return syncState();
+  const out = { at: Date.now(), ok: false, found: 0, applied: 0, error: null };
+  try {
+    let items = [];
+    const r = await gate('/api/v1/invoices?invoiceStatuses=COMPLETED&size=100&page=0');
+    if (sample || !r.ok) await logHook({}, { status: r.status, sample: r.json ?? r.text }, r.status, 'sync_list');
+    if (r.ok) items = invoiceItems(r.json);
+    else {
+      // no list: ask about each of our own invoices still waiting
+      const since = new Date(Date.now() - 14 * 86400_000).toISOString();
+      const { data: waiting } = await supa.from('premium_contracts').select('contract_id')
+        .eq('status', 'new').gte('created_at', since).limit(200);
+      for (const w of waiting || []) {
+        const one = await gate('/api/v1/invoices/' + encodeURIComponent(w.contract_id));
+        if (one.ok && one.json) items.push(one.json);
+      }
+    }
+    const paid = items.filter(i => DONE.has(String(i.status || '').toUpperCase()))
+      // only this game's subscription, should the account ever sell anything else
+      .filter(i => !i.product?.name || /wallrush|premium/i.test(i.product.name));
+    out.found = paid.length;
+    if (paid.length) {
+      const ids = paid.map(i => String(i.id));
+      const { data: seen } = await supa.from('premium_events').select('contract_id').in('contract_id', ids);
+      const known = new Set((seen || []).map(x => x.contract_id));
+      for (const i of paid) {
+        const id = String(i.id);
+        if (known.has(id)) continue;
+        const parent = i.parentInvoice?.id || i.parentContractId || null;
+        const ev = {
+          eventType: parent ? 'subscription.recurring.payment.success' : 'payment.success',
+          contractId: id, parentContractId: parent,
+          buyer: { email: i.buyer?.email || i.email || '' },
+          amount: i.receipt?.amount ?? i.amount ?? null,
+          currency: i.receipt?.currency ?? i.currency ?? null,
+          timestamp: i.datetime || i.createdAt || null,
+          source: 'sync', invoice: i,
+        };
+        const res = await processEvent(ev, ev.eventType, id);
+        if (res.outcome && res.outcome !== 'duplicate') out.applied++;
+      }
+    }
+    out.ok = true;
+  } catch (e) {
+    out.error = e.message;
+    console.error('[premium] sync failed:', e.message);
+  }
+  lastSync = out;
+  return syncState();
+}
+
+export function startPremiumSync() {
+  if (!premiumConfigured()) return;
+  // first look with a sample of what lava.top answers, then quietly every 10 min
+  setTimeout(() => syncFromLava({ sample: true }), 20_000);
+  setInterval(() => syncFromLava(), 10 * 60_000).unref?.();
 }

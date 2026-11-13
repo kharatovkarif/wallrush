@@ -806,6 +806,8 @@ select count(*) from pg_proc p join pg_namespace n on n.oid=p.pronamespace
 
 **Переменные Railway:** `LAVA_API_KEY` (ключ API из lava.top), `LAVA_WEBHOOK_SECRET` (пароль, придуманный владельцем, тот же стоит в вебхуке). Без `LAVA_API_KEY` кнопка Premium не показывается.
 
+**Сверка с lava.top (запасной путь, 13.11.2026).** Вебхук первой настоящей оплаты до сервера не дошёл. Поэтому сервер сам спрашивает lava.top `GET /api/v1/invoices?invoiceStatuses=COMPLETED` — через 20 сек после запуска и каждые 10 минут, плюс при открытии админки → Premium (ссылка «проверить ещё раз» пишет образец ответа в `premium_hooks` с причиной `sync_list`). Каждый оплаченный счёт идёт через тот же `processEvent`, что и вебхук, с той же защитой от двойного счёта. Если список недоступен — спрашивает по одному каждый наш счёт за 14 дней.
+
 **Журнал вызовов вебхука:** `premium_hooks` — каждый вызов от lava.top, даже отклонённый: код ответа, причина (`bad_secret`, `no_secret_set`, `no_type_or_contract`, `accepted`), имена заголовков (без значений), тело. Заведён 13.11.2026 после того, как первая настоящая оплата не дошла до игры и не оставила следа. Пусто при оплате в «Продажах» lava.top — значит вызов не доходит до сервера вообще (Cloudflare, адрес) — смотреть «Историю Webhooks» в lava.top.
 
 **Проверить, что приходит:** `select * from premium_events order by id desc limit 20;` — поле `outcome` (`extend`, `revoke`, `note`, `duplicate`, `:no_user` — не нашли игрока).
