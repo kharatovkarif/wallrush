@@ -58,3 +58,13 @@ assert.deepEqual(pricesIn(offers, 'RUB'), { month: 149, monthOffer: 'B', year: 9
 assert.deepEqual(pricesIn(offers, 'USD'), { month: 5, monthOffer: 'A', year: 39.99, yearOffer: 'A' });
 assert.deepEqual(pricesIn(offers, 'EUR'), {});
 console.log('premium prices: ok');
+import { hookKeyFrom, hookBody } from '../server/premium.js';
+assert.equal(hookKeyFrom({ 'x-api-key': 'k1' }), 'k1');
+assert.equal(hookKeyFrom({ authorization: 'Bearer k2' }), 'k2');
+assert.equal(hookKeyFrom({ authorization: 'k3' }), 'k3');
+assert.equal(hookKeyFrom({ 'api-key': 'k4' }), 'k4');
+assert.equal(hookKeyFrom({}), '');
+assert.deepEqual(hookBody('{"eventType":"payment.success"}'), { eventType: 'payment.success' });
+assert.deepEqual(hookBody({ a: 1 }), { a: 1 });
+assert.equal(hookBody('not json')._raw, 'not json');
+console.log('premium webhook parsing: ok');

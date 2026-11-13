@@ -188,13 +188,46 @@ export async function refreshUser(userId) {
   return until;
 }
 
-export async function handleWebhook(headers, body) {
-  if (!secretMatches(headers['x-api-key'] || '', hookSecret())) return { status: 401 };
-  const ev = body || {};
-  const type = String(ev.eventType || '');
-  const contractId = String(ev.contractId || '');
-  if (!type || !contractId) return { status: 400 };
-  const email = String(ev.buyer?.email || '').toLowerCase();
+/* Every call lava.top makes is written down before anything is decided —
+   including the ones turned away. The first real payment (13 Nov 2026) left
+   no trace at all: a rejected call returned 401 or 400 and vanished. Header
+   names are kept, never their values, so the secret is not stored. */
+async function logHook(headers, body, status, reason) {
+  try {
+    await supa.from('premium_hooks').insert({
+      status, reason, header_names: Object.keys(headers || {}), body: body ?? null,
+    });
+  } catch (e) { console.error('[premium] hook log failed', e.message); }
+}
+
+// the secret, wherever lava.top chose to put it
+export function hookKeyFrom(headers = {}) {
+  const h = (k) => String(headers[k] || '').trim();
+  const auth = h('authorization').replace(/^(bearer|token|apikey|api-key)\s+/i, '');
+  return h('x-api-key') || h('api-key') || h('apikey') || h('x-auth-token') || auth;
+}
+
+// a JSON body, even when it arrived as text
+export function hookBody(raw) {
+  if (raw && typeof raw === 'object' && !Buffer.isBuffer(raw)) return raw;
+  const text = Buffer.isBuffer(raw) ? raw.toString('utf8') : String(raw || '');
+  try { return JSON.parse(text); } catch { return { _raw: text.slice(0, 4000) }; }
+}
+
+export async function handleWebhook(headers, rawBody) {
+  const ev = hookBody(rawBody);
+  if (!secretMatches(hookKeyFrom(headers), hookSecret())) {
+    await logHook(headers, ev, 401, hookSecret() ? 'bad_secret' : 'no_secret_set');
+    return { status: 401 };
+  }
+  const type = String(ev.eventType || ev.event_type || ev.type || '');
+  const contractId = String(ev.contractId || ev.contract_id || ev.invoiceId || ev.id || '');
+  if (!type || !contractId) {
+    await logHook(headers, ev, 400, 'no_type_or_contract');
+    return { status: 400 };
+  }
+  await logHook(headers, ev, 200, 'accepted');
+  const email = String(ev.buyer?.email || ev.email || '').toLowerCase();
 
   // first sight of this (event, contract) or a retry of one already handled
   const { error: dup } = await supa.from('premium_events').insert({

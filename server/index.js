@@ -130,7 +130,8 @@ app.get('/api/profile', async (req, res) => {
 /* ---------- Premium (see server/premium.js) ---------- */
 
 // lava.top calls this; nobody else can, the secret is checked first.
-app.post('/api/premium/lava', async (req, res) => {
+// any content type: a body that is not labelled JSON is still read
+app.post('/api/premium/lava', express.text({ type: () => true, limit: '200kb' }), async (req, res) => {
   if (!dbEnabled) return res.status(503).end();
   try {
     const r = await handleWebhook(req.headers, req.body);
