@@ -1,16 +1,16 @@
 // WallRush client app: screens, board UI, online play (WebSocket), AI mode, auth.
-import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, wallBetween, N } from './engine.js?v=167';
-import { scheduleTick } from './sfx.js?v=167';
-import { aiMove } from './ai.js?v=167';
-import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=167';
-import { rankOf, nextRank } from './ranks.js?v=167';
-import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=167';
-import { checkNick, nickOk, randomNick } from './nick.js?v=167';
+import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, wallBetween, N } from './engine.js?v=168';
+import { scheduleTick } from './sfx.js?v=168';
+import { aiMove } from './ai.js?v=168';
+import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=168';
+import { rankOf, nextRank } from './ranks.js?v=168';
+import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=168';
+import { checkNick, nickOk, randomNick } from './nick.js?v=168';
 import {
   embedded, initPortal, inPortal, portalAd, portalPlaying, portalHappy,
   portalLoaded, portalInviteCode, portalShowInvite, portalHideInvite, portalInstant,
   portalRoom, portalOnJoin, portalInviteLink, portalMuted, portalOnMute, portalUserName,
-} from './portal.js?v=167';
+} from './portal.js?v=168';
 
 /* ================= state ================= */
 const $ = (id) => document.getElementById(id);
@@ -265,7 +265,7 @@ function getAiWorker() {
   if (aiWorker === false) return null;
   if (!aiWorker) {
     try {
-      aiWorker = new Worker('js/ai-worker.js?v=167', { type: 'module' });
+      aiWorker = new Worker('js/ai-worker.js?v=168', { type: 'module' });
       aiWorker.onmessage = (e) => {
         const cb = aiPending.get(e.data.id);
         aiPending.delete(e.data.id);
@@ -2630,7 +2630,7 @@ $('rp-clip').addEventListener('click', async () => {
   playReplay(false);                       // one thing on the screen at a time
   clipLabel(t('clip_making').replace('%n', '0'), { busy: true });
   try {
-    const { makeClip } = await import('./clip.js?v=167');
+    const { makeClip } = await import('./clip.js?v=168');
     const last = game.history[game.history.length - 1];
     const winner = last?.winner ?? game.state?.winner ?? null;
     const quad = isQuad();
@@ -4279,6 +4279,11 @@ function fillPremiumModal() {
   $('pm-price-month').textContent = money(prices.month);
   $('pm-price-year').textContent = money(prices.year);
   $('pm-per-month').textContent = t('pm_per_month').replace('%p', money(Math.floor(prices.year / 12 * 100) / 100));
+  // the saving is worked out from the real prices, so it stays true whatever
+  // the owner sets in the lava.top cabinet
+  const save = Math.round((1 - prices.year / (12 * prices.month)) * 100);
+  $('pm-save-tag').textContent = '−' + save + '%';
+  $('pm-save-tag').hidden = !(save >= 5);
   $('pm-plans').hidden = on || !logged;
   $('pm-signup').hidden = on || logged;
   $('pm-fine').hidden = on;
@@ -4315,6 +4320,10 @@ document.querySelectorAll('.pm-plan').forEach(btn => btn.addEventListener('click
   const note = $('pm-note');
   note.hidden = true;
   document.querySelectorAll('.pm-plan').forEach(b => { b.disabled = true; });
+  // asking lava.top for the invoice takes a moment; say so, or the tap looks dead
+  note.textContent = t('pm_opening');
+  note.classList.add('wait');
+  note.hidden = false;
   try {
     const r = await fetch('/api/premium/checkout', {
       method: 'POST',
@@ -4328,8 +4337,10 @@ document.querySelectorAll('.pm-plan').forEach(btn => btn.addEventListener('click
       location.href = data.url;
       return;
     }
+    note.classList.remove('wait');
     note.textContent = t(data.error === 'plan_unavailable' ? 'pm_err_plan' : 'pm_err');
   } catch {
+    note.classList.remove('wait');
     note.textContent = t('pm_err');
   }
   note.hidden = false;

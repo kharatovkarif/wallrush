@@ -124,6 +124,7 @@ export default {
   pm_err: 'Impossible d’ouvrir le paiement. Réessaie dans une minute.',
   pm_err_plan: 'Cette option n’est pas disponible pour le moment. Essaie l’autre.',
   pm_welcome: '👑 Premium activé. Merci !',
+  pm_opening: 'Ouverture du paiement…',
   pl_guest_note: 'Ce joueur joue en invité — seuls les joueurs avec un compte peuvent être ajoutés en ami.',
   pl_offline_note: 'Tu pourras l’inviter quand il sera en ligne.',
   pl_need_account: 'Crée un compte pour ajouter des amis.',

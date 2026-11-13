@@ -125,6 +125,7 @@ export const I18N = {
     pm_err: 'Не получилось открыть оплату. Попробуй ещё раз через минуту.',
     pm_err_plan: 'Этот вариант сейчас недоступен. Попробуй другой.',
     pm_welcome: '👑 Premium включён. Спасибо!',
+    pm_opening: 'Открываем оплату…',
     pl_guest_note: 'Этот игрок играет гостем — добавить в друзья можно только тех, у кого есть аккаунт.',
     pl_offline_note: 'Позвать играть можно, когда он в сети.',
     pl_need_account: 'Заведи аккаунт, чтобы добавлять друзей.',
@@ -521,6 +522,7 @@ export const I18N = {
     pm_err: 'Could not open the payment page. Please try again in a minute.',
     pm_err_plan: 'This option is not available right now. Try the other one.',
     pm_welcome: '👑 Premium is on. Thank you!',
+    pm_opening: 'Opening the payment page…',
     pl_guest_note: 'This player is playing as a guest — only players with an account can be added as friends.',
     pl_offline_note: 'You can call them once they are online.',
     pl_need_account: 'Make an account to add friends.',
@@ -808,7 +810,7 @@ export const LANGS = [
 export const LANG_CODES = LANGS.map((l) => l.code);
 export const RTL = new Set(['fa']);
 
-const V = '167';
+const V = '168';
 
 // Loads a translation file on demand. Safe to call repeatedly and safe to fail:
 // if the request never lands, makeT keeps falling back to English.

@@ -124,6 +124,7 @@ export default {
   pm_err: 'Ödeme sayfası açılamadı. Bir dakika sonra tekrar dene.',
   pm_err_plan: 'Bu seçenek şu anda kullanılamıyor. Diğerini dene.',
   pm_welcome: '👑 Premium açıldı. Teşekkürler!',
+  pm_opening: 'Ödeme sayfası açılıyor…',
   pl_guest_note: 'Bu oyuncu misafir olarak oynuyor — arkadaş olarak yalnızca hesabı olanlar eklenebilir.',
   pl_offline_note: 'Çevrimiçi olduğunda oyuna çağırabilirsin.',
   pl_need_account: 'Arkadaş eklemek için bir hesap aç.',

@@ -1511,3 +1511,4 @@ html.premium .ad-slot { display: none !important; }
   font-weight: 700; cursor: pointer; border: none; font-family: inherit;
 }
 .about .rating-pill { margin-top: 10px; }
+.pm-note.wait { color: var(--muted); }
