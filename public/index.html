@@ -83,7 +83,7 @@
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
   <!-- Opens the connection to the ad host early. Costs one handshake and no
        download, and takes that handshake off the wait once Support is tapped. -->
-  <link rel="stylesheet" href="css/style.css?v=171">
+  <link rel="stylesheet" href="css/style.css?v=172">
   <!-- Are we inside somebody else's page? Every game portal forbids running
        your own ads inside theirs, and the ad scripts below start the moment
        the parser reaches them — long before any module could stop one. So the
@@ -464,6 +464,15 @@
         <div class="zone-label zone-top" id="zone-top"></div>
         <div id="board"></div>
         <div class="zone-label zone-bottom" id="zone-bottom"></div>
+        <!-- 3D view (Premium): tilt and turn the board. Only a view — moves
+             and walls work exactly as on the flat board. -->
+        <div class="b3d-ctl" id="b3d-ctl" hidden>
+          <button data-b3d="left" aria-label="turn left">↺</button>
+          <button data-b3d="up" aria-label="tilt less">▲</button>
+          <button data-b3d="reset" aria-label="reset">⟲</button>
+          <button data-b3d="down" aria-label="tilt more">▼</button>
+          <button data-b3d="right" aria-label="turn right">↻</button>
+        </div>
         <div id="emoji-pop" class="emoji-pop" hidden></div>
       </div>
 
@@ -659,7 +668,8 @@
           <li><span>🚫</span><span data-i18n="pm_noads"></span></li>
           <li><span>👑</span><span data-i18n="pm_badge"></span></li>
           <li><span>🔥</span><span data-i18n="pm_streak"></span></li>
-          <li class="pm-soon"><span>🧊</span><span data-i18n="pm_soon"></span></li>
+          <li><span>🧊</span><span data-i18n="pm_3d"></span></li>
+          <li class="pm-soon"><span>🎨</span><span data-i18n="pm_soon"></span></li>
         </ul>
         <p class="pm-fair" data-i18n="pm_fair"></p>
         <div class="pm-plans" id="pm-plans">
@@ -1023,6 +1033,11 @@
           <span data-i18n="theme_label"></span>
           <label class="toggle"><input type="checkbox" id="theme-toggle"><span></span></label>
         </div>
+        <!-- Premium only: without it the switch opens the Premium window -->
+        <div class="setting-row">
+          <span><span data-i18n="board3d"></span> <small class="b3d-lock" id="b3d-lock">👑</small></span>
+          <label class="toggle"><input type="checkbox" id="b3d-toggle"><span></span></label>
+        </div>
         <!-- The game used to offer notifications exactly once, after a third
              match, and never again — so anyone who tapped past that prompt had
              no way back. Hidden where the browser has already refused. -->
@@ -1087,7 +1102,7 @@
     <div id="toast" hidden></div>
   </div>
 
-  <script src="vendor/supabase.js?v=171" defer></script>
-  <script type="module" src="js/app.js?v=171"></script>
+  <script src="vendor/supabase.js?v=172" defer></script>
+  <script type="module" src="js/app.js?v=172"></script>
 </body>
 </html>

@@ -109,7 +109,9 @@ export const I18N = {
     pm_noads: 'Игра без рекламы',
     pm_badge: 'Корона 👑 рядом с ником — в рейтинге и на карточке игрока',
     pm_streak: 'Огонёк возвращается без рекламы, сколько угодно раз',
-    pm_soon: '3D-доска и темы — скоро',
+    board3d: '3D-доска',
+    pm_3d: '3D-доска: наклоняй и поворачивай как хочешь',
+    pm_soon: 'Темы доски и фишек — скоро',
     pm_fair: 'Премиум не помогает выигрывать: очки и рейтинг у всех одинаковые.',
     pm_save: '−50%',
     pm_year: 'Год',
@@ -512,7 +514,9 @@ export const I18N = {
     pm_noads: 'No ads',
     pm_badge: 'A crown 👑 next to your nickname — on the leaderboard and your player card',
     pm_streak: 'Get a lost streak back without an ad, as often as you need',
-    pm_soon: '3D board and themes — coming soon',
+    board3d: '3D board',
+    pm_3d: '3D board: tilt and turn it any way you like',
+    pm_soon: 'Board and piece themes — coming soon',
     pm_fair: 'Premium never helps you win: points and ranks work the same for everyone.',
     pm_save: '−50%',
     pm_year: 'Year',
@@ -822,7 +826,7 @@ export const LANGS = [
 export const LANG_CODES = LANGS.map((l) => l.code);
 export const RTL = new Set(['fa']);
 
-const V = '171';
+const V = '172';
 
 // Loads a translation file on demand. Safe to call repeatedly and safe to fail:
 // if the request never lands, makeT keeps falling back to English.

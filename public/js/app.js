@@ -1,16 +1,16 @@
 // WallRush client app: screens, board UI, online play (WebSocket), AI mode, auth.
-import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, wallBetween, N } from './engine.js?v=171';
-import { scheduleTick } from './sfx.js?v=171';
-import { aiMove } from './ai.js?v=171';
-import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=171';
-import { rankOf, nextRank } from './ranks.js?v=171';
-import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=171';
-import { checkNick, nickOk, randomNick } from './nick.js?v=171';
+import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, wallBetween, N } from './engine.js?v=172';
+import { scheduleTick } from './sfx.js?v=172';
+import { aiMove } from './ai.js?v=172';
+import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=172';
+import { rankOf, nextRank } from './ranks.js?v=172';
+import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=172';
+import { checkNick, nickOk, randomNick } from './nick.js?v=172';
 import {
   embedded, initPortal, inPortal, portalAd, portalPlaying, portalHappy,
   portalLoaded, portalInviteCode, portalShowInvite, portalHideInvite, portalInstant,
   portalRoom, portalOnJoin, portalInviteLink, portalMuted, portalOnMute, portalUserName,
-} from './portal.js?v=171';
+} from './portal.js?v=172';
 
 /* ================= state ================= */
 const $ = (id) => document.getElementById(id);
@@ -265,7 +265,7 @@ function getAiWorker() {
   if (aiWorker === false) return null;
   if (!aiWorker) {
     try {
-      aiWorker = new Worker('js/ai-worker.js?v=171', { type: 'module' });
+      aiWorker = new Worker('js/ai-worker.js?v=172', { type: 'module' });
       aiWorker.onmessage = (e) => {
         const cb = aiPending.get(e.data.id);
         aiPending.delete(e.data.id);
@@ -1750,10 +1750,12 @@ function nearestSlot(px, py, o) {
 }
 
 function updateDragPreview(clientX, clientY, isTouch) {
-  const bw = board.getBoundingClientRect();
-  const px = clientX - bw.left;
-  let py = clientY - bw.top;
-  if (isTouch) py -= geo.u * 0.8; // keep the wall visible above the finger
+  // "above the finger" is measured on screen, before the point goes onto the
+  // board plane, so it still means above when the board is tilted
+  const pt = boardPoint(clientX, clientY - (isTouch ? geo.u * 0.8 : 0));
+  const bw = { width: board.offsetWidth, height: board.offsetHeight };
+  const px = pt.x;
+  const py = pt.y;
   // outside the board → hide the preview but keep dragging
   if (px < -geo.u || py < -geo.u || px > bw.width + geo.u || py > bw.height + geo.u) {
     if (previewEl) { previewEl.remove(); previewEl = null; }
@@ -2630,7 +2632,7 @@ $('rp-clip').addEventListener('click', async () => {
   playReplay(false);                       // one thing on the screen at a time
   clipLabel(t('clip_making').replace('%n', '0'), { busy: true });
   try {
-    const { makeClip } = await import('./clip.js?v=171');
+    const { makeClip } = await import('./clip.js?v=172');
     const last = game.history[game.history.length - 1];
     const winner = last?.winner ?? game.state?.winner ?? null;
     const quad = isQuad();
@@ -4259,6 +4261,7 @@ function renderPremium() {
 
   if (on && profile) $('profile-nick').append(crownEl());
   if (!$('overlay-premium').hidden) fillPremiumModal();
+  if (typeof applyB3d === 'function') try { applyB3d(); } catch { /* not ready during boot */ }
 }
 
 async function loadPremiumInfo() {
@@ -4425,3 +4428,81 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden) watc
 window.addEventListener('pageshow', () => watchForPremium());
 
 loadPremiumInfo();
+
+
+/* ================= 3D board (Premium) =================
+
+   A view, not a different game: the board is tilted and turned with a CSS
+   transform, everything on it stays where it was. Taps on squares go through
+   the browser's own hit-testing, which follows the transform. Dragging a wall
+   needs the finger's position on the board itself, so boardPoint() undoes the
+   transform: for points on the board plane (z = 0) the perspective projection
+   is a plain 2D homography, and a homography inverts with one 2x2 solve. */
+
+const B3D_PERSP = 900;
+// a tilted board is wider at the near edge than the flat one; this keeps the
+// frame on screen on a narrow phone
+const B3D_SCALE = 0.86;
+let b3d = { tilt: 42, spin: 0 };
+try { const v = JSON.parse(localStorage.getItem('wr_3d_view') || 'null'); if (v) b3d = { ...b3d, ...v }; } catch { /* default */ }
+
+function b3dWanted() { try { return localStorage.getItem('wr_3d') === '1'; } catch { return false; } }
+function b3dOn() { return b3dWanted() && premiumNow(); }
+
+function b3dMatrix() {
+  const m = new DOMMatrix();
+  m.m34 = -1 / B3D_PERSP;
+  return m.rotateAxisAngle(1, 0, 0, b3d.tilt).rotateAxisAngle(0, 0, 1, b3d.spin).scale(B3D_SCALE);
+}
+
+function boardPoint(clientX, clientY) {
+  if (!board.classList.contains('b3d')) {
+    const r = board.getBoundingClientRect();
+    return { x: clientX - r.left, y: clientY - r.top };
+  }
+  const w = board.offsetWidth, h = board.offsetHeight;
+  const par = board.offsetParent || document.body;
+  const pr = par.getBoundingClientRect();
+  const cx = pr.left + par.clientLeft + board.offsetLeft + w / 2;
+  const cy = pr.top + par.clientTop + board.offsetTop + h / 2;
+  const sx = clientX - cx, sy = clientY - cy;
+  const m = b3dMatrix();
+  const a11 = m.m11 - sx * m.m14, a12 = m.m21 - sx * m.m24, b1 = sx * m.m44 - m.m41;
+  const a21 = m.m12 - sy * m.m14, a22 = m.m22 - sy * m.m24, b2 = sy * m.m44 - m.m42;
+  const det = a11 * a22 - a12 * a21;
+  if (Math.abs(det) < 1e-9) return { x: -1e6, y: -1e6 };
+  return { x: (b1 * a22 - a12 * b2) / det + w / 2, y: (a11 * b2 - b1 * a21) / det + h / 2 };
+}
+
+function applyB3d() {
+  const on = b3dOn();
+  board.classList.toggle('b3d', on);
+  board.style.transform = on ? `perspective(${B3D_PERSP}px) rotateX(${b3d.tilt}deg) rotateZ(${b3d.spin}deg) scale(${B3D_SCALE})` : '';
+  $('b3d-ctl').hidden = !on;
+  const tg = $('b3d-toggle');
+  if (tg) tg.checked = on;
+}
+
+$('b3d-toggle').addEventListener('change', (e) => {
+  if (e.target.checked && !premiumNow()) {
+    e.target.checked = false;
+    openPremium();
+    return;
+  }
+  try { localStorage.setItem('wr_3d', e.target.checked ? '1' : '0'); } catch { /* private mode */ }
+  applyB3d();
+});
+
+$('b3d-ctl').addEventListener('click', (e) => {
+  const k = e.target.closest('button')?.dataset.b3d;
+  if (!k) return;
+  if (k === 'left') b3d.spin -= 15;
+  else if (k === 'right') b3d.spin += 15;
+  else if (k === 'up') b3d.tilt = Math.max(0, b3d.tilt - 8);
+  else if (k === 'down') b3d.tilt = Math.min(62, b3d.tilt + 8);
+  else if (k === 'reset') b3d = { tilt: 42, spin: 0 };
+  try { localStorage.setItem('wr_3d_view', JSON.stringify(b3d)); } catch { /* private mode */ }
+  applyB3d();
+});
+
+applyB3d();

@@ -1513,3 +1513,19 @@ html.premium .ad-slot { display: none !important; }
 .about .rating-pill { margin-top: 10px; }
 .pm-note.wait { color: var(--muted); }
 .pm-cancel { margin-top: 10px; font-size: 13.5px; color: var(--muted); }
+
+/* ================= 3D board (Premium) =================
+   The same board, seen at an angle. Hit-testing on a transformed element is
+   the browser's job, so taps on squares work unchanged; dragging a wall maps
+   the finger back onto the board plane in boardPoint() in app.js. */
+#board.b3d { transition: transform .35s ease; transform-origin: 50% 50%; }
+.board-wrap.b3d-on { perspective: none; }
+.b3d-ctl { display: flex; justify-content: center; gap: 8px; margin: 2px 0 4px; }
+.b3d-ctl[hidden] { display: none; }
+.b3d-ctl button {
+  width: 40px; height: 34px; border: 0; border-radius: 12px; cursor: pointer;
+  background: var(--card); color: var(--text); font: inherit; font-size: 17px; box-shadow: var(--shadow);
+}
+.b3d-ctl button:active { transform: scale(.92); }
+.b3d-lock { font-size: 12px; }
+html.premium .b3d-lock { display: none; }

@@ -1046,7 +1046,7 @@ const NAV_ITEMS = [
   ['watch', 'Честность', '<path d="M12 3l7 3v5c0 4.5-3 8.3-7 10-4-1.7-7-5.5-7-10V6z"/>'],
 ];
 // Sections that are not on the menu light up the one they belong to.
-const NAV_PARENT = { days: 'obzor', audience: 'sources' };
+const NAV_PARENT = { days: 'obzor', audience: 'sources', premium: 'obzor' };
 /* Живы ли боты — так, чтобы это было видно сразу, а не пришлось искать.
 
    Они существуют внутри процесса и не оставляют следов, пока их партия не
@@ -1565,7 +1565,7 @@ app.get('/admin', async (req, res) => {
   const cnt = async (q) => (await q).count || 0;
   const today = mskDayStart(Date.now());
   const todayStartIso = new Date(today * dayMs - 3 * 3600e3).toISOString();
-  const view = ['obzor', 'people', 'audience', 'sources', 'days', 'reviews', 'watch'].includes(String(req.query.view))
+  const view = ['obzor', 'people', 'audience', 'sources', 'days', 'reviews', 'watch', 'premium'].includes(String(req.query.view))
     ? String(req.query.view) : 'obzor';
 
 
@@ -1859,6 +1859,58 @@ ${total > list.length ? `<p class="note">Цифры выше — по всем $
 ${bad.map(card).join('') || '<p class="note">Пока никто не жаловался.</p>'}
 <p class="sect" style="margin-top:22px">🙂 Довольные (4–5)</p>
 ${list.filter(r => r.stars >= 4).map(card).join('') || '<p class="note">Пока пусто.</p>'}`;
+  } else if (view === 'premium') {
+    /* ----- Premium: who paid, when, how much; cancellations and refunds -----
+       Read only when this page is opened: a few small queries, nothing that
+       runs in the background or costs anything while nobody looks. */
+    const nowIso = new Date().toISOString();
+    const [{ data: events }, { data: contracts }, { count: tried }] = await Promise.all([
+      supa.from('premium_events').select('event_type, contract_id, email, amount, currency, outcome, created_at')
+        .order('id', { ascending: false }).limit(200),
+      supa.from('premium_contracts').select('contract_id, user_id, email, plan, status, paid_until, created_at')
+        .not('paid_until', 'is', null).order('paid_until', { ascending: false }).limit(300),
+      supa.from('premium_contracts').select('contract_id', { count: 'exact', head: true }).is('paid_until', null),
+    ]);
+    const uids = [...new Set((contracts || []).map(c => c.user_id).filter(Boolean))];
+    const nicks = new Map();
+    if (uids.length) {
+      const { data: ps } = await supa.from('profiles').select('id, nick').in('id', uids);
+      for (const p of ps || []) nicks.set(p.id, p.nick);
+    }
+    const money = (a, c) => a == null ? '' : (c === 'RUB' ? `${num(a)} ₽` : `$${a}`);
+    const paidEv = (events || []).filter(e => /payment\.success/.test(e.event_type));
+    const sum = {};
+    for (const e of paidEv) sum[e.currency || '?'] = (sum[e.currency || '?'] || 0) + Number(e.amount || 0);
+    const sumTxt = Object.entries(sum).map(([c, a]) => money(Math.round(a * 100) / 100, c)).join(' + ') || '0';
+    const active = (contracts || []).filter(c => c.paid_until > nowIso && c.status !== 'refunded');
+    const STATUS_RU = { active: 'продлевается', cancelled: 'автопродление выключено', past_due: 'продление не прошло', refunded: 'деньги возвращены', manual: 'выдан вручную', failed: 'оплата не прошла' };
+    const EV_RU = {
+      'payment.success': '✅ оплата', 'payment.failed': '❌ оплата не прошла',
+      'subscription.recurring.payment.success': '🔁 продление', 'subscription.recurring.payment.failed': '⚠️ продление не прошло',
+      'subscription.cancelled': '⏹ автопродление выключено',
+    };
+    const evName = (t) => EV_RU[t] || (/refund/i.test(t) ? '↩️ возврат денег' : /chargeback/i.test(t) ? '🏦 чарджбэк (через банк)' : t);
+    const buyer = (c) => `<div class="adreq${c.paid_until > nowIso ? '' : ' done'}">
+        <div class="ar-top"><b>${esc(nicks.get(c.user_id) || '— аккаунт не найден')}</b><span class="ar-price">${c.plan === 'year' ? 'год' : 'месяц'}</span></div>
+        <div class="ar-line">${esc(c.email)}</div>
+        <div class="ar-line">Куплено ${mskDdMm(c.created_at.slice(0, 10))} · до <b>${mskDdMm(c.paid_until.slice(0, 10))}</b> · ${esc(STATUS_RU[c.status] || c.status)}</div>
+      </div>`;
+    const evRow = (e) => `<div class="ar-line">${mskDdMm(e.created_at.slice(0, 10))} ${e.created_at.slice(11, 16)} UTC · ${evName(e.event_type)} ${money(e.amount, e.currency)} · ${esc(e.email || '')}${/no_user/.test(e.outcome || '') ? ' · <b>игрок не найден</b>' : ''}</div>`;
+    const stops = (events || []).filter(e => /refund|chargeback|cancel/i.test(e.event_type));
+    content = `<h2>👑 Premium</h2>
+<div class="grid2">
+  ${statCard('👑', 'Сейчас с Premium', num(active.length))}
+  ${statCard('💵', 'Оплачено всего', sumTxt)}
+  ${statCard('🧾', 'Оплат и продлений', num(paidEv.length))}
+  ${statCard('👀', 'Открыли оплату, не заплатили', num(tried || 0))}
+</div>
+<p class="note" style="margin:6px 0 14px">Суммы — до комиссии lava.top (8%). Деньги и возвраты — в кабинете lava.top → «Продажи». Возврат: игрок пишет на ads@wallrush.online в течение 14 дней с оплаты → возвращаешь в lava.top → Premium снимется сам.</p>
+<p class="sect">Покупатели</p>
+${(contracts || []).map(buyer).join('') || '<p class="note">Пока никто не купил.</p>'}
+<p class="sect" style="margin-top:22px">Отмены и возвраты</p>
+<div class="adreq">${stops.map(evRow).join('') || '<p class="note">Ни одной.</p>'}</div>
+<p class="sect" style="margin-top:22px">Все события от lava.top — последние 200</p>
+<div class="adreq">${(events || []).map(evRow).join('') || '<p class="note">Пока ни одного.</p>'}</div>`;
   } else if (view === 'watch') {
     /* ----- fair play -----
        Half of all players finish six games a day and ninety-nine in a hundred
@@ -2051,6 +2103,9 @@ ${blocks.join('') || '<p class="note">Подневная история пише
     const returning = Math.max(0, cur.active - cur.newPeople);
     const returningPrev = Math.max(0, prev.active - prev.newPeople);
     const taskPct = dailyTook ? Math.round(100 * dailyDone / dailyTook) : 0;
+    // one head-count, only when this page is opened
+    const premiumNow = await cnt(supa.from('profiles').select('id', { count: 'exact', head: true })
+      .gt('premium_until', new Date().toISOString()));
 
     content = `
 <div class="seg">${pTab('today', 'Сегодня')}${pTab('yesterday', 'Вчера')}${pTab('week', '7 дней')}${pTab('month', '30 дней')}</div>
@@ -2091,6 +2146,7 @@ ${period === 'today' && !short ? `<p class="cmp-note" style="margin-top:12px">Д
 
 <p class="h">Подробнее</p>
 <div class="list">
+  <a class="li" href="/admin?key=${ADMIN_KEY}&view=premium"><div class="ic">👑</div><div class="t"><b>Premium</b><small>кто купил, когда, сколько, отмены и возвраты</small></div><div class="n">${num(premiumNow)}</div><span class="go">›</span></a>
   <a class="li" href="/admin?key=${ADMIN_KEY}&view=days"><div class="ic">📅</div><div class="t"><b>По дням</b><small>две недели: новые, заходы, партии, по часам</small></div><span class="go">›</span></a>
 </div>
 
