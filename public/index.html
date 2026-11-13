@@ -83,7 +83,7 @@
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
   <!-- Opens the connection to the ad host early. Costs one handshake and no
        download, and takes that handshake off the wait once Support is tapped. -->
-  <link rel="stylesheet" href="css/style.css?v=168">
+  <link rel="stylesheet" href="css/style.css?v=169">
   <!-- Are we inside somebody else's page? Every game portal forbids running
        your own ads inside theirs, and the ad scripts below start the moment
        the parser reaches them — long before any module could stop one. So the
@@ -676,7 +676,10 @@
         <div class="pm-active" id="pm-active" hidden>
           <b id="pm-active-title"></b>
           <small id="pm-active-sub"></small>
+          <small id="pm-renew"></small>
         </div>
+        <!-- asked twice: the first tap only says what will happen -->
+        <button class="btn-link pm-cancel" id="pm-cancel" hidden></button>
         <button class="btn-big" id="pm-signup" data-i18n="pm_signup" hidden></button>
         <p class="pm-note" id="pm-note" hidden></p>
         <p class="pm-fine" id="pm-fine" data-i18n="pm_fine"></p>
@@ -1084,7 +1087,7 @@
     <div id="toast" hidden></div>
   </div>
 
-  <script src="vendor/supabase.js?v=168" defer></script>
-  <script type="module" src="js/app.js?v=168"></script>
+  <script src="vendor/supabase.js?v=169" defer></script>
+  <script type="module" src="js/app.js?v=169"></script>
 </body>
 </html>

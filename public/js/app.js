@@ -1,16 +1,16 @@
 // WallRush client app: screens, board UI, online play (WebSocket), AI mode, auth.
-import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, wallBetween, N } from './engine.js?v=168';
-import { scheduleTick } from './sfx.js?v=168';
-import { aiMove } from './ai.js?v=168';
-import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=168';
-import { rankOf, nextRank } from './ranks.js?v=168';
-import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=168';
-import { checkNick, nickOk, randomNick } from './nick.js?v=168';
+import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, wallBetween, N } from './engine.js?v=169';
+import { scheduleTick } from './sfx.js?v=169';
+import { aiMove } from './ai.js?v=169';
+import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=169';
+import { rankOf, nextRank } from './ranks.js?v=169';
+import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=169';
+import { checkNick, nickOk, randomNick } from './nick.js?v=169';
 import {
   embedded, initPortal, inPortal, portalAd, portalPlaying, portalHappy,
   portalLoaded, portalInviteCode, portalShowInvite, portalHideInvite, portalInstant,
   portalRoom, portalOnJoin, portalInviteLink, portalMuted, portalOnMute, portalUserName,
-} from './portal.js?v=168';
+} from './portal.js?v=169';
 
 /* ================= state ================= */
 const $ = (id) => document.getElementById(id);
@@ -265,7 +265,7 @@ function getAiWorker() {
   if (aiWorker === false) return null;
   if (!aiWorker) {
     try {
-      aiWorker = new Worker('js/ai-worker.js?v=168', { type: 'module' });
+      aiWorker = new Worker('js/ai-worker.js?v=169', { type: 'module' });
       aiWorker.onmessage = (e) => {
         const cb = aiPending.get(e.data.id);
         aiPending.delete(e.data.id);
@@ -2630,7 +2630,7 @@ $('rp-clip').addEventListener('click', async () => {
   playReplay(false);                       // one thing on the screen at a time
   clipLabel(t('clip_making').replace('%n', '0'), { busy: true });
   try {
-    const { makeClip } = await import('./clip.js?v=168');
+    const { makeClip } = await import('./clip.js?v=169');
     const last = game.history[game.history.length - 1];
     const winner = last?.winner ?? game.state?.winner ?? null;
     const quad = isQuad();
@@ -4295,10 +4295,47 @@ function fillPremiumModal() {
       .replace('%date', premiumDate(until))
       .replace('%n', Math.max(1, Math.ceil((until - Date.now()) / 86400000)));
   }
+  const renews = on && Boolean(profile?.premium_renews);
+  $('pm-renew').hidden = !on;
+  $('pm-renew').textContent = renews ? t('pm_renews') : t('pm_no_renew');
+  const cancel = $('pm-cancel');
+  cancel.hidden = !renews;
+  if (!cancel.dataset.armed) cancel.textContent = t('pm_cancel_btn');
 }
+
+$('pm-cancel').addEventListener('click', async () => {
+  const btn = $('pm-cancel');
+  if (!btn.dataset.armed) {
+    btn.dataset.armed = '1';
+    btn.textContent = t('pm_cancel_confirm');
+    return;
+  }
+  btn.disabled = true;
+  const note = $('pm-note');
+  try {
+    const r = await fetch('/api/premium/cancel', { method: 'POST', headers: await authHeaders() });
+    const data = await r.json().catch(() => ({}));
+    if (data.ok) {
+      if (profile) profile.premium_renews = false;
+      note.hidden = true;
+      toast(t('pm_cancel_done'));
+    } else {
+      note.classList.remove('wait');
+      note.textContent = t('pm_cancel_err');
+      note.hidden = false;
+    }
+  } catch {
+    note.textContent = t('pm_cancel_err');
+    note.hidden = false;
+  }
+  delete btn.dataset.armed;
+  btn.disabled = false;
+  fillPremiumModal();
+});
 
 function openPremium() {
   $('pm-note').hidden = true;
+  delete $('pm-cancel').dataset.armed;
   document.querySelectorAll('.pm-plan').forEach(b => { b.disabled = false; });
   fillPremiumModal();
   $('overlay-premium').hidden = false;

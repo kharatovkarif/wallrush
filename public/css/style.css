@@ -1512,3 +1512,4 @@ html.premium .ad-slot { display: none !important; }
 }
 .about .rating-pill { margin-top: 10px; }
 .pm-note.wait { color: var(--muted); }
+.pm-cancel { margin-top: 10px; font-size: 13.5px; color: var(--muted); }

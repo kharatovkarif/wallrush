@@ -114,9 +114,7 @@ export async function offerPrices() {
   return out;
 }
 
-const LANGS = { ru: 'RU', es: 'ES' };
-
-export async function createCheckout({ userId, email, plan, lang }) {
+export async function createCheckout({ userId, email, plan }) {
   if (!PERIOD[plan]) return { error: 'bad_plan' };
   const offer = await premiumOffer();
   const body = {
@@ -124,7 +122,8 @@ export async function createCheckout({ userId, email, plan, lang }) {
     offerId: offer.id,
     currency: 'USD',
     periodicity: PERIOD[plan],
-    buyerLanguage: LANGS[lang] || 'EN',
+    // the owner wants the payment page in English for everyone
+    buyerLanguage: 'EN',
   };
   let r = await gate('/api/v3/invoice', { method: 'POST', body });
   if (r.status === 404 || r.status === 405) r = await gate('/api/v2/invoice', { method: 'POST', body });
@@ -239,3 +238,36 @@ export async function claimByEmail(userId, email) {
 }
 
 export const isPremium = (until, now = Date.now()) => Boolean(until && new Date(until).getTime() > now);
+
+/* The subscription that is paying for this player right now, and whether it
+   will renew. "Renews" is what the profile shows next to the date. */
+export async function premiumState(userId) {
+  if (!dbEnabled || !userId) return null;
+  const { data } = await supa.from('premium_contracts')
+    .select('contract_id, email, status, paid_until').eq('user_id', userId)
+    .not('paid_until', 'is', null).neq('status', 'refunded')
+    .order('paid_until', { ascending: false }).limit(1);
+  const c = data?.[0];
+  if (!c) return null;
+  return { contractId: c.contract_id, email: c.email, renews: c.status === 'active' || c.status === 'past_due' };
+}
+
+/* Turning off auto-renewal from inside the game. lava.top stops charging;
+   premium stays until the end of what was already paid, exactly as when the
+   buyer cancels from lava.top's own email. Their webhook arrives as well and
+   says the same thing. */
+export async function cancelRenewal(userId) {
+  const st = await premiumState(userId);
+  if (!st) return { error: 'no_subscription' };
+  if (!st.renews) return { ok: true, already: true };
+  const q = new URLSearchParams({ contractId: st.contractId, email: st.email });
+  const r = await gate('/api/v1/subscriptions?' + q, { method: 'DELETE' });
+  if (!r.ok) {
+    console.error('[premium] cancel failed', r.status, r.text);
+    return { error: 'cancel_failed' };
+  }
+  await supa.from('premium_contracts').update({ status: 'cancelled', updated_at: new Date().toISOString() })
+    .eq('contract_id', st.contractId);
+  console.log(`[premium] renewal cancelled from the game ${st.contractId}`);
+  return { ok: true };
+}

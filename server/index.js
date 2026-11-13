@@ -13,7 +13,7 @@ import { localDay } from '../public/js/streak.js';
 import { taskForDay } from '../public/js/daily.js';
 import { initPush, pushPublicKey, saveSub, dropSub, pushTick, sendTestPush } from './push.js';
 import { mountPages } from './pages.js';
-import { premiumConfigured, createCheckout, handleWebhook, claimByEmail, offerPrices } from './premium.js';
+import { premiumConfigured, createCheckout, handleWebhook, claimByEmail, offerPrices, premiumState, cancelRenewal } from './premium.js';
 import { logVisitLater, startWriteQueue, queueStatus, flushWrites } from './queue.js';
 import { dbEnabled, dbStatus, dbDetail, cleanEnv, likeEscape, supa, verifyUser, getProfile, createProfile, claimGuestProgress, leaderboard, dailyLeaderboard, sweepDayPoints, mskDay, myRank, myDayRank, publicProfile, clearNickNotice, restoreStreak, deleteAccount, cacheStats } from './db.js';
 
@@ -114,7 +114,11 @@ app.get('/api/profile', async (req, res) => {
   // a payment that arrived before this account could be matched to it
   try { await claimByEmail(user.id, user.email); } catch (e) { console.error('[premium] claim', e.message); }
   res.set('Cache-Control', 'no-store');
-  res.json({ profile: await getProfile(user.id) });
+  const prof = await getProfile(user.id);
+  if (prof?.premium_until) {
+    try { prof.premium_renews = Boolean((await premiumState(user.id))?.renews); } catch { /* shown as not renewing */ }
+  }
+  res.json({ profile: prof });
 });
 
 /* ---------- Premium (see server/premium.js) ---------- */
@@ -145,6 +149,19 @@ app.get('/api/premium/info', async (req, res) => {
   res.json({ enabled: true, prices: priceCache.prices });
 });
 
+app.post('/api/premium/cancel', async (req, res) => {
+  if (!dbEnabled || !premiumConfigured()) return res.status(503).json({ error: 'pay_off' });
+  const user = await verifyUser(bearer(req));
+  if (!user) return res.status(401).json({ error: 'unauthorized' });
+  try {
+    const r = await cancelRenewal(user.id);
+    res.status(r.error ? 400 : 200).json(r);
+  } catch (e) {
+    console.error('[premium] cancel error:', e.message);
+    res.status(502).json({ error: 'cancel_failed' });
+  }
+});
+
 const checkoutAt = new Map();
 app.post('/api/premium/checkout', async (req, res) => {
   if (!dbEnabled || !premiumConfigured()) return res.status(503).json({ error: 'pay_off' });
@@ -157,7 +174,7 @@ app.post('/api/premium/checkout', async (req, res) => {
   if (checkoutAt.size > 5000) checkoutAt.clear();
   const plan = req.body?.plan === 'year' ? 'year' : 'month';
   try {
-    const r = await createCheckout({ userId: user.id, email: user.email, plan, lang: String(req.body?.lang || 'en') });
+    const r = await createCheckout({ userId: user.id, email: user.email, plan });
     if (r.error) return res.status(400).json(r);
     res.json(r);
   } catch (e) {
