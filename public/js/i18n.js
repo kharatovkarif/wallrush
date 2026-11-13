@@ -119,13 +119,16 @@ export const I18N = {
     pm_cancel_any: 'отменить можно в любой момент',
     pm_per_month: '%p в месяц',
     pm_signup: 'Создать аккаунт и получить Premium',
-    pm_renews: 'Продлевается автоматически',
-    pm_no_renew: 'Автопродление выключено — больше списаний не будет',
+    pm_renews: 'Продлится автоматически %date',
+    pm_no_renew: 'Автопродление выключено',
     pm_cancel_btn: 'Отключить автопродление',
     pm_cancel_confirm: 'Нажми ещё раз: списаний больше не будет, Premium останется до конца срока',
     pm_cancel_done: 'Автопродление отключено. Premium работает до конца оплаченного срока.',
     pm_cancel_err: 'Не получилось отключить отсюда. Отключи по ссылке из письма lava.top или напиши на ads@wallrush.online.',
     pm_fine: 'Оплата через lava.top. Подписка продлевается сама; отключить автопродление можно в любой момент здесь же или по ссылке из письма lava.top. Передумали — вернём деньги в течение 14 дней.',
+    pm_ending: '👑 Premium закончится через %n дн. Продли, чтобы не потерять корону и 3D-доску.',
+    pm_pill_renew: 'Продлить Premium',
+    pm_extend: 'Продлить Premium — новый срок начнётся, когда закончится текущий',
     pm_active: 'Premium включён',
     pm_get: 'Получить Premium',
     pm_until: 'до %date · осталось дней: %n',
@@ -524,13 +527,16 @@ export const I18N = {
     pm_cancel_any: 'cancel any time',
     pm_per_month: '%p a month',
     pm_signup: 'Create an account to get Premium',
-    pm_renews: 'Renews automatically',
-    pm_no_renew: 'Auto-renewal is off — no further charges',
+    pm_renews: 'Renews automatically on %date',
+    pm_no_renew: 'Auto-renewal is off',
     pm_cancel_btn: 'Turn off auto-renewal',
     pm_cancel_confirm: 'Tap again: no more charges, Premium stays until the end of the period',
     pm_cancel_done: 'Auto-renewal is off. Premium stays until the end of the paid period.',
     pm_cancel_err: 'Could not turn it off from here. Use the link in the lava.top email or write to ads@wallrush.online.',
     pm_fine: 'Paid through lava.top. The subscription renews automatically; turn off auto-renewal any time, right here or with the link in the lava.top email. Changed your mind? Refund within 14 days.',
+    pm_ending: '👑 Premium ends in %n days. Renew it to keep your crown and the 3D board.',
+    pm_pill_renew: 'Renew Premium',
+    pm_extend: 'Extend Premium — the new period starts when the current one ends',
     pm_active: 'Premium is on',
     pm_get: 'Get Premium',
     pm_until: 'until %date · %n days left',
@@ -826,7 +832,7 @@ export const LANGS = [
 export const LANG_CODES = LANGS.map((l) => l.code);
 export const RTL = new Set(['fa']);
 
-const V = '172';
+const V = '173';
 
 // Loads a translation file on demand. Safe to call repeatedly and safe to fail:
 // if the request never lands, makeT keeps falling back to English.

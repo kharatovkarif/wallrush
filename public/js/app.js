@@ -1,16 +1,16 @@
 // WallRush client app: screens, board UI, online play (WebSocket), AI mode, auth.
-import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, wallBetween, N } from './engine.js?v=172';
-import { scheduleTick } from './sfx.js?v=172';
-import { aiMove } from './ai.js?v=172';
-import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=172';
-import { rankOf, nextRank } from './ranks.js?v=172';
-import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=172';
-import { checkNick, nickOk, randomNick } from './nick.js?v=172';
+import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, wallBetween, N } from './engine.js?v=173';
+import { scheduleTick } from './sfx.js?v=173';
+import { aiMove } from './ai.js?v=173';
+import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=173';
+import { rankOf, nextRank } from './ranks.js?v=173';
+import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=173';
+import { checkNick, nickOk, randomNick } from './nick.js?v=173';
 import {
   embedded, initPortal, inPortal, portalAd, portalPlaying, portalHappy,
   portalLoaded, portalInviteCode, portalShowInvite, portalHideInvite, portalInstant,
   portalRoom, portalOnJoin, portalInviteLink, portalMuted, portalOnMute, portalUserName,
-} from './portal.js?v=172';
+} from './portal.js?v=173';
 
 /* ================= state ================= */
 const $ = (id) => document.getElementById(id);
@@ -265,7 +265,7 @@ function getAiWorker() {
   if (aiWorker === false) return null;
   if (!aiWorker) {
     try {
-      aiWorker = new Worker('js/ai-worker.js?v=172', { type: 'module' });
+      aiWorker = new Worker('js/ai-worker.js?v=173', { type: 'module' });
       aiWorker.onmessage = (e) => {
         const cb = aiPending.get(e.data.id);
         aiPending.delete(e.data.id);
@@ -2632,7 +2632,7 @@ $('rp-clip').addEventListener('click', async () => {
   playReplay(false);                       // one thing on the screen at a time
   clipLabel(t('clip_making').replace('%n', '0'), { busy: true });
   try {
-    const { makeClip } = await import('./clip.js?v=172');
+    const { makeClip } = await import('./clip.js?v=173');
     const last = game.history[game.history.length - 1];
     const winner = last?.winner ?? game.state?.winner ?? null;
     const quad = isQuad();
@@ -4222,6 +4222,12 @@ function premiumUntil() {
   try { return +localStorage.getItem('wr_premium_until') || 0; } catch { return 0; }
 }
 function premiumNow() { return premiumUntil() > Date.now(); }
+function premiumPaidEnd() {
+  const p = profile?.premium_paid_until ? Date.parse(profile.premium_paid_until) : 0;
+  return p || premiumUntil();
+}
+const premiumRenews = () => Boolean(profile?.premium_renews);
+const daysLeft = (ms) => Math.max(0, Math.ceil((ms - Date.now()) / 86400000));
 
 function forgetPremium() {
   try { localStorage.removeItem('wr_premium_until'); } catch { /* private mode */ }
@@ -4229,8 +4235,9 @@ function forgetPremium() {
 }
 
 function premiumDate(ms) {
-  try { return new Date(ms).toLocaleDateString(lang, { day: 'numeric', month: 'short', year: 'numeric' }); }
-  catch { return new Date(ms).toISOString().slice(0, 10); }
+  try {
+    return new Date(ms).toLocaleString(lang, { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+  } catch { return new Date(ms).toISOString().slice(0, 16).replace('T', ' '); }
 }
 
 function renderPremium() {
@@ -4245,18 +4252,28 @@ function renderPremium() {
   // before sign-in has settled, the <head> already decided from the device copy
   if (session || profile) document.documentElement.classList.toggle('premium', on);
   const offered = !window.WR_EMBED && Boolean(premiumInfo?.enabled);
-  const days = on ? Math.max(1, Math.ceil((until - Date.now()) / 86400000)) : 0;
+  const end = on ? premiumPaidEnd() : 0;
+  const days = on ? daysLeft(end) : 0;
+  // ending soon and nothing will renew it: say so, three days ahead
+  const ending = on && !premiumRenews() && profile && days <= 3;
 
   const pill = $('premium-pill');
   pill.hidden = !(on || offered);
-  pill.classList.toggle('mine', on);
-  $('premium-pill-text').textContent = on ? t('pm_pill_mine') : t('pm_pill');
+  pill.classList.toggle('mine', on && !ending);
+  pill.classList.toggle('warn', Boolean(ending));
+  $('premium-pill-text').textContent = ending ? t('pm_pill_renew') : on ? t('pm_pill_mine') : t('pm_pill');
+  if (ending) {
+    const key = 'wr_pm_warned_' + new Date().toISOString().slice(0, 10);
+    try {
+      if (!sessionStorage.getItem(key)) { sessionStorage.setItem(key, '1'); toast(t('pm_ending').replace('%n', days)); }
+    } catch { /* private mode */ }
+  }
 
   const card = $('premium-card');
   card.hidden = !(on || offered);
   $('premium-card-title').textContent = on ? t('pm_active') : t('pm_get');
   $('premium-card-sub').textContent = on
-    ? t('pm_until').replace('%date', premiumDate(until)).replace('%n', days)
+    ? t('pm_until').replace('%date', premiumDate(end)).replace('%n', days)
     : t('pm_card_sub');
 
   if (on && profile) $('profile-nick').append(crownEl());
@@ -4299,20 +4316,24 @@ function fillPremiumModal() {
   const save = Math.round((1 - prices.year / (12 * prices.month)) * 100);
   $('pm-save-tag').textContent = '−' + save + '%';
   $('pm-save-tag').hidden = !(save >= 5);
-  $('pm-plans').hidden = on || !logged;
+  const renews = on && premiumRenews();
+  // buying again is offered whenever nothing renews it on its own; the new
+  // period starts where the current one ends
+  const canBuy = logged && !renews;
+  $('pm-plans').hidden = !canBuy;
+  $('pm-extend').hidden = !(on && canBuy);
   $('pm-signup').hidden = on || logged;
-  $('pm-fine').hidden = on;
+  $('pm-fine').hidden = on && !canBuy;
   $('pm-active').hidden = !on;
+  const end = premiumPaidEnd();
   if (on) {
-    const until = premiumUntil();
     $('pm-active-title').textContent = t('pm_active');
     $('pm-active-sub').textContent = t('pm_until')
-      .replace('%date', premiumDate(until))
-      .replace('%n', Math.max(1, Math.ceil((until - Date.now()) / 86400000)));
+      .replace('%date', premiumDate(end))
+      .replace('%n', daysLeft(end));
   }
-  const renews = on && Boolean(profile?.premium_renews);
   $('pm-renew').hidden = !on;
-  $('pm-renew').textContent = renews ? t('pm_renews') : t('pm_no_renew');
+  $('pm-renew').textContent = renews ? t('pm_renews').replace('%date', premiumDate(end)) : t('pm_no_renew');
   const cancel = $('pm-cancel');
   cancel.hidden = !renews;
   if (!cancel.dataset.armed) cancel.textContent = t('pm_cancel_btn');

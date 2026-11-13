@@ -116,7 +116,13 @@ app.get('/api/profile', async (req, res) => {
   res.set('Cache-Control', 'no-store');
   const prof = await getProfile(user.id);
   if (prof?.premium_until) {
-    try { prof.premium_renews = Boolean((await premiumState(user.id))?.renews); } catch { /* shown as not renewing */ }
+    try {
+      const st = await premiumState(user.id);
+      prof.premium_renews = Boolean(st?.renews);
+      // the date actually paid for; premium_until carries two days of slack
+      // so a renewal that clears late does not switch premium off overnight
+      prof.premium_paid_until = st?.paidUntil || null;
+    } catch { /* shown as not renewing */ }
   }
   res.json({ profile: prof });
 });

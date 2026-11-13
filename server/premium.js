@@ -178,9 +178,12 @@ export async function refreshUser(userId) {
   let best = 0;
   for (const c of data || []) {
     if (c.status === 'refunded') continue;
-    best = Math.max(best, new Date(c.paid_until).getTime());
+    // slack only for a subscription that is about to renew itself; one that
+    // will not ends at the exact minute it was paid until
+    const slack = c.status === 'active' || c.status === 'past_due' ? GRACE_MS : 0;
+    best = Math.max(best, new Date(c.paid_until).getTime() + slack);
   }
-  const until = best ? new Date(best + GRACE_MS).toISOString() : null;
+  const until = best ? new Date(best).toISOString() : null;
   await supa.from('profiles').update({ premium_until: until }).eq('id', userId);
   return until;
 }
@@ -214,7 +217,17 @@ export async function handleWebhook(headers, body) {
   const userId = root?.user_id || await userByEmail(email);
   const plan = root?.plan || planFromAmount(ev.amount, ev.currency);
 
-  const d = decide(type, { paidUntil: root?.paid_until || null, plan });
+  /* A new purchase made while premium is still running starts after it, not
+     today: buying a second month on day 20 must give 20 + 30 days, not 30. */
+  let base = root?.paid_until || null;
+  if (userId && /payment\.success$/.test(type)) {
+    const { data: mine } = await supa.from('premium_contracts').select('paid_until, status')
+      .eq('user_id', userId).not('paid_until', 'is', null).neq('status', 'refunded')
+      .order('paid_until', { ascending: false }).limit(1);
+    const latest = mine?.[0]?.paid_until;
+    if (latest && (!base || latest > base)) base = latest;
+  }
+  const d = decide(type, { paidUntil: base, plan });
   const now = new Date().toISOString();
   const rootId = root?.contract_id || contractId;
 
@@ -265,7 +278,8 @@ export async function premiumState(userId) {
     .order('paid_until', { ascending: false }).limit(1);
   const c = data?.[0];
   if (!c) return null;
-  return { contractId: c.contract_id, email: c.email, renews: c.status === 'active' || c.status === 'past_due' };
+  return { contractId: c.contract_id, email: c.email, paidUntil: c.paid_until,
+    renews: c.status === 'active' || c.status === 'past_due' };
 }
 
 /* Turning off auto-renewal from inside the game. lava.top stops charging;

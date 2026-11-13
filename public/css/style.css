@@ -1529,3 +1529,6 @@ html.premium .ad-slot { display: none !important; }
 .b3d-ctl button:active { transform: scale(.92); }
 .b3d-lock { font-size: 12px; }
 html.premium .b3d-lock { display: none; }
+
+.pm-extend { font-size: 13.5px; font-weight: 600; margin: 4px 0 10px; }
+.premium-pill.warn { background: linear-gradient(135deg, #ffe08a, #ffc93c 55%, #f0a91f); color: #5a3b00; font-weight: 700; }
