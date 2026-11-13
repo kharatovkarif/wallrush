@@ -381,7 +381,8 @@ export async function syncFromLava({ sample = false } = {}) {
     }
     const paid = items.filter(i => DONE.has(String(i.status || '').toUpperCase()))
       // only this game's subscription, should the account ever sell anything else
-      .filter(i => !i.product?.name || /wallrush|premium/i.test(i.product.name));
+      // lava.top names the product "Subscription <id>" and puts our title in offer
+      .filter(i => !i.product || /wallrush|premium|subscription/i.test(`${i.product.name || ''} ${i.product.offer || ''}`));
     out.found = paid.length;
     if (paid.length) {
       const ids = paid.map(i => String(i.id));
@@ -390,7 +391,9 @@ export async function syncFromLava({ sample = false } = {}) {
       for (const i of paid) {
         const id = String(i.id);
         if (known.has(id)) continue;
-        const parent = i.parentInvoice?.id || i.parentContractId || null;
+        // the first payment of a subscription names itself as its own parent
+        const pid = i.parentInvoice?.id || i.parentContractId || null;
+        const parent = pid && String(pid) !== id ? String(pid) : null;
         const ev = {
           eventType: parent ? 'subscription.recurring.payment.success' : 'payment.success',
           contractId: id, parentContractId: parent,
