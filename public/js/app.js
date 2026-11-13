@@ -1,16 +1,16 @@
 // WallRush client app: screens, board UI, online play (WebSocket), AI mode, auth.
-import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, wallBetween, N } from './engine.js?v=166';
-import { scheduleTick } from './sfx.js?v=166';
-import { aiMove } from './ai.js?v=166';
-import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=166';
-import { rankOf, nextRank } from './ranks.js?v=166';
-import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=166';
-import { checkNick, nickOk, randomNick } from './nick.js?v=166';
+import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, wallBetween, N } from './engine.js?v=167';
+import { scheduleTick } from './sfx.js?v=167';
+import { aiMove } from './ai.js?v=167';
+import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=167';
+import { rankOf, nextRank } from './ranks.js?v=167';
+import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=167';
+import { checkNick, nickOk, randomNick } from './nick.js?v=167';
 import {
   embedded, initPortal, inPortal, portalAd, portalPlaying, portalHappy,
   portalLoaded, portalInviteCode, portalShowInvite, portalHideInvite, portalInstant,
   portalRoom, portalOnJoin, portalInviteLink, portalMuted, portalOnMute, portalUserName,
-} from './portal.js?v=166';
+} from './portal.js?v=167';
 
 /* ================= state ================= */
 const $ = (id) => document.getElementById(id);
@@ -265,7 +265,7 @@ function getAiWorker() {
   if (aiWorker === false) return null;
   if (!aiWorker) {
     try {
-      aiWorker = new Worker('js/ai-worker.js?v=166', { type: 'module' });
+      aiWorker = new Worker('js/ai-worker.js?v=167', { type: 'module' });
       aiWorker.onmessage = (e) => {
         const cb = aiPending.get(e.data.id);
         aiPending.delete(e.data.id);
@@ -2630,7 +2630,7 @@ $('rp-clip').addEventListener('click', async () => {
   playReplay(false);                       // one thing on the screen at a time
   clipLabel(t('clip_making').replace('%n', '0'), { busy: true });
   try {
-    const { makeClip } = await import('./clip.js?v=166');
+    const { makeClip } = await import('./clip.js?v=167');
     const last = game.history[game.history.length - 1];
     const winner = last?.winner ?? game.state?.winner ?? null;
     const quad = isQuad();

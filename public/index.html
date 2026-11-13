@@ -83,7 +83,7 @@
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
   <!-- Opens the connection to the ad host early. Costs one handshake and no
        download, and takes that handshake off the wait once Support is tapped. -->
-  <link rel="stylesheet" href="css/style.css?v=166">
+  <link rel="stylesheet" href="css/style.css?v=167">
   <!-- Are we inside somebody else's page? Every game portal forbids running
        your own ads inside theirs, and the ad scripts below start the moment
        the parser reaches them — long before any module could stop one. So the
@@ -132,6 +132,13 @@
         <!-- Language is reachable in one tap from the very first screen: the
              globe plus the code is readable whatever language you speak. -->
         <button class="lang-fab" id="btn-lang" aria-label="Language">🌐 EN</button>
+        <!-- The streak sits in the other top corner, opposite the language: still
+             the first thing seen and one tap from its window (and the offer to
+             get a broken streak back), without crowding the row under the logo,
+             which the owner wants to hold only "online" and Premium. -->
+        <button class="streak-pill streak-fab" id="streak-pill" hidden>
+          <span class="flame fl-1" id="streak-flame">🔥</span><b id="streak-count">0</b>
+        </button>
         <div class="logo">
           <div class="logo-mark"><span></span><span></span><span></span></div>
           <h1>WallRush</h1>
@@ -139,21 +146,6 @@
         <p class="tagline" data-i18n="tagline">Block their way</p>
         <div class="head-pills">
           <div class="online-pill"><span class="dot"></span><b id="online-count">0</b>&nbsp;<span data-i18n="online_count"></span></div>
-          <!-- the streak is the reason to come back tomorrow, so it greets you.
-               Tapping it opens everything the flame does — including the offer
-               to get a broken streak back. A banner across the home screen was
-               louder than the thing it was offering. -->
-          <button class="streak-pill" id="streak-pill" hidden>
-            <span class="flame fl-1" id="streak-flame">🔥</span><b id="streak-count">0</b>
-          </button>
-          <!-- The rating of the game, next to the number of people in it. Two
-               reasons it sits here rather than only on the reviews screen: 843
-               players at 4.6 is the best argument the first screen has, and
-               Google prints stars in its results only for a rating the page
-               itself shows. Written in by server/pages.js — left empty and
-               hidden here, so the file alone is still a working page. A tap
-               opens the reviews inside the game; the href is for crawlers. -->
-          <a class="rating-pill" id="rating-pill" href="/reviews" hidden></a>
           <!-- the one way in to Premium from the first screen; turns into the
                player's own crown once they have it -->
           <button class="premium-pill" id="premium-pill" hidden>👑 <span id="premium-pill-text"></span></button>
@@ -247,6 +239,11 @@
       <section class="about">
         <h2 data-i18n="about_title">What is WallRush?</h2>
         <p data-i18n="about_body">WallRush is a free 1v1 strategy game you play straight in the browser — the classic Quoridor, online. Get your pawn to the far side of the 9×9 board before your opponent does, and use your ten walls to make their path longer. A wall cannot be jumped, only walked around, and you may never block someone off completely. Play against real people, against a friend by room code, or against the AI. No download and no signup.</p>
+        <!-- The game's rating. It used to sit in the row under the logo; the
+             owner moved it down here (13 Nov 2026). It stays on the page because
+             Google prints stars only for a rating the page itself shows. Written
+             in by server/pages.js; a tap opens the reviews inside the game. -->
+        <a class="rating-pill" id="rating-pill" href="/reviews" hidden></a>
       </section>
 
       <!-- HilltopAds 300x100 banner: lives inside the home screen, so it shows
@@ -1087,7 +1084,7 @@
     <div id="toast" hidden></div>
   </div>
 
-  <script src="vendor/supabase.js?v=166" defer></script>
-  <script type="module" src="js/app.js?v=166"></script>
+  <script src="vendor/supabase.js?v=167" defer></script>
+  <script type="module" src="js/app.js?v=167"></script>
 </body>
 </html>

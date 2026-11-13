@@ -1505,3 +1505,9 @@ html.premium .ad-slot { display: none !important; }
 .pm-fine { margin-top: 12px; font-size: 11.5px; color: var(--muted); line-height: 1.4; }
 /* the crown next to a name, wherever names are listed */
 .crown { margin-inline-start: 4px; font-size: .9em; }
+/* the streak in the top corner opposite the language chip */
+.streak-fab {
+  position: absolute; top: 10px; inset-inline-start: 2px; z-index: 3; margin-top: 0;
+  font-weight: 700; cursor: pointer; border: none; font-family: inherit;
+}
+.about .rating-pill { margin-top: 10px; }
