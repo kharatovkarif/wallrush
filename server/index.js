@@ -13,7 +13,7 @@ import { localDay } from '../public/js/streak.js';
 import { taskForDay } from '../public/js/daily.js';
 import { initPush, pushPublicKey, saveSub, dropSub, pushTick, sendTestPush } from './push.js';
 import { mountPages } from './pages.js';
-import { premiumConfigured, createCheckout, handleWebhook, claimByEmail, offerPrices, premiumState, cancelRenewal } from './premium.js';
+import { premiumConfigured, createCheckout, handleWebhook, claimByEmail, offerPrices, premiumState, cancelRenewal, CURRENCIES } from './premium.js';
 import { logVisitLater, startWriteQueue, queueStatus, flushWrites } from './queue.js';
 import { dbEnabled, dbStatus, dbDetail, cleanEnv, likeEscape, supa, verifyUser, getProfile, createProfile, claimGuestProgress, leaderboard, dailyLeaderboard, sweepDayPoints, mskDay, myRank, myDayRank, publicProfile, clearNickNotice, restoreStreak, deleteAccount, cacheStats } from './db.js';
 
@@ -138,15 +138,23 @@ app.post('/api/premium/lava', async (req, res) => {
 
 // Prices as set in the lava.top cabinet, so the screen never shows a number
 // the payment page then contradicts.
-let priceCache = { at: 0, prices: null };
+const priceCache = new Map();   // currency -> {at, prices}
 app.get('/api/premium/info', async (req, res) => {
-  const fallback = { month: 5, year: 29.99 };
+  const fallback = { currency: 'USD', month: 5, year: 39.99 };
   if (!premiumConfigured()) return res.json({ enabled: false, prices: fallback });
-  if (!priceCache.prices || Date.now() - priceCache.at > 3600_000) {
-    try { priceCache = { at: Date.now(), prices: { ...fallback, ...(await offerPrices()) } }; }
-    catch (e) { console.error('[premium] prices', e.message); priceCache = { at: Date.now() - 3000_000, prices: fallback }; }
+  const cur = CURRENCIES.includes(String(req.query.cur)) ? String(req.query.cur) : 'USD';
+  let hit = priceCache.get(cur);
+  if (!hit || Date.now() - hit.at > 3600_000) {
+    try {
+      const p = await offerPrices(cur);
+      hit = { at: Date.now(), prices: p.month || p.year ? { ...p, month: p.month ?? fallback.month, year: p.year ?? fallback.year } : fallback };
+    } catch (e) {
+      console.error('[premium] prices', e.message);
+      hit = { at: Date.now() - 3000_000, prices: fallback };
+    }
+    priceCache.set(cur, hit);
   }
-  res.json({ enabled: true, prices: priceCache.prices });
+  res.json({ enabled: true, prices: hit.prices });
 });
 
 app.post('/api/premium/cancel', async (req, res) => {
@@ -174,7 +182,8 @@ app.post('/api/premium/checkout', async (req, res) => {
   if (checkoutAt.size > 5000) checkoutAt.clear();
   const plan = req.body?.plan === 'year' ? 'year' : 'month';
   try {
-    const r = await createCheckout({ userId: user.id, email: user.email, plan });
+    const currency = CURRENCIES.includes(String(req.body?.currency)) ? String(req.body.currency) : 'USD';
+    const r = await createCheckout({ userId: user.id, email: user.email, plan, currency });
     if (r.error) return res.status(400).json(r);
     res.json(r);
   } catch (e) {

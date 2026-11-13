@@ -44,7 +44,7 @@ export function addPeriod(from, plan) {
 // several months, so anything well above one month's price is a year.
 export function planFromAmount(amount, currency) {
   const n = Number(amount) || 0;
-  const month = currency === 'RUB' ? 600 : 7;
+  const month = currency === 'RUB' ? 400 : 7;
   return n > month * 2 ? 'year' : 'month';
 }
 
@@ -85,42 +85,58 @@ async function gate(path, { method = 'GET', body } = {}) {
   return { ok: r.ok, status: r.status, json, text: text.slice(0, 300) };
 }
 
-/* The subscription's offer id, found by name rather than pasted into the code:
-   the owner made it in the lava.top cabinet, and if it is ever recreated the
-   game should keep working without anyone touching Railway. */
-let offerCache = { at: 0, offer: null };
-async function premiumOffer() {
-  if (offerCache.offer && Date.now() - offerCache.at < 3600_000) return offerCache.offer;
+/* The subscription's offers, found by name rather than pasted into the code:
+   the owner made them in the lava.top cabinet, and if one is ever recreated
+   the game keeps working without anyone touching Railway. Prices can sit in
+   one offer in several currencies or in separate offers (one in dollars, one
+   in roubles); either way the game asks for the offer that has the price. */
+let offerCache = { at: 0, offers: null };
+async function premiumOffers() {
+  if (offerCache.offers && Date.now() - offerCache.at < 3600_000) return offerCache.offers;
   const r = await gate('/api/v2/products?showAllSubscriptionPeriods=true');
   if (!r.ok) throw new Error(`products ${r.status} ${r.text}`);
   const items = (r.json?.items || []).map(i => i.data || i);
   const subs = items.filter(p => p && Array.isArray(p.offers) && p.offers.length);
-  const pick = subs.find(p => /wallrush/i.test(p.title || '') || p.offers.some(o => /wallrush/i.test(o.name || '')))
-    || subs.find(p => p.type === 'SUBSCRIPTION');
-  const offer = pick?.offers?.find(o => /wallrush|premium/i.test(o.name || '')) || pick?.offers?.[0];
-  if (!offer) throw new Error('no premium offer in lava.top');
-  offerCache = { at: Date.now(), offer };
-  return offer;
+  let mine = subs.filter(p => /wallrush/i.test(p.title || '') || p.offers.some(o => /wallrush/i.test(o.name || '')));
+  if (!mine.length) mine = subs.filter(p => p.type === 'SUBSCRIPTION');
+  const offers = mine.flatMap(p => p.offers);
+  if (!offers.length) throw new Error('no premium offer in lava.top');
+  offerCache = { at: Date.now(), offers };
+  return offers;
 }
 
-export async function offerPrices() {
-  const offer = await premiumOffer();
+// {month, year} in one currency, plus which offer carries each
+export function pricesIn(offers, currency) {
   const out = {};
-  for (const p of offer.prices || []) {
-    if (p.currency !== 'USD') continue;
-    if (p.periodicity === 'MONTHLY') out.month = p.amount;
-    if (p.periodicity === 'PERIOD_YEAR') out.year = p.amount;
+  for (const o of offers) for (const p of o.prices || []) {
+    if (p.currency !== currency) continue;
+    const plan = p.periodicity === 'MONTHLY' ? 'month' : p.periodicity === 'PERIOD_YEAR' ? 'year' : null;
+    if (plan && out[plan] === undefined) { out[plan] = p.amount; out[plan + 'Offer'] = o.id; }
   }
   return out;
 }
 
-export async function createCheckout({ userId, email, plan }) {
+export const CURRENCIES = ['USD', 'RUB'];
+
+export async function offerPrices(currency = 'USD') {
+  const offers = await premiumOffers();
+  const want = pricesIn(offers, currency);
+  if (want.month !== undefined || want.year !== undefined) return { currency, month: want.month, year: want.year };
+  const usd = pricesIn(offers, 'USD');
+  return { currency: 'USD', month: usd.month, year: usd.year };
+}
+
+export async function createCheckout({ userId, email, plan, currency = 'USD' }) {
   if (!PERIOD[plan]) return { error: 'bad_plan' };
-  const offer = await premiumOffer();
+  const offers = await premiumOffers();
+  let cur = CURRENCIES.includes(currency) ? currency : 'USD';
+  let pr = pricesIn(offers, cur);
+  if (!pr[plan + 'Offer']) { cur = 'USD'; pr = pricesIn(offers, cur); }
+  if (!pr[plan + 'Offer']) return { error: 'plan_unavailable' };
   const body = {
     email,
-    offerId: offer.id,
-    currency: 'USD',
+    offerId: pr[plan + 'Offer'],
+    currency: cur,
     periodicity: PERIOD[plan],
     // the owner wants the payment page in English for everyone
     buyerLanguage: 'EN',

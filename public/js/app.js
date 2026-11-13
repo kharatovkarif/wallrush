@@ -1,16 +1,16 @@
 // WallRush client app: screens, board UI, online play (WebSocket), AI mode, auth.
-import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, wallBetween, N } from './engine.js?v=170';
-import { scheduleTick } from './sfx.js?v=170';
-import { aiMove } from './ai.js?v=170';
-import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=170';
-import { rankOf, nextRank } from './ranks.js?v=170';
-import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=170';
-import { checkNick, nickOk, randomNick } from './nick.js?v=170';
+import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, wallBetween, N } from './engine.js?v=171';
+import { scheduleTick } from './sfx.js?v=171';
+import { aiMove } from './ai.js?v=171';
+import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=171';
+import { rankOf, nextRank } from './ranks.js?v=171';
+import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=171';
+import { checkNick, nickOk, randomNick } from './nick.js?v=171';
 import {
   embedded, initPortal, inPortal, portalAd, portalPlaying, portalHappy,
   portalLoaded, portalInviteCode, portalShowInvite, portalHideInvite, portalInstant,
   portalRoom, portalOnJoin, portalInviteLink, portalMuted, portalOnMute, portalUserName,
-} from './portal.js?v=170';
+} from './portal.js?v=171';
 
 /* ================= state ================= */
 const $ = (id) => document.getElementById(id);
@@ -265,7 +265,7 @@ function getAiWorker() {
   if (aiWorker === false) return null;
   if (!aiWorker) {
     try {
-      aiWorker = new Worker('js/ai-worker.js?v=170', { type: 'module' });
+      aiWorker = new Worker('js/ai-worker.js?v=171', { type: 'module' });
       aiWorker.onmessage = (e) => {
         const cb = aiPending.get(e.data.id);
         aiPending.delete(e.data.id);
@@ -2630,7 +2630,7 @@ $('rp-clip').addEventListener('click', async () => {
   playReplay(false);                       // one thing on the screen at a time
   clipLabel(t('clip_making').replace('%n', '0'), { busy: true });
   try {
-    const { makeClip } = await import('./clip.js?v=170');
+    const { makeClip } = await import('./clip.js?v=171');
     const last = game.history[game.history.length - 1];
     const winner = last?.winner ?? game.state?.winner ?? null;
     const quad = isQuad();
@@ -4264,18 +4264,30 @@ function renderPremium() {
 async function loadPremiumInfo() {
   if (window.WR_EMBED) return;
   try {
-    const r = await fetch('/api/premium/info');
+    const r = await fetch('/api/premium/info?cur=' + premiumCurrency());
     if (r.ok) premiumInfo = await r.json();
   } catch { /* offline: the offer just stays hidden */ }
   renderPremium();
 }
 
-const money = (n) => '$' + (Math.round(Number(n) * 100) / 100).toString();
+/* Russia and its neighbours are offered roubles: Russian cards cannot pay in
+   dollars abroad, and the rouble price is the one set for them. Decided by the
+   phone's timezone, the same hint the language guess uses — never the IP, so a
+   VPN changes nothing. Everyone else pays in dollars. */
+function premiumCurrency() {
+  let tz = '';
+  try { tz = Intl.DateTimeFormat().resolvedOptions().timeZone || ''; } catch { /* old browser */ }
+  return CIS_TZ.test(tz) ? 'RUB' : 'USD';
+}
+const money = (n, cur = premiumInfo?.prices?.currency || 'USD') => {
+  const v = Math.round(Number(n) * 100) / 100;
+  return cur === 'RUB' ? `${Math.round(v)} ₽` : '$' + v.toString();
+};
 
 function fillPremiumModal() {
   const on = premiumNow();
   const logged = Boolean(session && profile);
-  const prices = premiumInfo?.prices || { month: 5, year: 29.99 };
+  const prices = premiumInfo?.prices || { currency: 'USD', month: 5, year: 39.99 };
   $('pm-price-month').textContent = money(prices.month);
   $('pm-price-year').textContent = money(prices.year);
   $('pm-per-month').textContent = t('pm_per_month').replace('%p', money(Math.floor(prices.year / 12 * 100) / 100));
@@ -4365,7 +4377,7 @@ document.querySelectorAll('.pm-plan').forEach(btn => btn.addEventListener('click
     const r = await fetch('/api/premium/checkout', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
-      body: JSON.stringify({ plan: btn.dataset.plan, lang }),
+      body: JSON.stringify({ plan: btn.dataset.plan, currency: premiumInfo?.prices?.currency || 'USD' }),
     });
     const data = await r.json().catch(() => ({}));
     if (data.url) {

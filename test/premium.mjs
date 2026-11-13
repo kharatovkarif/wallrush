@@ -13,6 +13,8 @@ assert.equal(planFromAmount(5, 'USD'), 'month');
 assert.equal(planFromAmount(29.99, 'USD'), 'year');
 assert.equal(planFromAmount(414, 'RUB'), 'month');
 assert.equal(planFromAmount(2490, 'RUB'), 'year');
+assert.equal(planFromAmount(990, 'RUB'), 'year');
+assert.equal(planFromAmount(149, 'RUB'), 'month');
 
 // first payment starts from now
 let d = decide('payment.success', { plan: 'month', now: t0 });
@@ -47,3 +49,12 @@ assert.equal(isPremium('2099-01-01T00:00:00Z'), true);
 assert.equal(isPremium('2000-01-01T00:00:00Z'), false);
 
 console.log('premium: all checks passed');
+import { pricesIn } from '../server/premium.js';
+const offers = [
+  { id: 'A', prices: [{ currency: 'USD', periodicity: 'MONTHLY', amount: 5 }, { currency: 'USD', periodicity: 'PERIOD_YEAR', amount: 39.99 }] },
+  { id: 'B', prices: [{ currency: 'RUB', periodicity: 'MONTHLY', amount: 149 }, { currency: 'RUB', periodicity: 'PERIOD_YEAR', amount: 990 }] },
+];
+assert.deepEqual(pricesIn(offers, 'RUB'), { month: 149, monthOffer: 'B', year: 990, yearOffer: 'B' });
+assert.deepEqual(pricesIn(offers, 'USD'), { month: 5, monthOffer: 'A', year: 39.99, yearOffer: 'A' });
+assert.deepEqual(pricesIn(offers, 'EUR'), {});
+console.log('premium prices: ok');
