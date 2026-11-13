@@ -692,3 +692,31 @@ end $$;
 --   select count(*) from pg_proc p join pg_namespace n on n.oid=p.pronamespace
 --     where n.nspname='public' and p.prokind='f'
 --       and has_function_privilege('anon', p.oid, 'EXECUTE');
+
+-- ---------- Premium (13 Nov 2026), paid through lava.top — see server/premium.js ----------
+alter table public.profiles add column if not exists premium_until timestamptz;
+create table if not exists public.premium_contracts (
+  contract_id text primary key,
+  parent_id   text,
+  user_id     uuid references public.profiles(id) on delete set null,
+  email       text not null,
+  plan        text not null check (plan in ('month','year')),
+  status      text not null default 'new',
+  paid_until  timestamptz,
+  created_at  timestamptz not null default now(),
+  updated_at  timestamptz not null default now()
+);
+create index if not exists premium_contracts_email on public.premium_contracts (lower(email));
+create index if not exists premium_contracts_user on public.premium_contracts (user_id);
+alter table public.premium_contracts enable row level security;
+create table if not exists public.premium_events (
+  id bigserial primary key, event_type text not null, contract_id text not null,
+  email text, amount numeric, currency text, outcome text, payload jsonb,
+  created_at timestamptz not null default now(),
+  unique (event_type, contract_id)
+);
+alter table public.premium_events enable row level security;
+revoke all on public.premium_contracts, public.premium_events from public, anon, authenticated;
+revoke all on sequence public.premium_events_id_seq from public, anon, authenticated;
+grant all on public.premium_contracts, public.premium_events to service_role;
+grant usage, select on sequence public.premium_events_id_seq to service_role;

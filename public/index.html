@@ -83,7 +83,7 @@
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
   <!-- Opens the connection to the ad host early. Costs one handshake and no
        download, and takes that handshake off the wait once Support is tapped. -->
-  <link rel="stylesheet" href="css/style.css?v=165">
+  <link rel="stylesheet" href="css/style.css?v=166">
   <!-- Are we inside somebody else's page? Every game portal forbids running
        your own ads inside theirs, and the ad scripts below start the moment
        the parser reaches them — long before any module could stop one. So the
@@ -92,6 +92,14 @@
     try { window.WR_EMBED = window.self !== window.top; }
     catch (e) { window.WR_EMBED = true; }   // a cross-origin parent throws, which is itself a yes
     if (window.WR_EMBED) document.documentElement.className += ' embedded';
+    /* Premium buys the menus without ads, and the banners below start the
+       moment the parser reaches them — so whether this player has premium has
+       to be known here too. The server's answer is kept on the device after
+       each sign-in; until it expires, no ad script is so much as requested. */
+    try { window.WR_PREMIUM = (+localStorage.getItem('wr_premium_until') || 0) > Date.now(); }
+    catch (e) { window.WR_PREMIUM = false; }
+    window.WR_NOADS = window.WR_EMBED || window.WR_PREMIUM;
+    if (window.WR_PREMIUM) document.documentElement.className += ' premium';
   </script>
 </head>
 <body>
@@ -146,6 +154,9 @@
                hidden here, so the file alone is still a working page. A tap
                opens the reviews inside the game; the href is for crawlers. -->
           <a class="rating-pill" id="rating-pill" href="/reviews" hidden></a>
+          <!-- the one way in to Premium from the first screen; turns into the
+               player's own crown once they have it -->
+          <button class="premium-pill" id="premium-pill" hidden>👑 <span id="premium-pill-text"></span></button>
         </div>
       </header>
 
@@ -242,7 +253,7 @@
            in the menu only and is never present on the game screen. -->
       <div class="ad-slot" aria-hidden="true">
         <script>
-        if (!window.WR_EMBED) (function(osjgznp){
+        if (!window.WR_NOADS) (function(osjgznp){
         var d = document,
             s = d.createElement('script'),
             l = d.scripts[d.scripts.length - 1];
@@ -638,6 +649,43 @@
          friends list, the search, an incoming request, and both leaderboards.
          Same card, same numbers, fetched fresh each time — a list that happens
          to carry today's points must not show them as a lifetime total. -->
+    <!-- ============ PREMIUM ============
+         Lists only what premium actually does today. Paying happens on
+         lava.top's page; premium is switched on by their webhook, not by the
+         browser coming back, so this window only ever reads the server. -->
+    <div class="overlay" id="overlay-premium" hidden>
+      <div class="modal pm-modal">
+        <button class="pl-close" id="pm-close" aria-label="close">✕</button>
+        <div class="pm-crown">👑</div>
+        <h2 data-i18n="pm_title"></h2>
+        <ul class="pm-list">
+          <li><span>🚫</span><span data-i18n="pm_noads"></span></li>
+          <li><span>👑</span><span data-i18n="pm_badge"></span></li>
+          <li><span>🔥</span><span data-i18n="pm_streak"></span></li>
+          <li class="pm-soon"><span>🧊</span><span data-i18n="pm_soon"></span></li>
+        </ul>
+        <p class="pm-fair" data-i18n="pm_fair"></p>
+        <div class="pm-plans" id="pm-plans">
+          <button class="pm-plan best" data-plan="year">
+            <span class="pm-tag" data-i18n="pm_save"></span>
+            <b data-i18n="pm_year"></b><span class="pm-price" id="pm-price-year"></span>
+            <small id="pm-per-month"></small>
+          </button>
+          <button class="pm-plan" data-plan="month">
+            <b data-i18n="pm_month"></b><span class="pm-price" id="pm-price-month"></span>
+            <small data-i18n="pm_cancel_any"></small>
+          </button>
+        </div>
+        <div class="pm-active" id="pm-active" hidden>
+          <b id="pm-active-title"></b>
+          <small id="pm-active-sub"></small>
+        </div>
+        <button class="btn-big" id="pm-signup" data-i18n="pm_signup" hidden></button>
+        <p class="pm-note" id="pm-note" hidden></p>
+        <p class="pm-fine" id="pm-fine" data-i18n="pm_fine"></p>
+      </div>
+    </div>
+
     <div class="overlay" id="overlay-player" hidden>
       <div class="modal pl-modal">
         <button class="pl-close" id="pl-close" aria-label="close">✕</button>
@@ -799,7 +847,7 @@
            the leaderboard saw, in place of the leaderboard. -->
       <div class="ad-slot ad-slot-lg" aria-hidden="true">
         <script>
-        if (!window.WR_EMBED) (function(immt){
+        if (!window.WR_NOADS) (function(immt){
         var d = document,
             s = d.createElement('script'),
             l = d.scripts[d.scripts.length - 1];
@@ -912,6 +960,12 @@
              The player chooses to watch, so nothing is taken from anyone. -->
         <button class="btn-big btn-restore" id="btn-restore-streak" hidden></button>
         <p class="veteran-badge" id="veteran-badge" data-i18n="veteran" hidden></p>
+        <!-- Premium: an offer for those without it, the days left for those with -->
+        <button class="premium-card" id="premium-card" hidden>
+          <span class="pc-crown">👑</span>
+          <span class="pc-meta"><b id="premium-card-title"></b><small id="premium-card-sub"></small></span>
+          <span class="pc-go">›</span>
+        </button>
         <div class="stats-row" id="profile-stats">
           <div class="stat"><b id="stat-games">0</b><small data-i18n="stats_games"></small></div>
           <div class="stat"><b id="stat-wins">0</b><small data-i18n="stats_wins"></small></div>
@@ -1000,7 +1054,7 @@
            profile is read from the top down, and nothing here is in the way. -->
       <div class="ad-slot ad-slot-lg" aria-hidden="true">
         <script>
-        if (!window.WR_EMBED) (function(usypz){
+        if (!window.WR_NOADS) (function(usypz){
         var d = document,
             s = d.createElement('script'),
             l = d.scripts[d.scripts.length - 1];
@@ -1033,7 +1087,7 @@
     <div id="toast" hidden></div>
   </div>
 
-  <script src="vendor/supabase.js?v=165" defer></script>
-  <script type="module" src="js/app.js?v=165"></script>
+  <script src="vendor/supabase.js?v=166" defer></script>
+  <script type="module" src="js/app.js?v=166"></script>
 </body>
 </html>

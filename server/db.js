@@ -53,7 +53,7 @@ export async function verifyUser(jwt) {
   try {
     const { data, error } = await supa.auth.getUser(jwt);
     if (error || !data?.user) return null;
-    return { id: data.user.id };
+    return { id: data.user.id, email: data.user.email || null };
   } catch {
     return null;
   }
@@ -62,7 +62,7 @@ export async function verifyUser(jwt) {
 export async function getProfile(userId) {
   if (!dbEnabled) return null;
   const { data } = await supa.from('profiles')
-    .select('id, nick, wins, losses, points, nick_notice').eq('id', userId).maybeSingle();
+    .select('id, nick, wins, losses, points, nick_notice, premium_until').eq('id', userId).maybeSingle();
   return data || null;
 }
 
@@ -494,7 +494,7 @@ export async function recordResult(winnerUserId, loserUserId) {
    has to have a shared day — if it ended at a different hour for each reader,
    two people looking at the same page would be looking at different contests.
    Moscow because that is where most of the players are; the screen says so, so
-   nobody in Tehran or Dushanbe has to work it out. */
+   nobody in Tehran or Jakarta has to work it out. */
 
 export const mskDay = (now = Date.now()) =>
   new Date(now + 3 * 3600_000).toISOString().slice(0, 10);
@@ -550,12 +550,15 @@ export async function dailyLeaderboard(limit = 100) {
     const raw = data || [];
     const userIds = raw.filter(r => r.kind === 'user').map(r => r.who.slice(2));
     let flaggedIds = [];
+    let premiumIds = [];
     if (userIds.length) {
-      const { data: bad } = await supa.from('profiles')
-        .select('id').in('id', userIds).is('flagged', true);
-      flaggedIds = (bad || []).map(f => f.id);
+      const { data: marks } = await supa.from('profiles')
+        .select('id, flagged, premium_until').in('id', userIds)
+        .or(`flagged.is.true,premium_until.gt."${new Date().toISOString()}"`);
+      flaggedIds = (marks || []).filter(f => f.flagged).map(f => f.id);
+      premiumIds = (marks || []).filter(f => !f.flagged && f.premium_until).map(f => f.id);
     }
-    const rows = shapeDayBoard(raw, flaggedIds, limit);
+    const rows = shapeDayBoard(raw, flaggedIds, limit, premiumIds);
     dayCache = { at: Date.now(), day, size: limit, rows };
     return rows;
   } catch (e) {
@@ -569,12 +572,14 @@ export async function dailyLeaderboard(limit = 100) {
    accounts dropped, the list cut to length, and only the columns a board needs.
    Pulled out on its own because it is the part with a decision in it, and the
    part a test can hold without a database. */
-export function shapeDayBoard(raw, flaggedIds = [], limit = 100) {
+export function shapeDayBoard(raw, flaggedIds = [], limit = 100, premiumIds = []) {
   const out = new Set(flaggedIds.map(id => `u:${id}`));
+  const crown = new Set(premiumIds.map(id => `u:${id}`));
   return (raw || [])
     .filter(r => !out.has(r.who))
     .slice(0, limit)
-    .map(r => ({ nick: r.nick, points: r.points, wins: r.wins, losses: r.losses, kind: r.kind }));
+    .map(r => ({ nick: r.nick, points: r.points, wins: r.wins, losses: r.losses, kind: r.kind,
+      ...(crown.has(r.who) ? { premium: true } : {}) }));
 }
 
 /* ---------- where you are on it ----------
@@ -696,7 +701,12 @@ export async function publicProfile(nick, viewerId = null) {
     if (row === undefined) {
       const { data, error } = await supa.rpc('player_card', { q: String(nick || '') });
       if (error) throw new Error(error.message);
-      row = keepRank(key, (Array.isArray(data) ? data[0] : data) || null);
+      row = (Array.isArray(data) ? data[0] : data) || null;
+      if (row?.kind === 'user' && row.id) {
+        const { data: p } = await supa.from('profiles').select('premium_until').eq('id', row.id).maybeSingle();
+        row = { ...row, premium_until: p?.premium_until || null };
+      }
+      row = keepRank(key, row);
     }
     if (!row) return null;
 
@@ -715,6 +725,7 @@ export async function publicProfile(nick, viewerId = null) {
       // an id worth handing out.
       id: row.kind === 'user' ? row.id : null,
       place: row.place || null,
+      premium: Boolean(row.premium_until && new Date(row.premium_until) > new Date()),
       already: false,
       pending: false,
     };
@@ -767,13 +778,16 @@ export async function leaderboard(limit = 50) {
     .limit(limit);
   const [{ data: people }, { data: bots }] = await Promise.all([
     // an account caught farming keeps its history but leaves the table
-    top(supa.from('profiles').select('nick, wins, losses, points').not('flagged', 'is', true)),
+    top(supa.from('profiles').select('nick, wins, losses, points, premium_until').not('flagged', 'is', true)),
     top(supa.from('bot_players').select('nick, wins, losses, points')),
   ]);
   // a failed round-trip must not be cached as an empty ranking for a minute
   if (!people && !bots) return lbCache.rows.slice(0, limit);
 
-  const all = [...(people || []), ...(bots || [])].map(r => ({ ...r, points: r.points || 0 }));
+  const nowIso = new Date().toISOString();
+  const all = [...(people || []), ...(bots || [])].map(({ premium_until, ...r }) => ({
+    ...r, points: r.points || 0, ...(premium_until && premium_until > nowIso ? { premium: true } : {}),
+  }));
   all.sort((a, b) => (b.points - a.points) || (b.wins - a.wins) || (a.losses - b.losses));
   const rows = all.slice(0, limit);
   lbCache = { at: Date.now(), size: limit, rows };

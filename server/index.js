@@ -13,6 +13,7 @@ import { localDay } from '../public/js/streak.js';
 import { taskForDay } from '../public/js/daily.js';
 import { initPush, pushPublicKey, saveSub, dropSub, pushTick, sendTestPush } from './push.js';
 import { mountPages } from './pages.js';
+import { premiumConfigured, createCheckout, handleWebhook, claimByEmail, offerPrices } from './premium.js';
 import { logVisitLater, startWriteQueue, queueStatus, flushWrites } from './queue.js';
 import { dbEnabled, dbStatus, dbDetail, cleanEnv, likeEscape, supa, verifyUser, getProfile, createProfile, claimGuestProgress, leaderboard, dailyLeaderboard, sweepDayPoints, mskDay, myRank, myDayRank, publicProfile, clearNickNotice, restoreStreak, deleteAccount, cacheStats } from './db.js';
 
@@ -110,7 +111,59 @@ function bearer(req) {
 app.get('/api/profile', async (req, res) => {
   const user = await verifyUser(bearer(req));
   if (!user) return res.status(401).json({ error: 'unauthorized' });
+  // a payment that arrived before this account could be matched to it
+  try { await claimByEmail(user.id, user.email); } catch (e) { console.error('[premium] claim', e.message); }
+  res.set('Cache-Control', 'no-store');
   res.json({ profile: await getProfile(user.id) });
+});
+
+/* ---------- Premium (see server/premium.js) ---------- */
+
+// lava.top calls this; nobody else can, the secret is checked first.
+app.post('/api/premium/lava', async (req, res) => {
+  if (!dbEnabled) return res.status(503).end();
+  try {
+    const r = await handleWebhook(req.headers, req.body);
+    res.status(r.status).json({ ok: r.status === 200 });
+  } catch (e) {
+    // a 500 makes lava.top try again later, which is what we want
+    console.error('[premium] webhook failed:', e.message);
+    res.status(500).json({ ok: false });
+  }
+});
+
+// Prices as set in the lava.top cabinet, so the screen never shows a number
+// the payment page then contradicts.
+let priceCache = { at: 0, prices: null };
+app.get('/api/premium/info', async (req, res) => {
+  const fallback = { month: 5, year: 29.99 };
+  if (!premiumConfigured()) return res.json({ enabled: false, prices: fallback });
+  if (!priceCache.prices || Date.now() - priceCache.at > 3600_000) {
+    try { priceCache = { at: Date.now(), prices: { ...fallback, ...(await offerPrices()) } }; }
+    catch (e) { console.error('[premium] prices', e.message); priceCache = { at: Date.now() - 3000_000, prices: fallback }; }
+  }
+  res.json({ enabled: true, prices: priceCache.prices });
+});
+
+const checkoutAt = new Map();
+app.post('/api/premium/checkout', async (req, res) => {
+  if (!dbEnabled || !premiumConfigured()) return res.status(503).json({ error: 'pay_off' });
+  const user = await verifyUser(bearer(req));
+  if (!user) return res.status(401).json({ error: 'unauthorized' });
+  if (!user.email) return res.status(400).json({ error: 'no_email' });
+  const last = checkoutAt.get(user.id) || 0;
+  if (Date.now() - last < 5000) return res.status(429).json({ error: 'slow_down' });
+  checkoutAt.set(user.id, Date.now());
+  if (checkoutAt.size > 5000) checkoutAt.clear();
+  const plan = req.body?.plan === 'year' ? 'year' : 'month';
+  try {
+    const r = await createCheckout({ userId: user.id, email: user.email, plan, lang: String(req.body?.lang || 'en') });
+    if (r.error) return res.status(400).json(r);
+    res.json(r);
+  } catch (e) {
+    console.error('[premium] checkout failed:', e.message);
+    res.status(502).json({ error: 'pay_failed' });
+  }
 });
 
 /* Buys back a streak that was lost, after the player watched an ad for it.

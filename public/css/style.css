@@ -1448,3 +1448,60 @@ html[data-theme="dark"] .rv-bt { background: #262c42; }
   15%, 55% { filter: brightness(1.5) saturate(1.6); }
   35%      { filter: brightness(.9); }
 }
+
+/* ================= Premium ================= */
+/* Gold, because the crown is gold; the rest stays in the game's own colours so
+   the offer reads as part of the game rather than as an ad for something. */
+html.premium .ad-slot { display: none !important; }
+.premium-pill {
+  display: inline-flex; align-items: center; gap: 5px; margin-top: 12px;
+  border: 0; font: inherit; font-size: 14px; font-weight: 700; cursor: pointer;
+  border-radius: 999px; padding: 7px 14px; color: #5a3b00;
+  background: linear-gradient(135deg, #ffe08a, #ffc93c 55%, #f0a91f);
+  box-shadow: var(--shadow), inset 0 1px 0 rgba(255,255,255,.6);
+}
+.premium-pill.mine { background: var(--card); color: var(--text); font-weight: 600; }
+.premium-pill:active, .premium-card:active, .pm-plan:active { transform: scale(.96); }
+
+.premium-card {
+  display: flex; align-items: center; gap: 12px; width: 100%;
+  border: 1px solid rgba(240, 169, 31, .45); border-radius: 16px; padding: 11px 14px; margin-top: 9px;
+  background: linear-gradient(135deg, rgba(255, 224, 138, .35), rgba(255, 201, 60, .18));
+  color: var(--text); font: inherit; text-align: start; cursor: pointer;
+}
+.premium-card .pc-crown { font-size: 26px; line-height: 1; }
+.premium-card .pc-meta { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.premium-card .pc-meta small { color: var(--muted); }
+.premium-card .pc-go { font-size: 22px; color: var(--muted); }
+
+.pm-modal { position: relative; padding-top: 24px; }
+.pm-crown { font-size: 46px; line-height: 1; margin-bottom: 6px; filter: drop-shadow(0 4px 10px rgba(240, 169, 31, .45)); }
+.pm-list { list-style: none; margin: 12px 0 6px; padding: 0; text-align: start; display: grid; gap: 9px; }
+.pm-list li { display: flex; gap: 10px; align-items: flex-start; font-size: 15px; line-height: 1.3; }
+.pm-list li > span:first-child { width: 22px; flex: none; text-align: center; }
+.pm-list li.pm-soon { color: var(--muted); }
+.pm-fair { font-size: 12.5px; color: var(--muted); margin: 6px 0 14px; }
+.pm-plans { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.pm-plan {
+  position: relative; display: flex; flex-direction: column; align-items: center; gap: 3px;
+  border: 2px solid var(--bg2); border-radius: 16px; padding: 16px 8px 12px;
+  background: var(--bg2); color: var(--text); font: inherit; cursor: pointer;
+}
+.pm-plan.best { border-color: #f0a91f; background: linear-gradient(180deg, rgba(255, 224, 138, .35), var(--card)); }
+.pm-plan b { font-size: 14px; }
+.pm-plan .pm-price { font-size: 22px; font-weight: 800; }
+.pm-plan small { font-size: 11.5px; color: var(--muted); }
+.pm-plan[disabled] { opacity: .55; cursor: wait; }
+.pm-tag {
+  position: absolute; top: -10px; left: 50%; transform: translateX(-50%); white-space: nowrap;
+  background: #f0a91f; color: #3d2800; font-size: 11px; font-weight: 800; border-radius: 999px; padding: 2px 9px;
+}
+.pm-active {
+  display: flex; flex-direction: column; gap: 3px; border-radius: 16px; padding: 14px;
+  background: linear-gradient(135deg, rgba(255, 224, 138, .4), rgba(255, 201, 60, .2));
+}
+.pm-active small { color: var(--muted); }
+.pm-note { margin-top: 12px; font-size: 13.5px; color: var(--red); }
+.pm-fine { margin-top: 12px; font-size: 11.5px; color: var(--muted); line-height: 1.4; }
+/* the crown next to a name, wherever names are listed */
+.crown { margin-inline-start: 4px; font-size: .9em; }

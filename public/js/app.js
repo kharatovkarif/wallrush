@@ -1,16 +1,16 @@
 // WallRush client app: screens, board UI, online play (WebSocket), AI mode, auth.
-import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, wallBetween, N } from './engine.js?v=165';
-import { scheduleTick } from './sfx.js?v=165';
-import { aiMove } from './ai.js?v=165';
-import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=165';
-import { rankOf, nextRank } from './ranks.js?v=165';
-import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=165';
-import { checkNick, nickOk, randomNick } from './nick.js?v=165';
+import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, wallBetween, N } from './engine.js?v=166';
+import { scheduleTick } from './sfx.js?v=166';
+import { aiMove } from './ai.js?v=166';
+import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=166';
+import { rankOf, nextRank } from './ranks.js?v=166';
+import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=166';
+import { checkNick, nickOk, randomNick } from './nick.js?v=166';
 import {
   embedded, initPortal, inPortal, portalAd, portalPlaying, portalHappy,
   portalLoaded, portalInviteCode, portalShowInvite, portalHideInvite, portalInstant,
   portalRoom, portalOnJoin, portalInviteLink, portalMuted, portalOnMute, portalUserName,
-} from './portal.js?v=165';
+} from './portal.js?v=166';
 
 /* ================= state ================= */
 const $ = (id) => document.getElementById(id);
@@ -215,6 +215,7 @@ let config = { auth: false };
 let supabase = null;      // supabase-js client (if auth configured)
 let session = null;       // supabase session
 let profile = null;       // {nick, wins, losses}
+let premiumInfo = null;   // {enabled, prices:{month, year}} from /api/premium/info
 
 let ws = null;
 let wsReady = false;
@@ -264,7 +265,7 @@ function getAiWorker() {
   if (aiWorker === false) return null;
   if (!aiWorker) {
     try {
-      aiWorker = new Worker('js/ai-worker.js?v=165', { type: 'module' });
+      aiWorker = new Worker('js/ai-worker.js?v=166', { type: 'module' });
       aiWorker.onmessage = (e) => {
         const cb = aiPending.get(e.data.id);
         aiPending.delete(e.data.id);
@@ -568,6 +569,7 @@ async function openPlayer(nick, opts = {}) {
 function renderPlayer(p) {
   const rank = rankOf(p.points || 0);
   $('pl-nick').textContent = p.nick;
+  if (p.premium) $('pl-nick').append(crownEl());
   $('pl-rank').textContent = `${rank.icon} ${t(rank.key)}`;
   $('pl-place').textContent = p.place ? '#' + p.place.toLocaleString() : '';
 
@@ -1551,6 +1553,7 @@ function renderGame() {
 
   // HUD — rank icons only during play; the number belongs on the result screen
   $('me-nick').textContent = myNick();
+  if (premiumNow()) $('me-nick').append(crownEl());
   $('opp-nick').textContent = game.oppNick;
   const online = game.mode === 'online';
   $('me-rank').textContent = online ? rankIcon(myPoints) : '';
@@ -2627,7 +2630,7 @@ $('rp-clip').addEventListener('click', async () => {
   playReplay(false);                       // one thing on the screen at a time
   clipLabel(t('clip_making').replace('%n', '0'), { busy: true });
   try {
-    const { makeClip } = await import('./clip.js?v=165');
+    const { makeClip } = await import('./clip.js?v=166');
     const last = game.history[game.history.length - 1];
     const winner = last?.winner ?? game.state?.winner ?? null;
     const quad = isQuad();
@@ -2786,6 +2789,7 @@ function lbRow(row, place, scope, mine) {
   el.querySelector('.lb-rank').textContent = place ? medal : '—';
   el.querySelector('.r-avatar').textContent = (row.nick || '?')[0].toUpperCase();
   el.querySelector('.lb-name').textContent = row.nick;
+  if (row.premium) el.querySelector('.lb-name').append(crownEl());
   // A rank is built out of a lifetime of points, so it says nothing about an
   // evening's worth of them — on the day's board it is left off.
   el.querySelector('.lb-badge').textContent = scope === 'today' ? '' : rankChip(pts);
@@ -2886,6 +2890,7 @@ function updateProfileUI() {
   $('logged-box').hidden = !logged;
   $('vibro-toggle').checked = vibroOn;
   $('sound-toggle').checked = soundOn;
+  renderPremium();
 }
 
 /* ================= streak ================= */
@@ -3053,7 +3058,7 @@ for (const id of ['btn-restore-streak', 'btn-restore-home']) {
 function startRestore() {
   $('btn-restore-streak').disabled = true;
   $('btn-restore-home').disabled = true;
-  if (myStreakFree) { claimStreak(); return; }
+  if (myStreakFree || premiumNow()) { claimStreak(); return; }  // premium: never an ad
   // In the portal the ad is theirs and tells us when it is over, so there is
   // nothing to watch for and no reason to make the player wait out a timeout.
   if (embedded) { portalAd('rewarded').then(claimStreak); return; }
@@ -3350,6 +3355,7 @@ async function afterLogin() {
   // re-identify on the game server with the account nick
   await sendHello();
   loadFriends();
+  watchForPremium();   // back from a payment page, signed in again
 }
 
 // A nickname that broke the rules was replaced by hand. The player is told
@@ -3400,6 +3406,7 @@ $('btn-delete-go').addEventListener('click', async () => {
     try { if (supabase) await supabase.auth.signOut(); } catch { /* already gone */ }
     session = null;
     profile = null;
+    forgetPremium();
     localStorage.removeItem('wr_nick');
     sessionStorage.removeItem('wr_nick');
     sessionStorage.removeItem('wr_ws_token');
@@ -3419,6 +3426,7 @@ $('btn-logout').addEventListener('click', async () => {
   if (supabase) await supabase.auth.signOut();
   session = null;
   profile = null;
+  forgetPremium();
   updateProfileUI();
   sendHello();
 });
@@ -4189,3 +4197,171 @@ async function boot() {
 }
 
 boot();
+
+
+/* ================= Premium =================
+
+   Bought on lava.top's page, switched on by lava.top calling the server. The
+   browser never decides anyone is premium: it shows what /api/profile says,
+   and keeps a copy of the end date on the device only so the next visit's
+   <head> can skip the ad scripts before any of this has loaded. */
+
+function crownEl() {
+  const c = document.createElement('span');
+  c.className = 'crown';
+  c.textContent = '👑';
+  c.title = 'Premium';
+  return c;
+}
+
+function premiumUntil() {
+  if (profile && 'premium_until' in profile) return profile.premium_until ? Date.parse(profile.premium_until) : 0;
+  if (!session) return 0;
+  try { return +localStorage.getItem('wr_premium_until') || 0; } catch { return 0; }
+}
+function premiumNow() { return premiumUntil() > Date.now(); }
+
+function forgetPremium() {
+  try { localStorage.removeItem('wr_premium_until'); } catch { /* private mode */ }
+  document.documentElement.classList.remove('premium');
+}
+
+function premiumDate(ms) {
+  try { return new Date(ms).toLocaleDateString(lang, { day: 'numeric', month: 'short', year: 'numeric' }); }
+  catch { return new Date(ms).toISOString().slice(0, 10); }
+}
+
+function renderPremium() {
+  const until = premiumUntil();
+  const on = until > Date.now();
+  if (profile && 'premium_until' in profile) {
+    try {
+      if (on) localStorage.setItem('wr_premium_until', String(until));
+      else localStorage.removeItem('wr_premium_until');
+    } catch { /* private mode */ }
+  }
+  // before sign-in has settled, the <head> already decided from the device copy
+  if (session || profile) document.documentElement.classList.toggle('premium', on);
+  const offered = !window.WR_EMBED && Boolean(premiumInfo?.enabled);
+  const days = on ? Math.max(1, Math.ceil((until - Date.now()) / 86400000)) : 0;
+
+  const pill = $('premium-pill');
+  pill.hidden = !(on || offered);
+  pill.classList.toggle('mine', on);
+  $('premium-pill-text').textContent = on ? t('pm_pill_mine') : t('pm_pill');
+
+  const card = $('premium-card');
+  card.hidden = !(on || offered);
+  $('premium-card-title').textContent = on ? t('pm_active') : t('pm_get');
+  $('premium-card-sub').textContent = on
+    ? t('pm_until').replace('%date', premiumDate(until)).replace('%n', days)
+    : t('pm_card_sub');
+
+  if (on && profile) $('profile-nick').append(crownEl());
+  if (!$('overlay-premium').hidden) fillPremiumModal();
+}
+
+async function loadPremiumInfo() {
+  if (window.WR_EMBED) return;
+  try {
+    const r = await fetch('/api/premium/info');
+    if (r.ok) premiumInfo = await r.json();
+  } catch { /* offline: the offer just stays hidden */ }
+  renderPremium();
+}
+
+const money = (n) => '$' + (Math.round(Number(n) * 100) / 100).toString();
+
+function fillPremiumModal() {
+  const on = premiumNow();
+  const logged = Boolean(session && profile);
+  const prices = premiumInfo?.prices || { month: 5, year: 29.99 };
+  $('pm-price-month').textContent = money(prices.month);
+  $('pm-price-year').textContent = money(prices.year);
+  $('pm-per-month').textContent = t('pm_per_month').replace('%p', money(Math.floor(prices.year / 12 * 100) / 100));
+  $('pm-plans').hidden = on || !logged;
+  $('pm-signup').hidden = on || logged;
+  $('pm-fine').hidden = on;
+  $('pm-active').hidden = !on;
+  if (on) {
+    const until = premiumUntil();
+    $('pm-active-title').textContent = t('pm_active');
+    $('pm-active-sub').textContent = t('pm_until')
+      .replace('%date', premiumDate(until))
+      .replace('%n', Math.max(1, Math.ceil((until - Date.now()) / 86400000)));
+  }
+}
+
+function openPremium() {
+  $('pm-note').hidden = true;
+  document.querySelectorAll('.pm-plan').forEach(b => { b.disabled = false; });
+  fillPremiumModal();
+  $('overlay-premium').hidden = false;
+  if (!premiumInfo) loadPremiumInfo();
+}
+function closePremium() { $('overlay-premium').hidden = true; }
+
+$('premium-pill').addEventListener('click', openPremium);
+$('premium-card').addEventListener('click', openPremium);
+$('pm-close').addEventListener('click', closePremium);
+$('overlay-premium').addEventListener('click', (e) => { if (e.target.id === 'overlay-premium') closePremium(); });
+$('pm-signup').addEventListener('click', () => {
+  closePremium();
+  show('screen-profile');
+  if (ensureAuthAvailable()) openAuthForm('register');
+});
+
+document.querySelectorAll('.pm-plan').forEach(btn => btn.addEventListener('click', async () => {
+  const note = $('pm-note');
+  note.hidden = true;
+  document.querySelectorAll('.pm-plan').forEach(b => { b.disabled = true; });
+  try {
+    const r = await fetch('/api/premium/checkout', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
+      body: JSON.stringify({ plan: btn.dataset.plan, lang }),
+    });
+    const data = await r.json().catch(() => ({}));
+    if (data.url) {
+      // checked for when they come back from the payment page
+      try { sessionStorage.setItem('wr_pm_wait', String(Date.now())); } catch { /* fine */ }
+      location.href = data.url;
+      return;
+    }
+    note.textContent = t(data.error === 'plan_unavailable' ? 'pm_err_plan' : 'pm_err');
+  } catch {
+    note.textContent = t('pm_err');
+  }
+  note.hidden = false;
+  document.querySelectorAll('.pm-plan').forEach(b => { b.disabled = false; });
+}));
+
+/* Back from the payment page. The webhook usually lands within seconds, but
+   not always before the player does, so the profile is asked again a few
+   times. Nothing here grants anything — it only notices the server has. */
+async function watchForPremium() {
+  let since = 0;
+  try { since = +sessionStorage.getItem('wr_pm_wait') || 0; } catch { return; }
+  if (!since || Date.now() - since > 30 * 60_000 || !session) return;
+  for (let i = 0; i < 12; i++) {
+    try {
+      const r = await fetch('/api/profile', { headers: await authHeaders() });
+      const body = await r.json();
+      if (body.profile) {
+        profile = body.profile;
+        if (premiumNow()) {
+          try { sessionStorage.removeItem('wr_pm_wait'); } catch { /* fine */ }
+          updateProfileUI();
+          openPremium();
+          toast(t('pm_welcome'));
+          return;
+        }
+      }
+    } catch { /* keep trying */ }
+    await new Promise(r => setTimeout(r, 4000));
+  }
+}
+document.addEventListener('visibilitychange', () => { if (!document.hidden) watchForPremium(); });
+window.addEventListener('pageshow', () => watchForPremium());
+
+loadPremiumInfo();
