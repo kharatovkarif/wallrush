@@ -109,7 +109,7 @@ export default {
   pm_badge: 'Una corona 👑 junto a tu apodo: en la clasificación y en tu tarjeta de jugador',
   pm_streak: 'Recupera una racha perdida sin anuncios, tantas veces como quieras',
   board3d: 'Tablero 3D',
-  b3d_hint: 'Gira el tablero con el dedo',
+  b3d_hint: 'Gira con un dedo, acerca con dos',
   pm_3d: 'Tablero 3D: inclínalo y gíralo como quieras',
   pm_soon: 'Temas de tablero y fichas: muy pronto',
   pm_fair: 'Premium no ayuda a ganar: los puntos y los rangos funcionan igual para todos.',

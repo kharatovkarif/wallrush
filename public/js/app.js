@@ -1,16 +1,16 @@
 // WallRush client app: screens, board UI, online play (WebSocket), AI mode, auth.
-import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, wallBetween, N } from './engine.js?v=184';
-import { scheduleTick } from './sfx.js?v=184';
-import { aiMove } from './ai.js?v=184';
-import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=184';
-import { rankOf, nextRank } from './ranks.js?v=184';
-import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=184';
-import { checkNick, nickOk, randomNick } from './nick.js?v=184';
+import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, wallBetween, N } from './engine.js?v=185';
+import { scheduleTick } from './sfx.js?v=185';
+import { aiMove } from './ai.js?v=185';
+import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=185';
+import { rankOf, nextRank } from './ranks.js?v=185';
+import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=185';
+import { checkNick, nickOk, randomNick } from './nick.js?v=185';
 import {
   embedded, initPortal, inPortal, portalAd, portalPlaying, portalHappy,
   portalLoaded, portalInviteCode, portalShowInvite, portalHideInvite, portalInstant,
   portalRoom, portalOnJoin, portalInviteLink, portalMuted, portalOnMute, portalUserName,
-} from './portal.js?v=184';
+} from './portal.js?v=185';
 
 /* ================= state ================= */
 const $ = (id) => document.getElementById(id);
@@ -265,7 +265,7 @@ function getAiWorker() {
   if (aiWorker === false) return null;
   if (!aiWorker) {
     try {
-      aiWorker = new Worker('js/ai-worker.js?v=184', { type: 'module' });
+      aiWorker = new Worker('js/ai-worker.js?v=185', { type: 'module' });
       aiWorker.onmessage = (e) => {
         const cb = aiPending.get(e.data.id);
         aiPending.delete(e.data.id);
@@ -1521,6 +1521,7 @@ function renderGame() {
     const rect = wallRect(wallToView(w));
     el.style.cssText = `left:${rect.x}px;top:${rect.y}px;width:${rect.w}px;height:${rect.h}px`;
     el.classList.add(rect.w > rect.h ? 'wh' : 'wv');
+    el.innerHTML = '<i class="wf wf-n"></i><i class="wf wf-s"></i><i class="wf wf-w"></i><i class="wf wf-e"></i>';   // the block's four sides, seen only in 3D
     board.appendChild(el);
   });
   game._wallsRendered = s.walls.length;
@@ -1773,6 +1774,7 @@ function updateDragPreview(clientX, clientY, isTouch) {
   const rect = wallRect(wallToView(dragSlot));
   previewEl.style.cssText = `left:${rect.x}px;top:${rect.y}px;width:${rect.w}px;height:${rect.h}px`;
   previewEl.classList.add(rect.w > rect.h ? 'wh' : 'wv');
+  if (!previewEl.firstChild) previewEl.innerHTML = '<i class="wf wf-n"></i><i class="wf wf-s"></i><i class="wf wf-w"></i><i class="wf wf-e"></i>';
 }
 
 function finishDrag() {
@@ -2639,7 +2641,7 @@ $('rp-clip').addEventListener('click', async () => {
   playReplay(false);                       // one thing on the screen at a time
   clipLabel(t('clip_making').replace('%n', '0'), { busy: true });
   try {
-    const { makeClip } = await import('./clip.js?v=184');
+    const { makeClip } = await import('./clip.js?v=185');
     const last = game.history[game.history.length - 1];
     const winner = last?.winner ?? game.state?.winner ?? null;
     const quad = isQuad();
@@ -4590,6 +4592,10 @@ function b3dOn() { return b3dWanted() && can3d(); }
 
 // turned corner-on, a square is wider than it is flat; shrink it so the
 // corners stay on a narrow phone's screen
+// pinch or mouse wheel; 1 is the board fitted to the screen
+const B3D_ZOOM = [0.6, 1.9];
+function b3dZoom() { return Math.max(B3D_ZOOM[0], Math.min(B3D_ZOOM[1], Number(b3d.zoom) || 1)); }
+
 function b3dScale() {
   const a = b3d.spin * Math.PI / 180;
   return Math.min(B3D_SCALE, 1 / (Math.abs(Math.cos(a)) + Math.abs(Math.sin(a))) * 1.05);
@@ -4598,7 +4604,7 @@ function b3dScale() {
 function b3dMatrix() {
   const m = new DOMMatrix();
   m.m34 = -1 / B3D_PERSP;
-  return m.rotateAxisAngle(1, 0, 0, b3d.tilt).rotateAxisAngle(0, 0, 1, b3d.spin).scale(b3dScale());
+  return m.rotateAxisAngle(1, 0, 0, b3d.tilt).rotateAxisAngle(0, 0, 1, b3d.spin).scale(b3dScale() * b3dZoom());
 }
 
 function boardPoint(clientX, clientY) {
@@ -4623,7 +4629,7 @@ function boardPoint(clientX, clientY) {
 function applyB3d() {
   const on = b3dOn();
   board.classList.toggle('b3d', on);
-  board.style.transform = on ? `perspective(${B3D_PERSP}px) rotateX(${b3d.tilt}deg) rotateZ(${b3d.spin}deg) scale(${b3dScale()})` : '';
+  board.style.transform = on ? `perspective(${B3D_PERSP}px) rotateX(${b3d.tilt}deg) rotateZ(${b3d.spin}deg) scale(${b3dScale() * b3dZoom()})` : '';
   // the pawns read these to keep facing the camera
   board.style.setProperty('--tilt', b3d.tilt);
   board.style.setProperty('--spin', b3d.spin);
@@ -4647,7 +4653,7 @@ $('b3d-toggle').addEventListener('change', (e) => {
 $('b3d-ctl').addEventListener('click', (e) => {
   const k = e.target.closest('button')?.dataset.b3d;
   if (!k) return;
-  if (k === 'reset') b3d = { tilt: 42, spin: 0 };
+  if (k === 'reset') b3d = { tilt: 42, spin: 0, zoom: 1 };
   try { localStorage.setItem('wr_3d_view', JSON.stringify(b3d)); } catch { /* private mode */ }
   applyB3d();
 });
@@ -4688,7 +4694,9 @@ function orbitMove(x, y, ev) {
   orbitMoved = true;
   if (ev?.cancelable) ev.preventDefault();
   board.classList.add('orbiting');
-  b3d.spin = orbit.spin + dx * 0.45;
+  // the edge nearest the player follows the finger, as if the board were
+  // turned by hand (it used to go the other way)
+  b3d.spin = orbit.spin - dx * 0.45;
   b3d.tilt = Math.max(0, Math.min(B3D_TILT_MAX, orbit.tilt - dy * 0.35));
   applyB3d();
 }
@@ -4713,3 +4721,38 @@ document.addEventListener('touchcancel', orbitEnd);
 board.addEventListener('mousedown', (e) => { if (!('ontouchstart' in window)) orbitBegin(e.clientX, e.clientY); });
 window.addEventListener('mousemove', (e) => { if (orbit) orbitMove(e.clientX, e.clientY, e); });
 window.addEventListener('mouseup', orbitEnd);
+
+
+/* Zooming the 3D board: two fingers apart or together, or the mouse wheel.
+   Two fingers never move a piece or turn the board — that is one finger. */
+let pinch = null;
+const touchGap = (t) => Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY);
+board.addEventListener('touchstart', (e) => {
+  if (!board.classList.contains('b3d') || e.touches.length !== 2 || dragWall) return;
+  orbit = null;   // a second finger turns a turn into a pinch
+  orbitMoved = true;
+  pinch = { gap: touchGap(e.touches), zoom: b3dZoom() };
+}, { passive: true });
+document.addEventListener('touchmove', (e) => {
+  if (!pinch || e.touches.length !== 2) return;
+  if (e.cancelable) e.preventDefault();
+  board.classList.add('orbiting');
+  b3d.zoom = Math.max(B3D_ZOOM[0], Math.min(B3D_ZOOM[1], pinch.zoom * touchGap(e.touches) / pinch.gap));
+  applyB3d();
+}, { passive: false });
+const pinchEnd = (e) => {
+  if (!pinch || (e.touches && e.touches.length >= 2)) return;
+  pinch = null;
+  board.classList.remove('orbiting');
+  try { localStorage.setItem('wr_3d_view', JSON.stringify(b3d)); } catch { /* private mode */ }
+  setTimeout(() => { orbitMoved = false; }, 350);
+};
+document.addEventListener('touchend', pinchEnd);
+document.addEventListener('touchcancel', pinchEnd);
+board.addEventListener('wheel', (e) => {
+  if (!board.classList.contains('b3d')) return;
+  e.preventDefault();
+  b3d.zoom = Math.max(B3D_ZOOM[0], Math.min(B3D_ZOOM[1], b3dZoom() * Math.exp(-e.deltaY * 0.0015)));
+  applyB3d();
+  try { localStorage.setItem('wr_3d_view', JSON.stringify(b3d)); } catch { /* private mode */ }
+}, { passive: false });

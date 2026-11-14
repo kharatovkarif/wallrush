@@ -1553,13 +1553,6 @@ html[data-theme="dark"] .pm-active .pm-notice { color: #ffc93c; }
   transform-style: preserve-3d; transform: translateZ(var(--wh));
   border-radius: 3px; box-shadow: none; animation: none;
 }
-#board.b3d .wall::before, #board.b3d .wall::after {
-  content: ''; position: absolute; background: inherit; filter: brightness(.62);
-}
-#board.b3d .wall.wh::before { left: 0; top: 100%; width: 100%; height: var(--wh); transform-origin: top; transform: rotateX(-90deg); }
-#board.b3d .wall.wh::after  { left: 0; bottom: 100%; width: 100%; height: var(--wh); transform-origin: bottom; transform: rotateX(90deg); }
-#board.b3d .wall.wv::before { top: 0; left: 100%; height: 100%; width: var(--wh); transform-origin: left; transform: rotateY(90deg); }
-#board.b3d .wall.wv::after  { top: 0; right: 100%; height: 100%; width: var(--wh); transform-origin: right; transform: rotateY(-90deg); }
 #board.b3d .pawn {
   transform: translateZ(calc(var(--pr, 12px))) rotateZ(calc(-1deg * var(--spin))) rotateX(calc(-1deg * var(--tilt)));
   box-shadow: inset -4px -8px 12px rgba(0,0,0,.4), inset 2px 4px 6px rgba(255,255,255,.25);
@@ -1572,3 +1565,12 @@ html[data-theme="dark"] .pm-active .pm-notice { color: #ffc93c; }
    clean to begin with. */
 html.twa .ad-slot, html.twa #btn-open-support, html.twa .side-support,
 html.twa #btn-res-support, html.twa [data-support] { display: none !important; }
+
+/* the four sides of a 3D wall block: hung from the lid (lifted by --wh) down
+   to the board. All four, so a block seen end-on is solid, not a hollow fence */
+.wall > .wf { display: none; }
+#board.b3d .wall > .wf { display: block; position: absolute; background: inherit; }
+#board.b3d .wall > .wf-n { left: 0; bottom: 100%; width: 100%; height: var(--wh); transform-origin: bottom; transform: rotateX(90deg); filter: brightness(.7); }
+#board.b3d .wall > .wf-s { left: 0; top: 100%; width: 100%; height: var(--wh); transform-origin: top; transform: rotateX(-90deg); filter: brightness(.55); }
+#board.b3d .wall > .wf-w { top: 0; right: 100%; height: 100%; width: var(--wh); transform-origin: right; transform: rotateY(-90deg); filter: brightness(.62); }
+#board.b3d .wall > .wf-e { top: 0; left: 100%; height: 100%; width: var(--wh); transform-origin: left; transform: rotateY(90deg); filter: brightness(.62); }
