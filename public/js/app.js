@@ -1,16 +1,16 @@
 // WallRush client app: screens, board UI, online play (WebSocket), AI mode, auth.
-import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, wallBetween, N } from './engine.js?v=185';
-import { scheduleTick } from './sfx.js?v=185';
-import { aiMove } from './ai.js?v=185';
-import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=185';
-import { rankOf, nextRank } from './ranks.js?v=185';
-import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=185';
-import { checkNick, nickOk, randomNick } from './nick.js?v=185';
+import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, wallBetween, N } from './engine.js?v=186';
+import { scheduleTick } from './sfx.js?v=186';
+import { aiMove } from './ai.js?v=186';
+import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=186';
+import { rankOf, nextRank } from './ranks.js?v=186';
+import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=186';
+import { checkNick, nickOk, randomNick } from './nick.js?v=186';
 import {
   embedded, initPortal, inPortal, portalAd, portalPlaying, portalHappy,
   portalLoaded, portalInviteCode, portalShowInvite, portalHideInvite, portalInstant,
   portalRoom, portalOnJoin, portalInviteLink, portalMuted, portalOnMute, portalUserName,
-} from './portal.js?v=185';
+} from './portal.js?v=186';
 
 /* ================= state ================= */
 const $ = (id) => document.getElementById(id);
@@ -265,7 +265,7 @@ function getAiWorker() {
   if (aiWorker === false) return null;
   if (!aiWorker) {
     try {
-      aiWorker = new Worker('js/ai-worker.js?v=185', { type: 'module' });
+      aiWorker = new Worker('js/ai-worker.js?v=186', { type: 'module' });
       aiWorker.onmessage = (e) => {
         const cb = aiPending.get(e.data.id);
         aiPending.delete(e.data.id);
@@ -2641,7 +2641,7 @@ $('rp-clip').addEventListener('click', async () => {
   playReplay(false);                       // one thing on the screen at a time
   clipLabel(t('clip_making').replace('%n', '0'), { busy: true });
   try {
-    const { makeClip } = await import('./clip.js?v=185');
+    const { makeClip } = await import('./clip.js?v=186');
     const last = game.history[game.history.length - 1];
     const winner = last?.winner ?? game.state?.winner ?? null;
     const quad = isQuad();
@@ -4756,3 +4756,15 @@ board.addEventListener('wheel', (e) => {
   applyB3d();
   try { localStorage.setItem('wr_3d_view', JSON.stringify(b3d)); } catch { /* private mode */ }
 }, { passive: false });
+
+
+// Arrived from the Premium announcement (push → /?premium=1): open the window
+// once the offer is known, and take the flag out of the address bar.
+try {
+  const q = new URLSearchParams(location.search);
+  if (q.get('premium') === '1') {
+    q.delete('premium');
+    history.replaceState(null, '', location.pathname + (q.toString() ? '?' + q : '') + location.hash);
+    setTimeout(() => { if (!window.WR_TWA && !window.WR_EMBED) openPremium(); }, 1500);
+  }
+} catch { /* old browser */ }

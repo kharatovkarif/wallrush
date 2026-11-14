@@ -285,6 +285,24 @@ export function pickMessage(sub, ctx, now, onlineNow) {
   return { ...chosen.msg, url: chosen.url, kind: chosen.kind };
 }
 
+/* A one-off announcement, sent once to every subscriber in their own evening
+   instead of that day's usual reminder (so nobody gets two). Ends by itself
+   after `until`; push_subs.campaign_sent records who already had it.
+   Premium owners are skipped: telling them about what they bought is noise. */
+export const CAMPAIGN = {
+  id: 'premium-2026-11',
+  until: Date.parse('2026-11-17T00:00:00Z'),
+  url: '/?premium=1',
+  text: {
+    ru: { title: '👑 Новое в WallRush: Premium', body: '3D-доска, которую можно крутить пальцем, корона у ника и игра без рекламы. Загляни!' },
+    en: { title: '👑 New in WallRush: Premium', body: 'A 3D board you can spin with your finger, a crown by your name and no ads. Take a look!' },
+    es: { title: '👑 Novedad en WallRush: Premium', body: 'Un tablero 3D que giras con el dedo, una corona junto a tu apodo y sin anuncios. ¡Échale un vistazo!' },
+    fr: { title: '👑 Nouveau sur WallRush : Premium', body: 'Un plateau 3D à tourner du doigt, une couronne à côté de ton pseudo et zéro pub. Viens voir !' },
+    tr: { title: '👑 WallRush’ta yeni: Premium', body: 'Parmağınla döndürdüğün 3D tahta, takma adının yanında taç ve reklamsız oyun. Bir göz at!' },
+    fa: { title: '👑 تازه در WallRush: Premium', body: 'صفحهٔ سه‌بعدی که با انگشت می‌چرخد، تاج کنار نامت و بازی بدون تبلیغ. سری بزن!' },
+  },
+};
+
 // Runs hourly. Picks the people for whom it is currently early evening and
 // who have not been written to in the last twenty hours, gathers what is true
 // about each of them — in one query per fact, not one per person — and lets
@@ -295,7 +313,7 @@ export async function pushTick(onlineNow, onlineUserIds = new Set()) {
     const now = Date.now();
     const cutoff = new Date(now - 20 * 3600e3).toISOString();
     const { data: subs } = await supa.from('push_subs')
-      .select('endpoint, device_id, p256dh, auth, tz_offset, lang, fails, last_sent, last_kind')
+      .select('endpoint, device_id, p256dh, auth, tz_offset, lang, fails, last_sent, last_kind, campaign_sent')
       .or(`last_sent.is.null,last_sent.lt.${cutoff}`)
       .limit(2000);
     if (!subs?.length) return;
@@ -348,8 +366,30 @@ export async function pushTick(onlineNow, onlineUserIds = new Set()) {
       for (const d of dp || []) if (d.done) doneKeys.add(d.key + '|' + d.day);
     }
 
+    // who already has Premium (their devices get the usual message instead)
+    const campaignOn = CAMPAIGN && now < CAMPAIGN.until;
+    const premiumUsers = new Set();
+    if (campaignOn) {
+      const uids = [...new Set((rows || []).map(r => r.user_id).filter(Boolean))];
+      if (uids.length) {
+        const { data: pr } = await supa.from('profiles').select('id')
+          .in('id', uids).gt('premium_until', new Date(now).toISOString());
+        for (const p of pr || []) premiumUsers.add(p.id);
+      }
+    }
+
     let sent = 0;
+    let announced = 0;
     for (const s of evening) {
+      if (campaignOn && s.campaign_sent !== CAMPAIGN.id && !premiumUsers.has(byDevice.get(s.device_id)?.user_id)) {
+        const text = CAMPAIGN.text[String(s.lang || '').slice(0, 2)] || CAMPAIGN.text.en;
+        if (await deliver(s, { ...text, url: CAMPAIGN.url }, 'campaign')) {
+          await supa.from('push_subs').update({ campaign_sent: CAMPAIGN.id }).eq('endpoint', s.endpoint);
+          sent++; announced++;
+        }
+        if (sent >= 400) break;
+        continue;
+      }
       const v = byDevice.get(s.device_id) || null;
       const day = localDay(s.tz_offset || 0);
       const task = taskForDay(day);
@@ -370,7 +410,7 @@ export async function pushTick(onlineNow, onlineUserIds = new Set()) {
       if (await deliver(s, body, kind)) sent++;
       if (sent >= 400) break;                    // gentle on the free tier
     }
-    if (sent) console.log(`push: sent ${sent} notifications`);
+    if (sent) console.log(`push: sent ${sent} notifications${announced ? ` (${announced} of them the Premium announcement)` : ''}`);
   } catch (e) {
     console.error('pushTick failed:', e.message);
   }
