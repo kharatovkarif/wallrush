@@ -124,7 +124,7 @@ export default {
   pm_cancel_confirm: 'Tekrar dokun: otomatik yenileme kapanır, Premium dönem sonuna kadar kalır',
   pm_cancel_done: 'Otomatik yenileme kapatıldı. Premium ödenen dönemin sonuna kadar açık kalır.',
   pm_cancel_err: 'Buradan kapatılamadı. lava.top e-postasındaki bağlantıyı kullan ya da ads@wallrush.online adresine yaz.',
-  pm_fine: 'Ödeme lava.top üzerinden. Abonelik kendiliğinden yenilenir; otomatik yenilemeyi istediğin zaman burada ya da lava.top e-postasındaki bağlantıyla kapatabilirsin. Fikrini mi değiştirdin? 14 gün içinde iade.',
+  pm_fine: 'Ödeme lava.top üzerinden. Abonelik kendiliğinden yenilenir; otomatik yenilemeyi istediğin zaman burada ya da lava.top e-postasındaki bağlantıyla kapatabilirsin.',
   pm_rub_note: 'Ödeme ruble olarak alınır: aylık %m, yıllık %y.',
   pm_charged: 'ödeme %p',
   pm_year_price: 'yıllık ücret',

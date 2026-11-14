@@ -129,12 +129,23 @@ let rateCache = { at: 0, rates: null };
 // units of each currency per one dollar
 export async function usdRates() {
   if (rateCache.rates && Date.now() - rateCache.at < 12 * 3600_000) return rateCache.rates;
+  let rates = null;
   try {
     const r = await fetch('https://open.er-api.com/v6/latest/USD', { signal: AbortSignal.timeout(8000) });
     const j = await r.json();
-    const rub = Number(j?.rates?.RUB);
-    if (rub > 10 && rub < 1000) rateCache = { at: Date.now(), rates: j.rates };
+    if (Number(j?.rates?.RUB) > 10) rates = { ...j.rates };
   } catch (e) { console.error('[premium] rate', e.message); }
+  /* The rouble from the Central Bank of Russia: a Russian payment service
+     converts at about that rate, so the dollar figure on screen comes out the
+     same as on lava.top (149.99 ₽ showed as $1.81 there on 13 Nov). */
+  try {
+    const r = await fetch('https://www.cbr-xml-daily.ru/daily_json.js', { signal: AbortSignal.timeout(8000) });
+    const j = await r.json();
+    const usd = j?.Valute?.USD;
+    const rub = usd ? Number(usd.Value) / Number(usd.Nominal || 1) : 0;
+    if (rub > 10 && rub < 1000) rates = { ...(rates || {}), RUB: rub };
+  } catch (e) { console.error('[premium] cbr rate', e.message); }
+  if (rates) rateCache = { at: Date.now(), rates };
   return rateCache.rates || null;
 }
 export async function usdRub() { return Number((await usdRates())?.RUB) || 0; }
