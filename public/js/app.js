@@ -1,16 +1,16 @@
 // WallRush client app: screens, board UI, online play (WebSocket), AI mode, auth.
-import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, wallBetween, N } from './engine.js?v=180';
-import { scheduleTick } from './sfx.js?v=180';
-import { aiMove } from './ai.js?v=180';
-import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=180';
-import { rankOf, nextRank } from './ranks.js?v=180';
-import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=180';
-import { checkNick, nickOk, randomNick } from './nick.js?v=180';
+import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, wallBetween, N } from './engine.js?v=181';
+import { scheduleTick } from './sfx.js?v=181';
+import { aiMove } from './ai.js?v=181';
+import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=181';
+import { rankOf, nextRank } from './ranks.js?v=181';
+import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=181';
+import { checkNick, nickOk, randomNick } from './nick.js?v=181';
 import {
   embedded, initPortal, inPortal, portalAd, portalPlaying, portalHappy,
   portalLoaded, portalInviteCode, portalShowInvite, portalHideInvite, portalInstant,
   portalRoom, portalOnJoin, portalInviteLink, portalMuted, portalOnMute, portalUserName,
-} from './portal.js?v=180';
+} from './portal.js?v=181';
 
 /* ================= state ================= */
 const $ = (id) => document.getElementById(id);
@@ -265,7 +265,7 @@ function getAiWorker() {
   if (aiWorker === false) return null;
   if (!aiWorker) {
     try {
-      aiWorker = new Worker('js/ai-worker.js?v=180', { type: 'module' });
+      aiWorker = new Worker('js/ai-worker.js?v=181', { type: 'module' });
       aiWorker.onmessage = (e) => {
         const cb = aiPending.get(e.data.id);
         aiPending.delete(e.data.id);
@@ -1520,6 +1520,7 @@ function renderGame() {
     if (idx < prevWallCount) el.classList.add('no-anim');
     const rect = wallRect(wallToView(w));
     el.style.cssText = `left:${rect.x}px;top:${rect.y}px;width:${rect.w}px;height:${rect.h}px`;
+    el.classList.add(rect.w > rect.h ? 'wh' : 'wv');
     board.appendChild(el);
   });
   game._wallsRendered = s.walls.length;
@@ -1771,6 +1772,7 @@ function updateDragPreview(clientX, clientY, isTouch) {
   previewEl.className = `wall preview ${myColor()} ${dragValid ? 'preview-ok' : 'preview-bad'}`;
   const rect = wallRect(wallToView(dragSlot));
   previewEl.style.cssText = `left:${rect.x}px;top:${rect.y}px;width:${rect.w}px;height:${rect.h}px`;
+  previewEl.classList.add(rect.w > rect.h ? 'wh' : 'wv');
 }
 
 function finishDrag() {
@@ -1915,6 +1917,7 @@ function tapCell(target) {
 // react on touchend directly: mobile browsers fire `click` with a delay,
 // and the move must land the instant the finger lifts
 let cellTouch = null;
+let orbitMoved = false;   // set while the 3D board is being turned by hand
 board.addEventListener('touchstart', (e) => {
   if (e.touches.length === 1 && !dragWall) {
     const tt = e.touches[0];
@@ -1924,7 +1927,7 @@ board.addEventListener('touchstart', (e) => {
 board.addEventListener('touchend', (e) => {
   const start = cellTouch;
   cellTouch = null;
-  if (!start || dragWall) return;
+  if (!start || dragWall || orbitMoved) return;
   const tt = e.changedTouches[0];
   if (Math.abs(tt.clientX - start.x) > 14 || Math.abs(tt.clientY - start.y) > 14) return; // was a scroll
   if (tapCell(document.elementFromPoint(tt.clientX, tt.clientY))) {
@@ -1932,7 +1935,11 @@ board.addEventListener('touchend', (e) => {
   }
 }, { passive: false });
 
-board.addEventListener('click', (e) => { tapCell(e.target); }, false);
+board.addEventListener('click', (e) => {
+  // the end of turning the 3D board with the mouse is not a move
+  if (orbitMoved) { orbitMoved = false; return; }
+  tapCell(e.target);
+}, false);
 
 function submitMove(move) {
   if (!isMyTurn()) return;
@@ -2632,7 +2639,7 @@ $('rp-clip').addEventListener('click', async () => {
   playReplay(false);                       // one thing on the screen at a time
   clipLabel(t('clip_making').replace('%n', '0'), { busy: true });
   try {
-    const { makeClip } = await import('./clip.js?v=180');
+    const { makeClip } = await import('./clip.js?v=181');
     const last = game.history[game.history.length - 1];
     const winner = last?.winner ?? game.state?.winner ?? null;
     const quad = isQuad();
@@ -4570,16 +4577,24 @@ const B3D_PERSP = 900;
 // a tilted board is wider at the near edge than the flat one; this keeps the
 // frame on screen on a narrow phone
 const B3D_SCALE = 0.86;
+const B3D_TILT_MAX = 74;   // from straight above to nearly side-on
 let b3d = { tilt: 42, spin: 0 };
 try { const v = JSON.parse(localStorage.getItem('wr_3d_view') || 'null'); if (v) b3d = { ...b3d, ...v }; } catch { /* default */ }
 
 function b3dWanted() { try { return localStorage.getItem('wr_3d') === '1'; } catch { return false; } }
 function b3dOn() { return b3dWanted() && premiumNow(); }
 
+// turned corner-on, a square is wider than it is flat; shrink it so the
+// corners stay on a narrow phone's screen
+function b3dScale() {
+  const a = b3d.spin * Math.PI / 180;
+  return Math.min(B3D_SCALE, 1 / (Math.abs(Math.cos(a)) + Math.abs(Math.sin(a))) * 1.05);
+}
+
 function b3dMatrix() {
   const m = new DOMMatrix();
   m.m34 = -1 / B3D_PERSP;
-  return m.rotateAxisAngle(1, 0, 0, b3d.tilt).rotateAxisAngle(0, 0, 1, b3d.spin).scale(B3D_SCALE);
+  return m.rotateAxisAngle(1, 0, 0, b3d.tilt).rotateAxisAngle(0, 0, 1, b3d.spin).scale(b3dScale());
 }
 
 function boardPoint(clientX, clientY) {
@@ -4604,7 +4619,12 @@ function boardPoint(clientX, clientY) {
 function applyB3d() {
   const on = b3dOn();
   board.classList.toggle('b3d', on);
-  board.style.transform = on ? `perspective(${B3D_PERSP}px) rotateX(${b3d.tilt}deg) rotateZ(${b3d.spin}deg) scale(${B3D_SCALE})` : '';
+  board.style.transform = on ? `perspective(${B3D_PERSP}px) rotateX(${b3d.tilt}deg) rotateZ(${b3d.spin}deg) scale(${b3dScale()})` : '';
+  // the pawns read these to keep facing the camera
+  board.style.setProperty('--tilt', b3d.tilt);
+  board.style.setProperty('--spin', b3d.spin);
+  const cell = board.querySelector('.cell');
+  if (cell) board.style.setProperty('--pr', Math.round(cell.offsetWidth * 0.42) + 'px');
   $('b3d-ctl').hidden = !on;
   const tg = $('b3d-toggle');
   if (tg) tg.checked = on;
@@ -4623,11 +4643,7 @@ $('b3d-toggle').addEventListener('change', (e) => {
 $('b3d-ctl').addEventListener('click', (e) => {
   const k = e.target.closest('button')?.dataset.b3d;
   if (!k) return;
-  if (k === 'left') b3d.spin -= 15;
-  else if (k === 'right') b3d.spin += 15;
-  else if (k === 'up') b3d.tilt = Math.max(0, b3d.tilt - 8);
-  else if (k === 'down') b3d.tilt = Math.min(62, b3d.tilt + 8);
-  else if (k === 'reset') b3d = { tilt: 42, spin: 0 };
+  if (k === 'reset') b3d = { tilt: 42, spin: 0 };
   try { localStorage.setItem('wr_3d_view', JSON.stringify(b3d)); } catch { /* private mode */ }
   applyB3d();
 });
@@ -4647,3 +4663,49 @@ setTimeout(() => {
     if (!slot.querySelector('iframe, img, ins, video')) slot.style.display = 'none';
   });
 }, 8000);
+
+
+/* Turning the 3D board by hand. One finger (or the mouse) on the board: a short
+   tap is still a move, but once it travels more than a few pixels it turns
+   the board instead — sideways spins it round, up and down tilts it. Walls are
+   still dragged from the dock as always; while one is in the hand the board
+   does not turn. */
+let orbit = null;
+const ORBIT_START = 12;
+function orbitBegin(x, y) {
+  if (!board.classList.contains('b3d') || dragWall) return;
+  orbit = { x, y, tilt: b3d.tilt, spin: b3d.spin, moved: false };
+}
+function orbitMove(x, y, ev) {
+  if (!orbit || dragWall) return;
+  const dx = x - orbit.x, dy = y - orbit.y;
+  if (!orbit.moved && Math.hypot(dx, dy) < ORBIT_START) return;
+  orbit.moved = true;
+  orbitMoved = true;
+  if (ev?.cancelable) ev.preventDefault();
+  board.classList.add('orbiting');
+  b3d.spin = orbit.spin + dx * 0.45;
+  b3d.tilt = Math.max(0, Math.min(B3D_TILT_MAX, orbit.tilt - dy * 0.35));
+  applyB3d();
+}
+function orbitEnd() {
+  if (!orbit) return;
+  if (orbit.moved) {
+    try { localStorage.setItem('wr_3d_view', JSON.stringify(b3d)); } catch { /* private mode */ }
+    // a touch that turned the board must not also land as a tap
+    setTimeout(() => { orbitMoved = false; }, 350);
+  }
+  board.classList.remove('orbiting');
+  orbit = null;
+}
+board.addEventListener('touchstart', (e) => {
+  if (e.touches.length === 1) orbitBegin(e.touches[0].clientX, e.touches[0].clientY);
+}, { passive: true });
+document.addEventListener('touchmove', (e) => {
+  if (orbit && e.touches.length === 1) orbitMove(e.touches[0].clientX, e.touches[0].clientY, e);
+}, { passive: false });
+document.addEventListener('touchend', orbitEnd);
+document.addEventListener('touchcancel', orbitEnd);
+board.addEventListener('mousedown', (e) => { if (!('ontouchstart' in window)) orbitBegin(e.clientX, e.clientY); });
+window.addEventListener('mousemove', (e) => { if (orbit) orbitMove(e.clientX, e.clientY, e); });
+window.addEventListener('mouseup', orbitEnd);

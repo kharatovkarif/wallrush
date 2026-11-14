@@ -109,6 +109,7 @@ export default {
   pm_badge: 'Takma adının yanında taç 👑: sıralamada ve oyuncu kartında',
   pm_streak: 'Kaybettiğin seriyi reklamsız geri al, istediğin kadar',
   board3d: '3D tahta',
+  b3d_hint: 'Tahtayı parmağınla döndür',
   pm_3d: '3D tahta: istediğin gibi eğ ve döndür',
   pm_soon: 'Tahta ve taş temaları: yakında',
   pm_fair: 'Premium kazanmaya yardım etmez: puanlar ve rütbeler herkes için aynıdır.',

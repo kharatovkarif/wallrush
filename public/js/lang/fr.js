@@ -109,6 +109,7 @@ export default {
   pm_badge: 'Une couronne 👑 à côté de ton pseudo : au classement et sur ta fiche de joueur',
   pm_streak: 'Récupère une série perdue sans publicité, autant de fois que nécessaire',
   board3d: 'Plateau 3D',
+  b3d_hint: 'Tourne le plateau du doigt',
   pm_3d: 'Plateau 3D : incline-le et tourne-le comme tu veux',
   pm_soon: 'Thèmes de plateau et de pions : bientôt',
   pm_fair: 'Premium n’aide jamais à gagner : points et rangs fonctionnent pareil pour tous.',

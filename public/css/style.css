@@ -1537,3 +1537,32 @@ html.premium .b3d-lock { display: none; }
 .pm-active .pm-notice { color: #9a5b00; }
 html[data-theme="dark"] .pm-active .pm-notice { color: #ffc93c; }
 .pm-plan .pm-charge { font-size: 11.5px; color: var(--text); opacity: .7; margin-top: -2px; }
+
+/* ---- 3D board with volume (Premium) ----
+   The board is a plane in 3D space (preserve-3d), the camera is the board's own
+   transform (--tilt, --spin), and things on it stand up from it:
+   - walls are blocks: the element itself is the lid, lifted by --wh, and its
+     two long sides hang from it down to the board (::before / ::after);
+   - pawns are balls: a ball looks the same from every side, so the disc is
+     lifted by its radius and turned to face the camera (undoing the board's
+     rotation), which is exactly what a sphere looks like.
+   Squares stay flat on the plane, so taps keep landing where they did. */
+#board.b3d { transform-style: preserve-3d; --wh: 15px; }
+#board.b3d.orbiting { transition: none; }
+#board.b3d .wall {
+  transform-style: preserve-3d; transform: translateZ(var(--wh));
+  border-radius: 3px; box-shadow: none; animation: none;
+}
+#board.b3d .wall::before, #board.b3d .wall::after {
+  content: ''; position: absolute; background: inherit; filter: brightness(.62);
+}
+#board.b3d .wall.wh::before { left: 0; top: 100%; width: 100%; height: var(--wh); transform-origin: top; transform: rotateX(-90deg); }
+#board.b3d .wall.wh::after  { left: 0; bottom: 100%; width: 100%; height: var(--wh); transform-origin: bottom; transform: rotateX(90deg); }
+#board.b3d .wall.wv::before { top: 0; left: 100%; height: 100%; width: var(--wh); transform-origin: left; transform: rotateY(90deg); }
+#board.b3d .wall.wv::after  { top: 0; right: 100%; height: 100%; width: var(--wh); transform-origin: right; transform: rotateY(-90deg); }
+#board.b3d .pawn {
+  transform: translateZ(calc(var(--pr, 12px))) rotateZ(calc(-1deg * var(--spin))) rotateX(calc(-1deg * var(--tilt)));
+  box-shadow: inset -4px -8px 12px rgba(0,0,0,.4), inset 2px 4px 6px rgba(255,255,255,.25);
+}
+.b3d-ctl { align-items: center; }
+.b3d-hint { font-size: 12.5px; color: var(--muted); }
