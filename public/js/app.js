@@ -1,16 +1,16 @@
 // WallRush client app: screens, board UI, online play (WebSocket), AI mode, auth.
-import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, wallBetween, N } from './engine.js?v=181';
-import { scheduleTick } from './sfx.js?v=181';
-import { aiMove } from './ai.js?v=181';
-import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=181';
-import { rankOf, nextRank } from './ranks.js?v=181';
-import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=181';
-import { checkNick, nickOk, randomNick } from './nick.js?v=181';
+import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, wallBetween, N } from './engine.js?v=182';
+import { scheduleTick } from './sfx.js?v=182';
+import { aiMove } from './ai.js?v=182';
+import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=182';
+import { rankOf, nextRank } from './ranks.js?v=182';
+import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=182';
+import { checkNick, nickOk, randomNick } from './nick.js?v=182';
 import {
   embedded, initPortal, inPortal, portalAd, portalPlaying, portalHappy,
   portalLoaded, portalInviteCode, portalShowInvite, portalHideInvite, portalInstant,
   portalRoom, portalOnJoin, portalInviteLink, portalMuted, portalOnMute, portalUserName,
-} from './portal.js?v=181';
+} from './portal.js?v=182';
 
 /* ================= state ================= */
 const $ = (id) => document.getElementById(id);
@@ -265,7 +265,7 @@ function getAiWorker() {
   if (aiWorker === false) return null;
   if (!aiWorker) {
     try {
-      aiWorker = new Worker('js/ai-worker.js?v=181', { type: 'module' });
+      aiWorker = new Worker('js/ai-worker.js?v=182', { type: 'module' });
       aiWorker.onmessage = (e) => {
         const cb = aiPending.get(e.data.id);
         aiPending.delete(e.data.id);
@@ -2639,7 +2639,7 @@ $('rp-clip').addEventListener('click', async () => {
   playReplay(false);                       // one thing on the screen at a time
   clipLabel(t('clip_making').replace('%n', '0'), { busy: true });
   try {
-    const { makeClip } = await import('./clip.js?v=181');
+    const { makeClip } = await import('./clip.js?v=182');
     const last = game.history[game.history.length - 1];
     const winner = last?.winner ?? game.state?.winner ?? null;
     const quad = isQuad();
@@ -4582,7 +4582,10 @@ let b3d = { tilt: 42, spin: 0 };
 try { const v = JSON.parse(localStorage.getItem('wr_3d_view') || 'null'); if (v) b3d = { ...b3d, ...v }; } catch { /* default */ }
 
 function b3dWanted() { try { return localStorage.getItem('wr_3d') === '1'; } catch { return false; } }
-function b3dOn() { return b3dWanted() && premiumNow(); }
+// Premium, or the 3D board on its own (profiles.b3d_access, given by hand —
+// the owner uses it to try the board without the rest of Premium)
+function can3d() { return premiumNow() || Boolean(profile?.b3d_access); }
+function b3dOn() { return b3dWanted() && can3d(); }
 
 // turned corner-on, a square is wider than it is flat; shrink it so the
 // corners stay on a narrow phone's screen
@@ -4631,7 +4634,7 @@ function applyB3d() {
 }
 
 $('b3d-toggle').addEventListener('change', (e) => {
-  if (e.target.checked && !premiumNow()) {
+  if (e.target.checked && !can3d()) {
     e.target.checked = false;
     openPremium();
     return;

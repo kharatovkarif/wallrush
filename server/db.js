@@ -62,7 +62,7 @@ export async function verifyUser(jwt) {
 export async function getProfile(userId) {
   if (!dbEnabled) return null;
   const { data } = await supa.from('profiles')
-    .select('id, nick, wins, losses, points, nick_notice, premium_until').eq('id', userId).maybeSingle();
+    .select('id, nick, wins, losses, points, nick_notice, premium_until, b3d_access').eq('id', userId).maybeSingle();
   return data || null;
 }
 
