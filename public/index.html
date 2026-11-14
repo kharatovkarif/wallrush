@@ -83,7 +83,7 @@
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
   <!-- Opens the connection to the ad host early. Costs one handshake and no
        download, and takes that handshake off the wait once Support is tapped. -->
-  <link rel="stylesheet" href="css/style.css?v=183">
+  <link rel="stylesheet" href="css/style.css?v=184">
   <!-- Are we inside somebody else's page? Every game portal forbids running
        your own ads inside theirs, and the ad scripts below start the moment
        the parser reaches them — long before any module could stop one. So the
@@ -105,7 +105,8 @@
        each sign-in; until it expires, no ad script is so much as requested. */
     try { window.WR_PREMIUM = (+localStorage.getItem('wr_premium_until') || 0) > Date.now(); }
     catch (e) { window.WR_PREMIUM = false; }
-    window.WR_NOADS = window.WR_EMBED || window.WR_PREMIUM;
+    // the Google Play app starts with no ads at all (owner's decision, 14 Nov 2026)
+    window.WR_NOADS = window.WR_EMBED || window.WR_PREMIUM || window.WR_TWA;
     if (window.WR_PREMIUM) document.documentElement.className += ' premium';
   </script>
 </head>
@@ -1104,7 +1105,7 @@
     <div id="toast" hidden></div>
   </div>
 
-  <script src="vendor/supabase.js?v=183" defer></script>
-  <script type="module" src="js/app.js?v=183"></script>
+  <script src="vendor/supabase.js?v=184" defer></script>
+  <script type="module" src="js/app.js?v=184"></script>
 </body>
 </html>

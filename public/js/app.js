@@ -1,16 +1,16 @@
 // WallRush client app: screens, board UI, online play (WebSocket), AI mode, auth.
-import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, wallBetween, N } from './engine.js?v=183';
-import { scheduleTick } from './sfx.js?v=183';
-import { aiMove } from './ai.js?v=183';
-import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=183';
-import { rankOf, nextRank } from './ranks.js?v=183';
-import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=183';
-import { checkNick, nickOk, randomNick } from './nick.js?v=183';
+import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, wallBetween, N } from './engine.js?v=184';
+import { scheduleTick } from './sfx.js?v=184';
+import { aiMove } from './ai.js?v=184';
+import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=184';
+import { rankOf, nextRank } from './ranks.js?v=184';
+import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=184';
+import { checkNick, nickOk, randomNick } from './nick.js?v=184';
 import {
   embedded, initPortal, inPortal, portalAd, portalPlaying, portalHappy,
   portalLoaded, portalInviteCode, portalShowInvite, portalHideInvite, portalInstant,
   portalRoom, portalOnJoin, portalInviteLink, portalMuted, portalOnMute, portalUserName,
-} from './portal.js?v=183';
+} from './portal.js?v=184';
 
 /* ================= state ================= */
 const $ = (id) => document.getElementById(id);
@@ -265,7 +265,7 @@ function getAiWorker() {
   if (aiWorker === false) return null;
   if (!aiWorker) {
     try {
-      aiWorker = new Worker('js/ai-worker.js?v=183', { type: 'module' });
+      aiWorker = new Worker('js/ai-worker.js?v=184', { type: 'module' });
       aiWorker.onmessage = (e) => {
         const cb = aiPending.get(e.data.id);
         aiPending.delete(e.data.id);
@@ -2639,7 +2639,7 @@ $('rp-clip').addEventListener('click', async () => {
   playReplay(false);                       // one thing on the screen at a time
   clipLabel(t('clip_making').replace('%n', '0'), { busy: true });
   try {
-    const { makeClip } = await import('./clip.js?v=183');
+    const { makeClip } = await import('./clip.js?v=184');
     const last = game.history[game.history.length - 1];
     const winner = last?.winner ?? game.state?.winner ?? null;
     const quad = isQuad();
@@ -3073,7 +3073,7 @@ function startRestore() {
   if (embedded) { portalAd('rewarded').then(claimStreak); return; }
   // No network, nothing to watch: give the streak back now rather than hold it
   // behind an eight-second wait for an ad that cannot arrive.
-  if (!AD_PROVIDER) { claimStreak(); return; }
+  if (!AD_PROVIDER || window.WR_TWA) { claimStreak(); return; }   // the Play app has no ads
   // Two ways home, because the streak must come back either way. The network
   // saying "they earned it" is the quick one; the watch below is the one that
   // works when no such word ever comes, which is most of this audience.
