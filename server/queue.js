@@ -105,10 +105,8 @@ export async function flushWrites() {
 
 export function startWriteQueue() {
   setInterval(() => { flushWrites().catch(() => {}); }, FLUSH_MS);
-  // A last flush on the way out, so an ordinary restart keeps its counters.
-  for (const sig of ['SIGTERM', 'SIGINT']) {
-    process.on(sig, () => { flushWrites().finally(() => process.exit(0)); });
-  }
+  // The last flush on the way out is done by the shutdown in server/index.js,
+  // which first lets live games finish (see startDraining in rooms.js).
 }
 
 export const queueStatus = () => ({

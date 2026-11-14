@@ -501,9 +501,13 @@ export async function syncFromLava({ sample = false } = {}) {
 export function startPremiumSync() {
   if (!premiumConfigured()) return;
   // first look with a sample of what lava.top answers, then quietly every 10 min
-  setTimeout(() => syncFromLava({ sample: true }), 20_000);
-  setInterval(() => syncFromLava(), 10 * 60_000).unref?.();
+  setTimeout(() => { if (!syncStopped) syncFromLava({ sample: true }); }, 20_000);
+  syncTimer = setInterval(() => { if (!syncStopped) syncFromLava(); }, 10 * 60_000);
+  syncTimer.unref?.();
 }
+let syncTimer = null, syncStopped = false;
+// the old server, draining, leaves the asking to the new one
+export function stopPremiumSync() { syncStopped = true; clearInterval(syncTimer); }
 
 /* ---------- a week's notice before a yearly charge ----------
 

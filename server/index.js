@@ -7,7 +7,7 @@ import http from 'http';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { WebSocketServer } from 'ws';
-import { attachWs, realOnline, onlineUserIds, roomStats, endingStats } from './rooms.js';
+import { attachWs, realOnline, onlineUserIds, roomStats, endingStats, startDraining, isDraining } from './rooms.js';
 import { fakeOnline, botStatus } from './bots.js';
 import { RANKS } from '../public/js/ranks.js';
 import { checkNick } from '../public/js/nick.js';
@@ -15,7 +15,7 @@ import { localDay } from '../public/js/streak.js';
 import { taskForDay } from '../public/js/daily.js';
 import { initPush, pushPublicKey, saveSub, dropSub, pushTick, sendTestPush } from './push.js';
 import { mountPages } from './pages.js';
-import { premiumConfigured, createCheckout, handleWebhook, claimByEmail, offerPrices, premiumState, cancelRenewal, CURRENCIES, syncFromLava, syncState, startPremiumSync, resumeRenewal, REMIND_AHEAD, lastCharge, chargeText, usdRub, rubToUsd, usdRates } from './premium.js';
+import { premiumConfigured, createCheckout, handleWebhook, claimByEmail, offerPrices, premiumState, cancelRenewal, CURRENCIES, syncFromLava, syncState, startPremiumSync, resumeRenewal, REMIND_AHEAD, lastCharge, chargeText, usdRub, rubToUsd, usdRates, stopPremiumSync } from './premium.js';
 import { logVisitLater, startWriteQueue, queueStatus, flushWrites } from './queue.js';
 import { dbEnabled, dbStatus, dbDetail, cleanEnv, likeEscape, supa, verifyUser, getProfile, createProfile, claimGuestProgress, leaderboard, dailyLeaderboard, sweepDayPoints, mskDay, myRank, myDayRank, publicProfile, clearNickNotice, restoreStreak, deleteAccount, cacheStats } from './db.js';
 
@@ -2441,6 +2441,21 @@ function survive(kind, err) {
     `heap ${Math.round(m.heapUsed / 1048576)}/${Math.round(m.heapTotal / 1048576)}MB, ` +
     `rss ${Math.round(m.rss / 1048576)}MB, online ${realOnline()}`);
 }
+/* Stopping. SIGTERM comes from Railway on every deploy: play the live games
+   out first (rooms.js, startDraining), then flush the counters and go. A cap
+   just under Railway's draining time (900 s) makes sure the counters are
+   flushed even if some game drags on. Ctrl-C locally stops at once. */
+let stopping = false;
+const exitNow = () => flushWrites().catch(() => {}).finally(() => process.exit(0));
+process.on('SIGTERM', () => {
+  if (stopping) return;
+  stopping = true;
+  stopPremiumSync();
+  startDraining(exitNow);
+  setTimeout(exitNow, 14 * 60_000).unref?.();
+});
+process.on('SIGINT', exitNow);
+
 process.on('unhandledRejection', (err) => survive('unhandled-rejection', err));
 process.on('uncaughtException', (err) => survive('uncaught-exception', err));
 
@@ -2498,6 +2513,7 @@ server.listen(PORT, () => {
   // Hourly, so every timezone gets its own evening. The tick decides who is
   // due; most hours it finds nobody and does nothing.
   setInterval(() => {
+    if (isDraining()) return;   // the new server sends the reminders
     pushTick(realOnline() + fakeOnline(), onlineUserIds())
       .catch(e => console.error('[push-tick]', e && e.stack ? e.stack : e));
   }, 60 * 60 * 1000);

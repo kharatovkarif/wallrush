@@ -99,6 +99,37 @@ function takeResult(token) {
 }
 const rooms = new Map();     // roomId -> room
 
+/* ---------- a restart that does not end anybody's game ----------
+
+   Every deploy used to stop this process at once, and with it every match in
+   memory: players saw "game over" mid-move (14 Nov 2026, twenty deploys in a
+   day). Now, on SIGTERM, Railway has already sent new visitors to the new
+   server, and this one drains: whoever is not in a live game is hung up on at
+   once (their client reconnects, landing on the new server), each live game is
+   played to the end and its players are then sent across the same way, and the
+   process exits when no game with a person in it is left. Railway gives it
+   RAILWAY_DEPLOYMENT_DRAINING_SECONDS (set to 900) before it is killed anyway. */
+let draining = false;
+export const isDraining = () => draining;
+const liveHumanGames = () => [...rooms.values()]
+  .filter(r => r.status === 'playing' && r.players.some(p => !p.isBot)).length;
+function hangUp(client, ms = 0) {
+  setTimeout(() => { try { client.ws?.close(4001, 'server update'); } catch { /* already gone */ } }, ms);
+}
+export function startDraining(onEmpty) {
+  if (draining) return;
+  draining = true;
+  console.log(`[drain] stopping: ${liveHumanGames()} game(s) with people will be played out`);
+  for (const c of clients.values()) {
+    const room = c.roomId && rooms.get(c.roomId);
+    if (!(room && room.status === 'playing')) hangUp(c, 300 + Math.random() * 1500);
+  }
+  const check = setInterval(() => {
+    const left = liveHumanGames();
+    if (left === 0) { clearInterval(check); console.log('[drain] all games done'); onEmpty(); }
+  }, 2000);
+}
+
 function rid() { return crypto.randomBytes(8).toString('hex'); }
 function roomCode() {
   const abc = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -621,6 +652,8 @@ async function finish(room, winnerIdx, reason) {
     }
     if (!pl.isBot) keepResult(pl.token, payload);
     tell(room, pl, payload);
+    // draining: the result is on their screen; then over to the new server
+    if (draining && !pl.isBot) hangUp(pl, 6000);
   });
   // The streak needs a database round trip, so it follows the result rather
   // than holding it up — the result overlay only appears after 600ms anyway.
@@ -991,6 +1024,7 @@ export function attachWs(wss) {
   });
 
   wss.on('connection', (ws, req) => {
+    if (draining) { setTimeout(() => { try { ws.close(4001, 'server update'); } catch { /* gone */ } }, 1500); }
     const client = { ws, token: null, nick: '', userId: null, roomId: null, inLobby: false,
                      graceTimer: null, alive: true, rtt: 0, pingAt: 0 };
     // A browser always sends Origin on a WebSocket handshake; a script talking
