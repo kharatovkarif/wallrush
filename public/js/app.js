@@ -1,16 +1,16 @@
 // WallRush client app: screens, board UI, online play (WebSocket), AI mode, auth.
-import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, wallBetween, N } from './engine.js?v=179';
-import { scheduleTick } from './sfx.js?v=179';
-import { aiMove } from './ai.js?v=179';
-import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=179';
-import { rankOf, nextRank } from './ranks.js?v=179';
-import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=179';
-import { checkNick, nickOk, randomNick } from './nick.js?v=179';
+import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, wallBetween, N } from './engine.js?v=180';
+import { scheduleTick } from './sfx.js?v=180';
+import { aiMove } from './ai.js?v=180';
+import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=180';
+import { rankOf, nextRank } from './ranks.js?v=180';
+import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=180';
+import { checkNick, nickOk, randomNick } from './nick.js?v=180';
 import {
   embedded, initPortal, inPortal, portalAd, portalPlaying, portalHappy,
   portalLoaded, portalInviteCode, portalShowInvite, portalHideInvite, portalInstant,
   portalRoom, portalOnJoin, portalInviteLink, portalMuted, portalOnMute, portalUserName,
-} from './portal.js?v=179';
+} from './portal.js?v=180';
 
 /* ================= state ================= */
 const $ = (id) => document.getElementById(id);
@@ -265,7 +265,7 @@ function getAiWorker() {
   if (aiWorker === false) return null;
   if (!aiWorker) {
     try {
-      aiWorker = new Worker('js/ai-worker.js?v=179', { type: 'module' });
+      aiWorker = new Worker('js/ai-worker.js?v=180', { type: 'module' });
       aiWorker.onmessage = (e) => {
         const cb = aiPending.get(e.data.id);
         aiPending.delete(e.data.id);
@@ -2632,7 +2632,7 @@ $('rp-clip').addEventListener('click', async () => {
   playReplay(false);                       // one thing on the screen at a time
   clipLabel(t('clip_making').replace('%n', '0'), { busy: true });
   try {
-    const { makeClip } = await import('./clip.js?v=179');
+    const { makeClip } = await import('./clip.js?v=180');
     const last = game.history[game.history.length - 1];
     const winner = last?.winner ?? game.state?.winner ?? null;
     const quad = isQuad();
@@ -4633,3 +4633,17 @@ $('b3d-ctl').addEventListener('click', (e) => {
 });
 
 applyB3d();
+
+/* An ad slot that stays empty is a hole in the page. The home banner (a
+   300x100 HilltopAds zone) has come back empty for a long time while the
+   300x250 zones on the ranking and profile screens fill, so after a fair wait
+   a slot with nothing visible in it is folded away instead of leaving 100px
+   of blank space under the menu. */
+// Only the home slot reserves height (the large ones reserve none), and only
+// it is on screen at this point — the others sit on hidden screens, where a
+// size check would read zero and fold away ads that did arrive.
+setTimeout(() => {
+  document.querySelectorAll('.ad-slot:not(.ad-slot-lg)').forEach(slot => {
+    if (!slot.querySelector('iframe, img, ins, video')) slot.style.display = 'none';
+  });
+}, 8000);
