@@ -1574,3 +1574,10 @@ html.twa #btn-res-support, html.twa [data-support] { display: none !important; }
 #board.b3d .wall > .wf-s { left: 0; top: 100%; width: 100%; height: var(--wh); transform-origin: top; transform: rotateX(-90deg); filter: brightness(.55); }
 #board.b3d .wall > .wf-w { top: 0; right: 100%; height: 100%; width: var(--wh); transform-origin: right; transform: rotateY(-90deg); filter: brightness(.62); }
 #board.b3d .wall > .wf-e { top: 0; left: 100%; height: 100%; width: var(--wh); transform-origin: left; transform: rotateY(90deg); filter: brightness(.62); }
+
+/* real 3D (three.js): the DOM board stays laid out underneath, invisible, and
+   the canvas draws it; the buttons stay above the canvas */
+#board.b3gl-on { visibility: hidden; transform: none !important; }
+.b3gl { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; z-index: 1; }
+.board-wrap .b3d-ctl { position: relative; z-index: 2; }
+.board-wrap .zone-label { position: relative; z-index: 2; pointer-events: none; }

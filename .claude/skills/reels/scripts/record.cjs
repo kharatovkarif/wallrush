@@ -22,7 +22,8 @@ const MAX_S = Number(arg('seconds', 70));
 
 (async () => {
   fs.mkdirSync(OUT, { recursive: true });
-  const browser = await chromium.launch();
+  // WebGL in headless Chromium, for the three.js board
+  const browser = await chromium.launch({ args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
   // 9:16 at 540x960 CSS px, filmed frame by frame at 1080x1920. Playwright's
   // own recordVideo films CSS pixels, so on a 2x screen it got a quarter of
   // the page in a corner; the DevTools screencast sends real device pixels.
@@ -50,7 +51,7 @@ const MAX_S = Number(arg('seconds', 70));
     let body = await res.text();
     body = body.replace(/function b3dOn\(\) \{[^}]*\}/, 'function b3dOn() { return true; }');
     // a handle on the match for the filming player (this browser only)
-    body += '\nwindow.__wr = { state: () => game && !game.over ? game.state : null, me: () => game ? game.myIndex : -1, submit: (m) => submitMove(m) };\n';
+    body += '\nwindow.__wr = { state: () => game && !game.over ? game.state : null, me: () => game ? game.myIndex : -1, submit: (m) => submitMove(m), view: (v) => Object.assign(b3d, v) };\n';
     await route.fulfill({ response: res, body, headers: { ...res.headers(), 'content-type': 'application/javascript' } });
   });
   await page.addInitScript(([lang, theme]) => {
@@ -69,17 +70,10 @@ const MAX_S = Number(arg('seconds', 70));
 
   // a camera that keeps drifting round the board: the thing a flat screenshot cannot show
   await page.evaluate(() => {
-    const bd = document.getElementById('board');
     let spin = 0, t = 0;
     window.__cam = setInterval(() => {
       t += 1; spin += 0.35;
-      const tilt = 46 + Math.sin(t / 60) * 10;
-      const a = spin * Math.PI / 180;
-      const scale = Math.min(0.86, 1.05 / (Math.abs(Math.cos(a)) + Math.abs(Math.sin(a))));
-      bd.classList.add('orbiting');
-      bd.style.transform = `perspective(900px) rotateX(${tilt}deg) rotateZ(${spin}deg) scale(${scale})`;
-      bd.style.setProperty('--tilt', tilt);
-      bd.style.setProperty('--spin', spin);
+      window.__wr.view({ spin, tilt: 46 + Math.sin(t / 60) * 10, zoom: 1.05 + Math.sin(t / 90) * 0.12 });
     }, 40);
   });
 

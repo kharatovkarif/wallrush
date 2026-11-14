@@ -1,5 +1,7 @@
 // WallRush server: static frontend + REST API + WebSocket game server.
 import express from 'express';
+import { createHash, createHmac, timingSafeEqual as safeEq } from 'node:crypto';
+import fs from 'node:fs';
 import compression from 'compression';
 import http from 'http';
 import path from 'path';
@@ -132,6 +134,10 @@ app.get('/api/profile', async (req, res) => {
   try { await claimByEmail(user.id, user.email); } catch (e) { console.error('[premium] claim', e.message); }
   res.set('Cache-Control', 'no-store');
   const prof = await getProfile(user.id);
+  // the key to the 3D board module, for those who may use it
+  if (prof && (prof.b3d_access || (prof.premium_until && new Date(prof.premium_until) > new Date()))) {
+    prof.b3d_token = b3dToken(user.id);
+  }
   if (prof?.premium_until) {
     try {
       const st = await premiumState(user.id);
@@ -148,6 +154,31 @@ app.get('/api/profile', async (req, res) => {
     } catch { /* shown as not renewing */ }
   }
   res.json({ profile: prof });
+});
+
+/* ---------- the 3D board module ----------
+   Lives outside /public and is handed out only with a token that /api/profile
+   gives to Premium players (and to profiles.b3d_access). The token names the
+   player and the day and is signed with a key derived from the service key,
+   so it cannot be made up and goes stale after a day. Somebody who has it can
+   of course share the file — it is drawing code, it unlocks nothing on the
+   server and nobody else's game. */
+const B3D_KEY = createHash('sha256').update('wallrush-3d:' + (process.env.SUPABASE_SERVICE_KEY || 'local')).digest();
+const b3dDay = (off = 0) => new Date(Date.now() - off * 86400e3).toISOString().slice(0, 10);
+const b3dSign = (uid, day) => createHmac('sha256', B3D_KEY).update(uid + '|' + day).digest('base64url');
+function b3dToken(uid) { return `${uid}.${b3dDay()}.${b3dSign(uid, b3dDay())}`; }
+function b3dTokenOk(t) {
+  const [uid, day, sig] = String(t || '').split('.');
+  if (!uid || !sig || (day !== b3dDay() && day !== b3dDay(1))) return false;
+  const want = Buffer.from(b3dSign(uid, day)), got = Buffer.from(sig);
+  return want.length === got.length && safeEq(want, got);
+}
+const B3D_FILE = path.join(__dirname, 'private', 'board3d.js');
+app.get('/api/premium/board3d.js', (req, res) => {
+  // a local run without a database (development, filming reels) needs no key
+  if (dbEnabled && !b3dTokenOk(req.query.t)) return res.status(403).type('text/plain').send('premium only');
+  res.set('Cache-Control', 'private, max-age=3600');
+  res.type('application/javascript').send(fs.readFileSync(B3D_FILE, 'utf8'));
 });
 
 /* ---------- Premium (see server/premium.js) ---------- */

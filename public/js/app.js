@@ -1,16 +1,16 @@
 // WallRush client app: screens, board UI, online play (WebSocket), AI mode, auth.
-import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, wallBetween, N } from './engine.js?v=186';
-import { scheduleTick } from './sfx.js?v=186';
-import { aiMove } from './ai.js?v=186';
-import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=186';
-import { rankOf, nextRank } from './ranks.js?v=186';
-import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=186';
-import { checkNick, nickOk, randomNick } from './nick.js?v=186';
+import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, wallBetween, N } from './engine.js?v=187';
+import { scheduleTick } from './sfx.js?v=187';
+import { aiMove } from './ai.js?v=187';
+import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=187';
+import { rankOf, nextRank } from './ranks.js?v=187';
+import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=187';
+import { checkNick, nickOk, randomNick } from './nick.js?v=187';
 import {
   embedded, initPortal, inPortal, portalAd, portalPlaying, portalHappy,
   portalLoaded, portalInviteCode, portalShowInvite, portalHideInvite, portalInstant,
   portalRoom, portalOnJoin, portalInviteLink, portalMuted, portalOnMute, portalUserName,
-} from './portal.js?v=186';
+} from './portal.js?v=187';
 
 /* ================= state ================= */
 const $ = (id) => document.getElementById(id);
@@ -265,7 +265,7 @@ function getAiWorker() {
   if (aiWorker === false) return null;
   if (!aiWorker) {
     try {
-      aiWorker = new Worker('js/ai-worker.js?v=186', { type: 'module' });
+      aiWorker = new Worker('js/ai-worker.js?v=187', { type: 'module' });
       aiWorker.onmessage = (e) => {
         const cb = aiPending.get(e.data.id);
         aiPending.delete(e.data.id);
@@ -2641,7 +2641,7 @@ $('rp-clip').addEventListener('click', async () => {
   playReplay(false);                       // one thing on the screen at a time
   clipLabel(t('clip_making').replace('%n', '0'), { busy: true });
   try {
-    const { makeClip } = await import('./clip.js?v=186');
+    const { makeClip } = await import('./clip.js?v=187');
     const last = game.history[game.history.length - 1];
     const winner = last?.winner ?? game.state?.winner ?? null;
     const quad = isQuad();
@@ -4298,7 +4298,10 @@ function renderPremium() {
 
   if (on && profile) $('profile-nick').append(crownEl());
   if (!$('overlay-premium').hidden) fillPremiumModal();
-  if (typeof applyB3d === 'function') try { applyB3d(); } catch { /* not ready during boot */ }
+  if (typeof applyB3d === 'function') try {
+    if (profile?.b3d_token && gl3dFailed && !gl3d) gl3dFailed = false;   // the key came with the profile
+    applyB3d();
+  } catch { /* not ready during boot */ }
 }
 
 async function loadPremiumInfo() {
@@ -4608,6 +4611,7 @@ function b3dMatrix() {
 }
 
 function boardPoint(clientX, clientY) {
+  if (gl3d) return gl3d.boardPoint(clientX, clientY);
   if (!board.classList.contains('b3d')) {
     const r = board.getBoundingClientRect();
     return { x: clientX - r.left, y: clientY - r.top };
@@ -4626,10 +4630,47 @@ function boardPoint(clientX, clientY) {
   return { x: (b1 * a22 - a12 * b2) / det + w / 2, y: (a11 * b2 - b1 * a21) / det + h / 2 };
 }
 
+/* The real 3D board (three.js, server/private/board3d.js), fetched only with
+   the token /api/profile gives a Premium player. Until it is in — or if the
+   phone has no WebGL — the CSS view below stands in. */
+let gl3d = null, gl3dLoading = false, gl3dFailed = false;
+async function startGl3d() {
+  if (gl3d || gl3dLoading || gl3dFailed) return;
+  gl3dLoading = true;
+  try {
+    const mod = await import('/api/premium/board3d.js?t=' + encodeURIComponent(profile?.b3d_token || ''));
+    if (!b3dOn()) return;
+    gl3d = mod.mount3d({
+      board, wrap: board.parentElement,
+      getView: () => ({ tilt: b3d.tilt, spin: b3d.spin, zoom: b3dZoom() }),
+      setView: (p) => { Object.assign(b3d, p); },
+      saveView: () => { try { localStorage.setItem('wr_3d_view', JSON.stringify(b3d)); } catch { /* private mode */ } },
+      isDraggingWall: () => Boolean(dragWall),
+      onTap: (x, y) => {
+        // the square under the finger, from the invisible board underneath
+        const cell = [...board.querySelectorAll('.cell')].find(c =>
+          x >= c.offsetLeft && x < c.offsetLeft + c.offsetWidth && y >= c.offsetTop && y < c.offsetTop + c.offsetHeight);
+        if (cell) tapCell(cell);
+      },
+    });
+    if (!gl3d) gl3dFailed = true;
+  } catch (e) {
+    console.info('3D board module not available:', e?.message || e);
+    gl3dFailed = true;
+  } finally {
+    gl3dLoading = false;
+    applyB3d();
+  }
+}
+
 function applyB3d() {
   const on = b3dOn();
-  board.classList.toggle('b3d', on);
-  board.style.transform = on ? `perspective(${B3D_PERSP}px) rotateX(${b3d.tilt}deg) rotateZ(${b3d.spin}deg) scale(${b3dScale() * b3dZoom()})` : '';
+  if (on && !gl3d && !gl3dFailed) startGl3d();
+  if (!on && gl3d) { gl3d.destroy(); gl3d = null; }
+  const gl = on && Boolean(gl3d);
+  board.classList.toggle('b3gl-on', gl);
+  board.classList.toggle('b3d', on && !gl);
+  board.style.transform = on && !gl ? `perspective(${B3D_PERSP}px) rotateX(${b3d.tilt}deg) rotateZ(${b3d.spin}deg) scale(${b3dScale() * b3dZoom()})` : '';
   // the pawns read these to keep facing the camera
   board.style.setProperty('--tilt', b3d.tilt);
   board.style.setProperty('--spin', b3d.spin);
@@ -4654,6 +4695,7 @@ $('b3d-ctl').addEventListener('click', (e) => {
   const k = e.target.closest('button')?.dataset.b3d;
   if (!k) return;
   if (k === 'reset') b3d = { tilt: 42, spin: 0, zoom: 1 };
+  else if (k === 'top') b3d = { ...b3d, tilt: 0 };   // straight down, like the flat board
   try { localStorage.setItem('wr_3d_view', JSON.stringify(b3d)); } catch { /* private mode */ }
   applyB3d();
 });
