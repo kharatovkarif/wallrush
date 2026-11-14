@@ -346,6 +346,9 @@ async function cancelAtLava(contractId, email) {
   const r = await gate('/api/v1/subscriptions?' + q, { method: 'DELETE' });
   if (!r.ok) {
     console.error('[premium] cancel failed', contractId, r.status, r.text);
+    // kept where the admin page reads it: a player who switched renewal off
+    // must not be charged, so a cancel lava.top refused has to be seen
+    await logHook({}, { contractId, status: r.status, answer: r.json ?? r.text }, r.status, 'cancel_failed');
     return false;
   }
   await supa.from('premium_contracts').update({ status: 'cancelled', updated_at: new Date().toISOString() })

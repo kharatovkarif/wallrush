@@ -128,7 +128,10 @@ function homePage(r) {
   if (key === home.key) return home;
 
   let html = home.raw;
-  if (r) {
+  /* The owner took the rating off the home screen (14 Nov 2026). Google wants
+     a rating in structured data to be visible on the same page, so the home
+     page claims one only while the pill is there; /reviews keeps its own. */
+  if (r && html.includes(PILL_ANCHOR)) {
     html = html.replace(LD_ANCHOR, `${LD_ANCHOR}"aggregateRating":${JSON.stringify(ratingLd(r))},`);
     html = html.replace(PILL_ANCHOR,
       `<a class="rating-pill" id="rating-pill" href="/reviews" aria-label="${r.avg.toFixed(1)} of 5, ${r.count} ratings">`

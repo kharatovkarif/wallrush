@@ -53,18 +53,18 @@ console.log('--- / (home) ---');
   const r = await get('/');
   ok(r.status === 200, 'serves 200');
   ok(r.cc === 'no-cache', `no-cache (got ${r.cc})`);
-  ok(/"aggregateRating":\{"@type":"AggregateRating","ratingValue":"4.6","ratingCount":"843"/.test(r.body), 'rating is in the structured data');
+  // the rating is no longer on the home screen, so the page does not claim one
+  ok(!/"aggregateRating"/.test(r.body), 'no rating claimed on a page that does not show one');
   ok(/"maxValue": 4/.test(r.body), 'four players declared');
   ok(!/"maxValue": 2/.test(r.body), 'the stale "2" is gone');
   ok(/hreflang="ru" href="https:\/\/wallrush\.online\/ru"/.test(r.body), 'ru alternate points at /ru');
-  ok(/<b>4\.6<\/b><small>843<\/small>/.test(r.body), 'rating is visible on the page');
-  ok(!/id="rating-pill" href="\/reviews" hidden/.test(r.body), 'the pill is no longer hidden');
+  ok(!/id="rating-pill"/.test(r.body), 'the rating pill is gone from the home screen');
   ok(/href="\/rules" data-legal="rules"/.test(r.body), 'legal links are real links');
   // the JSON-LD must still parse after the injection
   const m = r.body.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/);
   let parsed = null;
   try { parsed = JSON.parse(m[1]); } catch (e) { }
-  ok(parsed && parsed.aggregateRating.ratingValue === '4.6', 'JSON-LD still parses');
+  ok(parsed && parsed['@type'] === 'VideoGame', 'JSON-LD still parses');
   // ETag / 304
   const again = await fetch(`http://127.0.0.1:${port}/`, { headers: { 'if-none-match': r.etag } });
   ok(again.status === 304, 'returns 304 for a matching ETag');

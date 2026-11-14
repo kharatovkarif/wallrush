@@ -1920,6 +1920,11 @@ ${list.filter(r => r.stars >= 4).map(card).join('') || '<p class="note">Пока
       </div>`;
     const evRow = (e) => `<div class="ar-line">${mskDdMm(e.created_at.slice(0, 10))} ${e.created_at.slice(11, 16)} UTC · ${evName(e.event_type)} ${money(e.amount, e.currency)} · ${esc(e.email || '')}${/no_user/.test(e.outcome || '') ? ' · <b>игрок не найден</b>' : ''}</div>`;
     const stops = (events || []).filter(e => /refund|chargeback|cancel/i.test(e.event_type));
+    // switched off in the game, charge in under two days, still not cancelled at lava.top
+    const soonIso = new Date(Date.now() + 2 * dayMs).toISOString();
+    const overdue = (contracts || []).filter(c => c.status === 'renew_off' && c.paid_until < soonIso);
+    const { data: cancelFails } = await supa.from('premium_hooks').select('at, body')
+      .eq('reason', 'cancel_failed').order('id', { ascending: false }).limit(5);
     content = `<h2>👑 Premium</h2>
 <div class="grid2">
   ${statCard('👑', 'Сейчас с Premium', num(active.length))}
@@ -1929,6 +1934,7 @@ ${list.filter(r => r.stars >= 4).map(card).join('') || '<p class="note">Пока
 </div>
 <p class="note" style="margin:6px 0 6px">Сверка с lava.top: ${sync.ok ? `оплаченных счетов там ${num(sync.found)}, новых сейчас добавлено ${num(sync.applied)}` : `не удалась${sync.error ? ' — ' + esc(sync.error) : ''}`} · <a href="/admin?key=${ADMIN_KEY}&view=premium&sync=1">проверить ещё раз</a></p>
 <p class="note" style="margin:6px 0 14px">Суммы — до комиссии lava.top (8%). Деньги и возвраты — в кабинете lava.top → «Продажи». Возврат: игрок пишет на ads@wallrush.online в течение 14 дней с оплаты → возвращаешь в lava.top → Premium снимется сам.</p>
+${overdue.length ? `<div class="adreq" style="border:1px solid var(--down)"><div class="ar-top"><b>⚠️ Не удалось отменить в lava.top: ${num(overdue.length)}</b></div><div class="ar-line">Эти игроки выключили автопродление, а lava.top не дала отменить подписку. Отмени вручную в кабинете lava.top, иначе их спишут: ${overdue.map(c => esc(nicks.get(c.user_id) || c.email)).join(', ')}</div>${(cancelFails || []).map(f => `<div class="ar-line">${mskDdMm(f.at.slice(0, 10))} ${f.at.slice(11, 16)} UTC · ответ lava.top: ${esc(JSON.stringify(f.body).slice(0, 160))}</div>`).join('')}</div>` : ''}
 <p class="sect">Покупатели</p>
 ${(contracts || []).map(buyer).join('') || '<p class="note">Пока никто не купил.</p>'}
 <p class="sect" style="margin-top:22px">Отмены и возвраты</p>

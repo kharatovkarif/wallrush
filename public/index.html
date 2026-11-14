@@ -83,7 +83,7 @@
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
   <!-- Opens the connection to the ad host early. Costs one handshake and no
        download, and takes that handshake off the wait once Support is tapped. -->
-  <link rel="stylesheet" href="css/style.css?v=174">
+  <link rel="stylesheet" href="css/style.css?v=175">
   <!-- Are we inside somebody else's page? Every game portal forbids running
        your own ads inside theirs, and the ad scripts below start the moment
        the parser reaches them — long before any module could stop one. So the
@@ -239,11 +239,6 @@
       <section class="about">
         <h2 data-i18n="about_title">What is WallRush?</h2>
         <p data-i18n="about_body">WallRush is a free 1v1 strategy game you play straight in the browser — the classic Quoridor, online. Get your pawn to the far side of the 9×9 board before your opponent does, and use your ten walls to make their path longer. A wall cannot be jumped, only walked around, and you may never block someone off completely. Play against real people, against a friend by room code, or against the AI. No download and no signup.</p>
-        <!-- The game's rating. It used to sit in the row under the logo; the
-             owner moved it down here (13 Nov 2026). It stays on the page because
-             Google prints stars only for a rating the page itself shows. Written
-             in by server/pages.js; a tap opens the reviews inside the game. -->
-        <a class="rating-pill" id="rating-pill" href="/reviews" hidden></a>
       </section>
 
       <!-- HilltopAds 300x100 banner: lives inside the home screen, so it shows
@@ -1104,7 +1099,7 @@
     <div id="toast" hidden></div>
   </div>
 
-  <script src="vendor/supabase.js?v=174" defer></script>
-  <script type="module" src="js/app.js?v=174"></script>
+  <script src="vendor/supabase.js?v=175" defer></script>
+  <script type="module" src="js/app.js?v=175"></script>
 </body>
 </html>
