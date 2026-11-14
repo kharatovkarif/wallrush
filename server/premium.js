@@ -321,28 +321,72 @@ export async function premiumState(userId) {
     .order('paid_until', { ascending: false }).limit(1);
   const c = data?.[0];
   if (!c) return null;
-  return { contractId: c.contract_id, email: c.email, paidUntil: c.paid_until,
-    renews: c.status === 'active' || c.status === 'past_due' };
+  return { contractId: c.contract_id, email: c.email, paidUntil: c.paid_until, status: c.status,
+    renews: c.status === 'active' || c.status === 'past_due',
+    // switched off in the game but not yet cancelled at lava.top: one tap undoes it
+    resumable: c.status === 'renew_off' };
 }
 
 /* Turning off auto-renewal from inside the game. lava.top stops charging;
    premium stays until the end of what was already paid, exactly as when the
    buyer cancels from lava.top's own email. Their webhook arrives as well and
    says the same thing. */
+/* Auto-renewal as a switch the player can flip back.
+
+   lava.top can cancel a subscription but cannot un-cancel one. So "off" in the
+   game is only remembered (status renew_off) and the subscription is left
+   alone until CANCEL_AHEAD before the next charge; only then does the server
+   cancel it at lava.top (cancelDueRenewals, every 10 minutes with the sync).
+   Until that moment "on" again costs nothing. Inside that window "off" goes
+   to lava.top at once, because there may be no later run in time. */
+const CANCEL_AHEAD = 2 * 86400_000;
+
+async function cancelAtLava(contractId, email) {
+  const q = new URLSearchParams({ contractId, email });
+  const r = await gate('/api/v1/subscriptions?' + q, { method: 'DELETE' });
+  if (!r.ok) {
+    console.error('[premium] cancel failed', contractId, r.status, r.text);
+    return false;
+  }
+  await supa.from('premium_contracts').update({ status: 'cancelled', updated_at: new Date().toISOString() })
+    .eq('contract_id', contractId);
+  console.log(`[premium] cancelled at lava.top ${contractId}`);
+  return true;
+}
+
 export async function cancelRenewal(userId) {
   const st = await premiumState(userId);
   if (!st) return { error: 'no_subscription' };
   if (!st.renews) return { ok: true, already: true };
-  const q = new URLSearchParams({ contractId: st.contractId, email: st.email });
-  const r = await gate('/api/v1/subscriptions?' + q, { method: 'DELETE' });
-  if (!r.ok) {
-    console.error('[premium] cancel failed', r.status, r.text);
-    return { error: 'cancel_failed' };
+  if (st.status === 'manual') return { ok: true, already: true };
+  const left = new Date(st.paidUntil).getTime() - Date.now();
+  if (left > CANCEL_AHEAD) {
+    await supa.from('premium_contracts').update({ status: 'renew_off', updated_at: new Date().toISOString() })
+      .eq('contract_id', st.contractId);
+    console.log(`[premium] renewal switched off in the game ${st.contractId}`);
+    return { ok: true, resumable: true };
   }
-  await supa.from('premium_contracts').update({ status: 'cancelled', updated_at: new Date().toISOString() })
-    .eq('contract_id', st.contractId);
-  console.log(`[premium] renewal cancelled from the game ${st.contractId}`);
+  return (await cancelAtLava(st.contractId, st.email)) ? { ok: true, resumable: false } : { error: 'cancel_failed' };
+}
+
+export async function resumeRenewal(userId) {
+  const st = await premiumState(userId);
+  if (!st) return { error: 'no_subscription' };
+  if (st.renews) return { ok: true, already: true };
+  if (!st.resumable) return { error: 'cannot_resume' };
+  await supa.from('premium_contracts').update({ status: 'active', updated_at: new Date().toISOString() })
+    .eq('contract_id', st.contractId).eq('status', 'renew_off');
+  await refreshUser(userId);
+  console.log(`[premium] renewal switched back on ${st.contractId}`);
   return { ok: true };
+}
+
+// switched off in the game and the charge is near: now really cancel it
+export async function cancelDueRenewals() {
+  const soon = new Date(Date.now() + CANCEL_AHEAD + 15 * 60_000).toISOString();
+  const { data } = await supa.from('premium_contracts').select('contract_id, email')
+    .eq('status', 'renew_off').lte('paid_until', soon).limit(50);
+  for (const c of data || []) await cancelAtLava(c.contract_id, c.email);
 }
 
 /* ---------- asking lava.top instead of waiting to be told ----------
@@ -412,6 +456,7 @@ export async function syncFromLava({ sample = false } = {}) {
     out.error = e.message;
     console.error('[premium] sync failed:', e.message);
   }
+  try { await cancelDueRenewals(); } catch (e) { console.error('[premium] due cancels failed:', e.message); }
   lastSync = out;
   return syncState();
 }

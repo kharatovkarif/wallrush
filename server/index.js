@@ -13,7 +13,7 @@ import { localDay } from '../public/js/streak.js';
 import { taskForDay } from '../public/js/daily.js';
 import { initPush, pushPublicKey, saveSub, dropSub, pushTick, sendTestPush } from './push.js';
 import { mountPages } from './pages.js';
-import { premiumConfigured, createCheckout, handleWebhook, claimByEmail, offerPrices, premiumState, cancelRenewal, CURRENCIES, syncFromLava, syncState, startPremiumSync } from './premium.js';
+import { premiumConfigured, createCheckout, handleWebhook, claimByEmail, offerPrices, premiumState, cancelRenewal, CURRENCIES, syncFromLava, syncState, startPremiumSync, resumeRenewal } from './premium.js';
 import { logVisitLater, startWriteQueue, queueStatus, flushWrites } from './queue.js';
 import { dbEnabled, dbStatus, dbDetail, cleanEnv, likeEscape, supa, verifyUser, getProfile, createProfile, claimGuestProgress, leaderboard, dailyLeaderboard, sweepDayPoints, mskDay, myRank, myDayRank, publicProfile, clearNickNotice, restoreStreak, deleteAccount, cacheStats } from './db.js';
 
@@ -119,6 +119,7 @@ app.get('/api/profile', async (req, res) => {
     try {
       const st = await premiumState(user.id);
       prof.premium_renews = Boolean(st?.renews);
+      prof.premium_resumable = Boolean(st?.resumable);
       // the date actually paid for; premium_until carries two days of slack
       // so a renewal that clears late does not switch premium off overnight
       prof.premium_paid_until = st?.paidUntil || null;
@@ -174,6 +175,19 @@ app.post('/api/premium/cancel', async (req, res) => {
   } catch (e) {
     console.error('[premium] cancel error:', e.message);
     res.status(502).json({ error: 'cancel_failed' });
+  }
+});
+
+app.post('/api/premium/resume', async (req, res) => {
+  if (!dbEnabled || !premiumConfigured()) return res.status(503).json({ error: 'pay_off' });
+  const user = await verifyUser(bearer(req));
+  if (!user) return res.status(401).json({ error: 'unauthorized' });
+  try {
+    const r = await resumeRenewal(user.id);
+    res.status(r.error ? 400 : 200).json(r);
+  } catch (e) {
+    console.error('[premium] resume error:', e.message);
+    res.status(502).json({ error: 'resume_failed' });
   }
 });
 
@@ -1892,7 +1906,7 @@ ${list.filter(r => r.stars >= 4).map(card).join('') || '<p class="note">Пока
     for (const e of paidEv) sum[e.currency || '?'] = (sum[e.currency || '?'] || 0) + Number(e.amount || 0);
     const sumTxt = Object.entries(sum).map(([c, a]) => money(Math.round(a * 100) / 100, c)).join(' + ') || '0';
     const active = (contracts || []).filter(c => c.paid_until > nowIso && c.status !== 'refunded');
-    const STATUS_RU = { active: 'продлевается', cancelled: 'автопродление выключено', past_due: 'продление не прошло', refunded: 'деньги возвращены', manual: 'выдан вручную', failed: 'оплата не прошла' };
+    const STATUS_RU = { active: 'продлевается', cancelled: 'автопродление выключено', renew_off: 'игрок выключил автопродление (в lava.top отменим за 2 дня до списания)', past_due: 'продление не прошло', refunded: 'деньги возвращены', manual: 'выдан вручную', failed: 'оплата не прошла' };
     const EV_RU = {
       'payment.success': '✅ оплата', 'payment.failed': '❌ оплата не прошла',
       'subscription.recurring.payment.success': '🔁 продление', 'subscription.recurring.payment.failed': '⚠️ продление не прошло',

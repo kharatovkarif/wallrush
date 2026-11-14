@@ -1,16 +1,16 @@
 // WallRush client app: screens, board UI, online play (WebSocket), AI mode, auth.
-import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, wallBetween, N } from './engine.js?v=173';
-import { scheduleTick } from './sfx.js?v=173';
-import { aiMove } from './ai.js?v=173';
-import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=173';
-import { rankOf, nextRank } from './ranks.js?v=173';
-import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=173';
-import { checkNick, nickOk, randomNick } from './nick.js?v=173';
+import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, wallBetween, N } from './engine.js?v=174';
+import { scheduleTick } from './sfx.js?v=174';
+import { aiMove } from './ai.js?v=174';
+import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=174';
+import { rankOf, nextRank } from './ranks.js?v=174';
+import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=174';
+import { checkNick, nickOk, randomNick } from './nick.js?v=174';
 import {
   embedded, initPortal, inPortal, portalAd, portalPlaying, portalHappy,
   portalLoaded, portalInviteCode, portalShowInvite, portalHideInvite, portalInstant,
   portalRoom, portalOnJoin, portalInviteLink, portalMuted, portalOnMute, portalUserName,
-} from './portal.js?v=173';
+} from './portal.js?v=174';
 
 /* ================= state ================= */
 const $ = (id) => document.getElementById(id);
@@ -265,7 +265,7 @@ function getAiWorker() {
   if (aiWorker === false) return null;
   if (!aiWorker) {
     try {
-      aiWorker = new Worker('js/ai-worker.js?v=173', { type: 'module' });
+      aiWorker = new Worker('js/ai-worker.js?v=174', { type: 'module' });
       aiWorker.onmessage = (e) => {
         const cb = aiPending.get(e.data.id);
         aiPending.delete(e.data.id);
@@ -2632,7 +2632,7 @@ $('rp-clip').addEventListener('click', async () => {
   playReplay(false);                       // one thing on the screen at a time
   clipLabel(t('clip_making').replace('%n', '0'), { busy: true });
   try {
-    const { makeClip } = await import('./clip.js?v=173');
+    const { makeClip } = await import('./clip.js?v=174');
     const last = game.history[game.history.length - 1];
     const winner = last?.winner ?? game.state?.winner ?? null;
     const quad = isQuad();
@@ -4317,9 +4317,13 @@ function fillPremiumModal() {
   $('pm-save-tag').textContent = '−' + save + '%';
   $('pm-save-tag').hidden = !(save >= 5);
   const renews = on && premiumRenews();
+  // switched off but not yet cancelled at lava.top: switching back is free,
+  // so that is what is offered instead of paying again
+  const resumable = on && Boolean(profile?.premium_resumable);
+  $('pm-resume').hidden = !resumable;
   // buying again is offered whenever nothing renews it on its own; the new
   // period starts where the current one ends
-  const canBuy = logged && !renews;
+  const canBuy = logged && !renews && !resumable;
   $('pm-plans').hidden = !canBuy;
   $('pm-extend').hidden = !(on && canBuy);
   $('pm-signup').hidden = on || logged;
@@ -4352,9 +4356,9 @@ $('pm-cancel').addEventListener('click', async () => {
     const r = await fetch('/api/premium/cancel', { method: 'POST', headers: await authHeaders() });
     const data = await r.json().catch(() => ({}));
     if (data.ok) {
-      if (profile) profile.premium_renews = false;
+      if (profile) { profile.premium_renews = false; profile.premium_resumable = Boolean(data.resumable); }
       note.hidden = true;
-      toast(t('pm_cancel_done'));
+      toast(t(data.resumable ? 'pm_cancel_done_soft' : 'pm_cancel_done'));
     } else {
       note.classList.remove('wait');
       note.textContent = t('pm_cancel_err');
@@ -4365,6 +4369,32 @@ $('pm-cancel').addEventListener('click', async () => {
     note.hidden = false;
   }
   delete btn.dataset.armed;
+  btn.disabled = false;
+  fillPremiumModal();
+});
+
+$('pm-resume').addEventListener('click', async () => {
+  const btn = $('pm-resume');
+  btn.disabled = true;
+  const note = $('pm-note');
+  try {
+    const r = await fetch('/api/premium/resume', { method: 'POST', headers: await authHeaders() });
+    const data = await r.json().catch(() => ({}));
+    if (data.ok) {
+      if (profile) { profile.premium_renews = true; profile.premium_resumable = false; }
+      note.hidden = true;
+      toast(t('pm_resume_done'));
+    } else {
+      // already cancelled at lava.top: the plans are the way back
+      if (profile) profile.premium_resumable = false;
+      note.classList.remove('wait');
+      note.textContent = t('pm_resume_err');
+      note.hidden = false;
+    }
+  } catch {
+    note.textContent = t('pm_err');
+    note.hidden = false;
+  }
   btn.disabled = false;
   fillPremiumModal();
 });
