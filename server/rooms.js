@@ -183,7 +183,7 @@ function lobbyRooms() {
   for (const room of rooms.values()) {
     if (room.status === 'open' && !room.code) {
       list.push({
-        id: room.id, nick: room.players[0].nick, points: room.players[0].points || 0,
+        id: room.id, nick: room.players[0].nick, points: room.players[0].points || 0, premium: Boolean(room.players[0].premium),
         mode: room.mode || 'duel', walls: room.walls || 10, time: room.time || '5',
         // a four-handed room is worth joining at 3/4 and pointless at 4/4, so
         // the list has to say which it is
@@ -324,6 +324,7 @@ function seatList(room) {
     points: pl.points || 0,
     id: pl.userId || null,
     bot: Boolean(pl.isBot),
+    premium: Boolean(pl.premium),
   }));
 }
 
@@ -343,7 +344,7 @@ function startMsg(room, i, extra = {}) {
   if (!isQuad(room)) {
     const o = room.players[1 - i];
     // so the winner can offer to add them as a friend
-    msg.opp = { nick: o.nick, points: o.points || 0, id: o.userId || null };
+    msg.opp = { nick: o.nick, points: o.points || 0, id: o.userId || null, premium: Boolean(o.premium) };
   }
   return msg;
 }
@@ -832,6 +833,7 @@ async function handleHello(client, msg) {
   const pts = await getPoints({ userId, deviceId: client.deviceId });
   client.ownerId = pts.ownerId || null;
   client.points = pts.points;
+  client.premium = Boolean(pts.premium);
   client.veteran = pts.veteran;
   client.streakBest = pts.streakBest;
   // Alive is not the same as safe, and lost is not the same as gone. The

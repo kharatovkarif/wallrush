@@ -121,6 +121,8 @@ async function readPoints({ userId, deviceId }) {
     streakDay: d?.streak_day || null,
     freezeMonth: d?.freeze_month || null,
     streakPrev: d?.streak_prev || 0,
+    // Premium players wear a crown instead of their rank icon, in matches too
+    premium: Boolean(d?.premium_until && new Date(d.premium_until) > new Date()),
     /* Whose device this is, when we are reading it as a guest's. The row
        remembers the account that was signed in on it, and that is the only way
        to tell a real guest from somebody whose login quietly fell off. */
@@ -129,7 +131,7 @@ async function readPoints({ userId, deviceId }) {
   try {
     if (userId) {
       const { data } = await supa.from('profiles')
-        .select('points, streak, streak_best, streak_day, freeze_month, streak_prev').eq('id', userId).maybeSingle();
+        .select('points, streak, streak_best, streak_day, freeze_month, streak_prev, premium_until').eq('id', userId).maybeSingle();
       return shape(data, false);
     }
     if (deviceId) {
