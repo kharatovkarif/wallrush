@@ -1,16 +1,16 @@
 // WallRush client app: screens, board UI, online play (WebSocket), AI mode, auth.
-import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, wallBetween, N } from './engine.js?v=176';
-import { scheduleTick } from './sfx.js?v=176';
-import { aiMove } from './ai.js?v=176';
-import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=176';
-import { rankOf, nextRank } from './ranks.js?v=176';
-import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=176';
-import { checkNick, nickOk, randomNick } from './nick.js?v=176';
+import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, wallBetween, N } from './engine.js?v=177';
+import { scheduleTick } from './sfx.js?v=177';
+import { aiMove } from './ai.js?v=177';
+import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=177';
+import { rankOf, nextRank } from './ranks.js?v=177';
+import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=177';
+import { checkNick, nickOk, randomNick } from './nick.js?v=177';
 import {
   embedded, initPortal, inPortal, portalAd, portalPlaying, portalHappy,
   portalLoaded, portalInviteCode, portalShowInvite, portalHideInvite, portalInstant,
   portalRoom, portalOnJoin, portalInviteLink, portalMuted, portalOnMute, portalUserName,
-} from './portal.js?v=176';
+} from './portal.js?v=177';
 
 /* ================= state ================= */
 const $ = (id) => document.getElementById(id);
@@ -265,7 +265,7 @@ function getAiWorker() {
   if (aiWorker === false) return null;
   if (!aiWorker) {
     try {
-      aiWorker = new Worker('js/ai-worker.js?v=176', { type: 'module' });
+      aiWorker = new Worker('js/ai-worker.js?v=177', { type: 'module' });
       aiWorker.onmessage = (e) => {
         const cb = aiPending.get(e.data.id);
         aiPending.delete(e.data.id);
@@ -2632,7 +2632,7 @@ $('rp-clip').addEventListener('click', async () => {
   playReplay(false);                       // one thing on the screen at a time
   clipLabel(t('clip_making').replace('%n', '0'), { busy: true });
   try {
-    const { makeClip } = await import('./clip.js?v=176');
+    const { makeClip } = await import('./clip.js?v=177');
     const last = game.history[game.history.length - 1];
     const winner = last?.winner ?? game.state?.winner ?? null;
     const quad = isQuad();
@@ -4318,9 +4318,21 @@ function fillPremiumModal() {
   const on = premiumNow();
   const logged = Boolean(session && profile);
   const prices = premiumInfo?.prices || { currency: 'USD', month: 5, year: 39.99 };
-  $('pm-price-month').textContent = money(prices.month);
-  $('pm-price-year').textContent = money(prices.year);
-  $('pm-per-month').textContent = t('pm_per_month').replace('%p', money(Math.floor(prices.year / 12 * 100) / 100));
+  /* Everything on screen in dollars. Roubles are what a Russian card is
+     charged, so their dollar value at today's rate is the big number and the
+     rouble amount sits under it — the payment page then shows no surprise. */
+  const asUsd = prices.currency === 'RUB' && prices.usdMonth && prices.usdYear;
+  $('pm-price-month').textContent = asUsd ? '$' + prices.usdMonth : money(prices.month);
+  $('pm-price-year').textContent = asUsd ? '$' + prices.usdYear : money(prices.year);
+  $('pm-charge-month').hidden = !asUsd;
+  $('pm-charge-year').hidden = !asUsd;
+  if (asUsd) {
+    $('pm-charge-month').textContent = t('pm_charged').replace('%p', money(prices.month));
+    $('pm-charge-year').textContent = t('pm_charged').replace('%p', money(prices.year));
+  }
+  $('pm-per-month').textContent = t('pm_per_month').replace('%p', asUsd
+    ? '$' + Math.floor(prices.usdYear / 12 * 100) / 100
+    : money(Math.floor(prices.year / 12 * 100) / 100));
   // the saving is worked out from the real prices, so it stays true whatever
   // the owner sets in the lava.top cabinet
   const save = Math.round((1 - prices.year / (12 * prices.month)) * 100);

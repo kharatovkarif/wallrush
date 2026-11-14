@@ -119,6 +119,25 @@ export function pricesIn(offers, currency) {
 
 export const CURRENCIES = ['USD', 'RUB'];
 
+/* Roubles shown as dollars. The owner wants every price on screen in $,
+   while a Russian card can only be charged in roubles — so the dollar figure
+   is the rouble price at today's rate, and the rouble amount that will
+   actually be charged is printed under it. Rate from a free public source,
+   kept for 12 hours; if it cannot be reached the last good one is used, and
+   with none at all the screen shows roubles rather than a made-up number. */
+let rateCache = { at: 0, rub: 0 };
+export async function usdRub() {
+  if (rateCache.rub && Date.now() - rateCache.at < 12 * 3600_000) return rateCache.rub;
+  try {
+    const r = await fetch('https://open.er-api.com/v6/latest/USD', { signal: AbortSignal.timeout(8000) });
+    const j = await r.json();
+    const rub = Number(j?.rates?.RUB);
+    if (rub > 10 && rub < 1000) rateCache = { at: Date.now(), rub };
+  } catch (e) { console.error('[premium] rate', e.message); }
+  return rateCache.rub || 0;
+}
+export const rubToUsd = (rub, rate) => rate ? Math.round(rub / rate * 100) / 100 : null;
+
 export async function offerPrices(currency = 'USD') {
   const offers = await premiumOffers();
   const want = pricesIn(offers, currency);

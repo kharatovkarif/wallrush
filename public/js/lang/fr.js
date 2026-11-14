@@ -125,6 +125,7 @@ export default {
   pm_cancel_done: 'Renouvellement désactivé. Premium reste actif jusqu’à la fin de la période payée.',
   pm_cancel_err: 'Impossible de le désactiver ici. Utilise le lien de l’e-mail de lava.top ou écris à ads@wallrush.online.',
   pm_fine: 'Paiement via lava.top. L’abonnement se renouvelle automatiquement ; désactive le renouvellement à tout moment, ici ou via le lien de l’e-mail de lava.top. Changé d’avis ? Remboursement sous 14 jours.',
+  pm_charged: 'prélevé %p',
   pm_year_price: 'le prix annuel',
   pm_notice: 'Ton abonnement annuel se renouvelle dans %n jours : %p seront prélevés. Tu peux désactiver le renouvellement ici.',
   pm_resume_err: 'L’abonnement est déjà clos chez lava.top : prolonge Premium ci-dessous, tes jours payés sont conservés.',

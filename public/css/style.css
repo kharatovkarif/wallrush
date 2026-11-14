@@ -1536,3 +1536,4 @@ html.premium .b3d-lock { display: none; }
 .pm-notice { color: #9a5b00; font-weight: 600; margin-top: 4px; }
 .pm-active .pm-notice { color: #9a5b00; }
 html[data-theme="dark"] .pm-active .pm-notice { color: #ffc93c; }
+.pm-plan .pm-charge { font-size: 11.5px; color: var(--text); opacity: .7; margin-top: -2px; }
