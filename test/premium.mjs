@@ -68,3 +68,19 @@ assert.deepEqual(hookBody('{"eventType":"payment.success"}'), { eventType: 'paym
 assert.deepEqual(hookBody({ a: 1 }), { a: 1 });
 assert.equal(hookBody('not json')._raw, 'not json');
 console.log('premium webhook parsing: ok');
+import { needsReminder, chargeText } from '../server/premium.js';
+{
+  const now = Date.parse('2027-11-06T12:00:00Z');
+  const base = { plan: 'year', status: 'active', paid_until: '2027-11-13T11:00:00Z', reminded_for: null };
+  assert.equal(needsReminder(base, now), true, 'a year ending in 7 days gets a reminder');
+  assert.equal(needsReminder({ ...base, paid_until: '2027-11-20T00:00:00Z' }, now), false, 'not two weeks ahead');
+  assert.equal(needsReminder({ ...base, plan: 'month' }, now), false, 'months are not reminded');
+  assert.equal(needsReminder({ ...base, status: 'renew_off' }, now), false, 'nothing will be charged');
+  assert.equal(needsReminder({ ...base, status: 'cancelled' }, now), false, 'nothing will be charged');
+  assert.equal(needsReminder({ ...base, reminded_for: base.paid_until }, now), false, 'only once per period');
+  assert.equal(needsReminder({ ...base, reminded_for: '2026-11-13T13:26:00Z' }, now), true, 'last year\'s reminder does not count');
+  assert.equal(needsReminder({ ...base, paid_until: '2027-11-01T00:00:00Z' }, now), false, 'already past');
+  assert.equal(chargeText({ amount: 39.99, currency: 'USD' }), '$39.99');
+  assert.equal(chargeText({ amount: 990, currency: 'RUB' }), '990 ₽');
+  console.log('premium reminders: ok');
+}

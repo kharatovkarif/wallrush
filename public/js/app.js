@@ -1,16 +1,16 @@
 // WallRush client app: screens, board UI, online play (WebSocket), AI mode, auth.
-import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, wallBetween, N } from './engine.js?v=175';
-import { scheduleTick } from './sfx.js?v=175';
-import { aiMove } from './ai.js?v=175';
-import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=175';
-import { rankOf, nextRank } from './ranks.js?v=175';
-import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=175';
-import { checkNick, nickOk, randomNick } from './nick.js?v=175';
+import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, wallBetween, N } from './engine.js?v=176';
+import { scheduleTick } from './sfx.js?v=176';
+import { aiMove } from './ai.js?v=176';
+import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=176';
+import { rankOf, nextRank } from './ranks.js?v=176';
+import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=176';
+import { checkNick, nickOk, randomNick } from './nick.js?v=176';
 import {
   embedded, initPortal, inPortal, portalAd, portalPlaying, portalHappy,
   portalLoaded, portalInviteCode, portalShowInvite, portalHideInvite, portalInstant,
   portalRoom, portalOnJoin, portalInviteLink, portalMuted, portalOnMute, portalUserName,
-} from './portal.js?v=175';
+} from './portal.js?v=176';
 
 /* ================= state ================= */
 const $ = (id) => document.getElementById(id);
@@ -265,7 +265,7 @@ function getAiWorker() {
   if (aiWorker === false) return null;
   if (!aiWorker) {
     try {
-      aiWorker = new Worker('js/ai-worker.js?v=175', { type: 'module' });
+      aiWorker = new Worker('js/ai-worker.js?v=176', { type: 'module' });
       aiWorker.onmessage = (e) => {
         const cb = aiPending.get(e.data.id);
         aiPending.delete(e.data.id);
@@ -2632,7 +2632,7 @@ $('rp-clip').addEventListener('click', async () => {
   playReplay(false);                       // one thing on the screen at a time
   clipLabel(t('clip_making').replace('%n', '0'), { busy: true });
   try {
-    const { makeClip } = await import('./clip.js?v=175');
+    const { makeClip } = await import('./clip.js?v=176');
     const last = game.history[game.history.length - 1];
     const winner = last?.winner ?? game.state?.winner ?? null;
     const quad = isQuad();
@@ -4262,6 +4262,16 @@ function renderPremium() {
   pill.classList.toggle('mine', on && !ending);
   pill.classList.toggle('warn', Boolean(ending));
   $('premium-pill-text').textContent = ending ? t('pm_pill_renew') : on ? t('pm_pill_mine') : t('pm_pill');
+  const notice = on && premiumRenews() && profile?.premium_notice;
+  if (notice) {
+    const key = 'wr_pm_notice_' + new Date().toISOString().slice(0, 10);
+    try {
+      if (!sessionStorage.getItem(key)) {
+        sessionStorage.setItem(key, '1');
+        toast(t('pm_notice').replace('%n', days).replace('%p', notice.charge || t('pm_year_price')));
+      }
+    } catch { /* private mode */ }
+  }
   if (ending) {
     const key = 'wr_pm_warned_' + new Date().toISOString().slice(0, 10);
     try {
@@ -4335,6 +4345,13 @@ function fillPremiumModal() {
     $('pm-active-sub').textContent = t('pm_until')
       .replace('%date', premiumDate(end))
       .replace('%n', daysLeft(end));
+  }
+  // a yearly charge within a week, named with its amount
+  const notice = on && renews ? profile?.premium_notice : null;
+  $('pm-notice').hidden = !notice;
+  if (notice) {
+    $('pm-notice').textContent = t('pm_notice')
+      .replace('%n', daysLeft(end)).replace('%p', notice.charge || t('pm_year_price'));
   }
   $('pm-renew').hidden = !on;
   $('pm-renew').textContent = renews ? t('pm_renews').replace('%date', premiumDate(end)) : t('pm_no_renew');

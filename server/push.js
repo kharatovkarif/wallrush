@@ -375,3 +375,35 @@ export async function pushTick(onlineNow, onlineUserIds = new Set()) {
     console.error('pushTick failed:', e.message);
   }
 }
+
+/* One message to every device an account has notifications on. Used for the
+   reminder before a yearly Premium renewal. Not stamped as the evening message
+   (last_sent): a billing notice must not cost the player their streak reminder,
+   nor be skipped because one went out today. */
+export async function sendUserPush(userId, makePayload) {
+  if (!ready || !dbEnabled || !userId) return 0;
+  try {
+    const { data: devs } = await supa.from('visitors').select('device_id').eq('user_id', userId).limit(20);
+    const ids = (devs || []).map(d => d.device_id);
+    if (!ids.length) return 0;
+    const { data: subs } = await supa.from('push_subs')
+      .select('endpoint, p256dh, auth, lang').in('device_id', ids);
+    let sent = 0;
+    for (const s of subs || []) {
+      try {
+        await webpush.sendNotification(
+          { endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } },
+          JSON.stringify(makePayload(String(s.lang || 'en').slice(0, 2))),
+          { TTL: 24 * 3600 },
+        );
+        sent++;
+      } catch (e) {
+        if (e?.statusCode === 404 || e?.statusCode === 410) await dropSub(s.endpoint);
+      }
+    }
+    return sent;
+  } catch (e) {
+    console.error('sendUserPush failed:', e.message);
+    return 0;
+  }
+}

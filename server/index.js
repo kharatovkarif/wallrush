@@ -13,7 +13,7 @@ import { localDay } from '../public/js/streak.js';
 import { taskForDay } from '../public/js/daily.js';
 import { initPush, pushPublicKey, saveSub, dropSub, pushTick, sendTestPush } from './push.js';
 import { mountPages } from './pages.js';
-import { premiumConfigured, createCheckout, handleWebhook, claimByEmail, offerPrices, premiumState, cancelRenewal, CURRENCIES, syncFromLava, syncState, startPremiumSync, resumeRenewal } from './premium.js';
+import { premiumConfigured, createCheckout, handleWebhook, claimByEmail, offerPrices, premiumState, cancelRenewal, CURRENCIES, syncFromLava, syncState, startPremiumSync, resumeRenewal, REMIND_AHEAD, lastCharge, chargeText } from './premium.js';
 import { logVisitLater, startWriteQueue, queueStatus, flushWrites } from './queue.js';
 import { dbEnabled, dbStatus, dbDetail, cleanEnv, likeEscape, supa, verifyUser, getProfile, createProfile, claimGuestProgress, leaderboard, dailyLeaderboard, sweepDayPoints, mskDay, myRank, myDayRank, publicProfile, clearNickNotice, restoreStreak, deleteAccount, cacheStats } from './db.js';
 
@@ -120,6 +120,11 @@ app.get('/api/profile', async (req, res) => {
       const st = await premiumState(user.id);
       prof.premium_renews = Boolean(st?.renews);
       prof.premium_resumable = Boolean(st?.resumable);
+      prof.premium_plan = st?.plan || null;
+      // a yearly charge within a week: the game says so on its own screen too
+      if (st?.renews && st.plan === 'year' && new Date(st.paidUntil).getTime() - Date.now() <= REMIND_AHEAD) {
+        prof.premium_notice = { charge: chargeText(await lastCharge(st.email)) || null };
+      }
       // the date actually paid for; premium_until carries two days of slack
       // so a renewal that clears late does not switch premium off overnight
       prof.premium_paid_until = st?.paidUntil || null;

@@ -18,6 +18,7 @@
 
 import { timingSafeEqual } from 'node:crypto';
 import { supa, dbEnabled } from './db.js';
+import { sendUserPush } from './push.js';
 
 const GATE = 'https://gate.lava.top';
 const PERIOD = { month: 'MONTHLY', year: 'PERIOD_YEAR' };
@@ -316,12 +317,12 @@ export const isPremium = (until, now = Date.now()) => Boolean(until && new Date(
 export async function premiumState(userId) {
   if (!dbEnabled || !userId) return null;
   const { data } = await supa.from('premium_contracts')
-    .select('contract_id, email, status, paid_until').eq('user_id', userId)
+    .select('contract_id, email, status, paid_until, plan').eq('user_id', userId)
     .not('paid_until', 'is', null).neq('status', 'refunded')
     .order('paid_until', { ascending: false }).limit(1);
   const c = data?.[0];
   if (!c) return null;
-  return { contractId: c.contract_id, email: c.email, paidUntil: c.paid_until, status: c.status,
+  return { contractId: c.contract_id, email: c.email, paidUntil: c.paid_until, status: c.status, plan: c.plan,
     renews: c.status === 'active' || c.status === 'past_due',
     // switched off in the game but not yet cancelled at lava.top: one tap undoes it
     resumable: c.status === 'renew_off' };
@@ -460,6 +461,7 @@ export async function syncFromLava({ sample = false } = {}) {
     console.error('[premium] sync failed:', e.message);
   }
   try { await cancelDueRenewals(); } catch (e) { console.error('[premium] due cancels failed:', e.message); }
+  try { await remindRenewals(); } catch (e) { console.error('[premium] reminders failed:', e.message); }
   lastSync = out;
   return syncState();
 }
@@ -469,4 +471,56 @@ export function startPremiumSync() {
   // first look with a sample of what lava.top answers, then quietly every 10 min
   setTimeout(() => syncFromLava({ sample: true }), 20_000);
   setInterval(() => syncFromLava(), 10 * 60_000).unref?.();
+}
+
+/* ---------- a week's notice before a yearly charge ----------
+
+   A year is long enough to forget a subscription exists, and several places
+   require a reminder before an annual renewal. Seven days ahead the player is
+   told, once per period: a notification if they have them on, and the same
+   notice inside the game (the client reads premium_notice from /api/profile).
+   reminded_for holds the paid_until it was sent for, so the next year gets its
+   own reminder and a restart does not send this one twice. */
+export const REMIND_AHEAD = 7 * 86400_000;
+
+export function needsReminder(c, now = Date.now()) {
+  if (!c || c.plan !== 'year') return false;
+  if (c.status !== 'active' && c.status !== 'past_due') return false;
+  const end = new Date(c.paid_until).getTime();
+  if (!(end > now) || end - now > REMIND_AHEAD) return false;
+  return !c.reminded_for || new Date(c.reminded_for).getTime() !== end;
+}
+
+const REMIND_TEXT = {
+  ru: (d, p) => ({ title: '👑 Premium продлится через ' + d + ' дн.', body: `Спишется ${p} за год. Отключить автопродление можно в игре: Профиль → Premium.` }),
+  en: (d, p) => ({ title: `👑 Premium renews in ${d} days`, body: `${p} for a year will be charged. You can turn auto-renewal off in the game: Profile → Premium.` }),
+  es: (d, p) => ({ title: `👑 Premium se renueva en ${d} días`, body: `Se cobrarán ${p} por un año. Puedes desactivar la renovación en el juego: Perfil → Premium.` }),
+  fr: (d, p) => ({ title: `👑 Premium se renouvelle dans ${d} jours`, body: `${p} pour un an seront prélevés. Tu peux désactiver le renouvellement dans le jeu : Profil → Premium.` }),
+  tr: (d, p) => ({ title: `👑 Premium ${d} gün içinde yenileniyor`, body: `Bir yıllık ${p} tahsil edilecek. Otomatik yenilemeyi oyunda kapatabilirsin: Profil → Premium.` }),
+  fa: (d, p) => ({ title: `👑 Premium تا ${d} روز دیگر تمدید می‌شود`, body: `${p} برای یک سال برداشت می‌شود. تمدید خودکار را در بازی خاموش کن: پروفایل ← Premium.` }),
+};
+
+// what the last charge on this subscription was, to name the amount
+export async function lastCharge(email) {
+  if (!email) return null;
+  const { data } = await supa.from('premium_events').select('amount, currency')
+    .eq('email', email.toLowerCase()).like('event_type', '%success').not('amount', 'is', null)
+    .order('id', { ascending: false }).limit(1);
+  const e = data?.[0];
+  return e ? { amount: Number(e.amount), currency: e.currency } : null;
+}
+export const chargeText = (c) => !c ? '' : c.currency === 'RUB' ? `${Math.round(c.amount)} ₽` : `$${c.amount}`;
+
+export async function remindRenewals() {
+  const soon = new Date(Date.now() + REMIND_AHEAD).toISOString();
+  const { data } = await supa.from('premium_contracts')
+    .select('contract_id, user_id, email, plan, status, paid_until, reminded_for')
+    .eq('plan', 'year').in('status', ['active', 'past_due']).lte('paid_until', soon).limit(100);
+  for (const c of (data || []).filter(x => needsReminder(x))) {
+    const days = Math.max(1, Math.ceil((new Date(c.paid_until).getTime() - Date.now()) / 86400_000));
+    const price = chargeText(await lastCharge(c.email)) || 'the yearly price';
+    const sent = c.user_id ? await sendUserPush(c.user_id, (l) => (REMIND_TEXT[l] || REMIND_TEXT.en)(days, price)) : 0;
+    await supa.from('premium_contracts').update({ reminded_for: c.paid_until }).eq('contract_id', c.contract_id);
+    console.log(`[premium] renewal reminder ${c.contract_id}: ${days} days, ${sent} device(s)`);
+  }
 }
