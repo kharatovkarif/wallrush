@@ -27,6 +27,23 @@ const app = express();
    files the browser has already cached are skipped by the library on its own.
    The game's socket is not touched — it is a few kilobytes a match anyway. */
 app.use(compression({ threshold: 1024 }));
+
+/* The Google Play app is this site in a Trusted Web Activity. Android shows it
+   full-screen, without a browser address bar, only if the site vouches for the
+   app here. Both values come from Railway variables so nothing about the app
+   is baked into the code: TWA_PACKAGE (e.g. online.wallrush.twa) and
+   TWA_SHA256 — the signing key fingerprint(s) from Play Console → App
+   integrity, comma-separated if there is more than one. */
+app.get('/.well-known/assetlinks.json', (req, res) => {
+  const pkg = (process.env.TWA_PACKAGE || '').trim();
+  const prints = (process.env.TWA_SHA256 || '').split(',').map(x => x.trim()).filter(Boolean);
+  if (!pkg || !prints.length) return res.status(404).json([]);
+  res.set('Cache-Control', 'public, max-age=3600');
+  res.json([{
+    relation: ['delegate_permission/common.handle_all_urls'],
+    target: { namespace: 'android_app', package_name: pkg, sha256_cert_fingerprints: prints },
+  }]);
+});
 app.use(express.json());
 
 /* Pages a search engine can read: the Russian landing page, the rules, help,

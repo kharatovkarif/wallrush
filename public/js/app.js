@@ -1,16 +1,16 @@
 // WallRush client app: screens, board UI, online play (WebSocket), AI mode, auth.
-import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, wallBetween, N } from './engine.js?v=182';
-import { scheduleTick } from './sfx.js?v=182';
-import { aiMove } from './ai.js?v=182';
-import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=182';
-import { rankOf, nextRank } from './ranks.js?v=182';
-import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=182';
-import { checkNick, nickOk, randomNick } from './nick.js?v=182';
+import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, wallBetween, N } from './engine.js?v=183';
+import { scheduleTick } from './sfx.js?v=183';
+import { aiMove } from './ai.js?v=183';
+import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=183';
+import { rankOf, nextRank } from './ranks.js?v=183';
+import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=183';
+import { checkNick, nickOk, randomNick } from './nick.js?v=183';
 import {
   embedded, initPortal, inPortal, portalAd, portalPlaying, portalHappy,
   portalLoaded, portalInviteCode, portalShowInvite, portalHideInvite, portalInstant,
   portalRoom, portalOnJoin, portalInviteLink, portalMuted, portalOnMute, portalUserName,
-} from './portal.js?v=182';
+} from './portal.js?v=183';
 
 /* ================= state ================= */
 const $ = (id) => document.getElementById(id);
@@ -265,7 +265,7 @@ function getAiWorker() {
   if (aiWorker === false) return null;
   if (!aiWorker) {
     try {
-      aiWorker = new Worker('js/ai-worker.js?v=182', { type: 'module' });
+      aiWorker = new Worker('js/ai-worker.js?v=183', { type: 'module' });
       aiWorker.onmessage = (e) => {
         const cb = aiPending.get(e.data.id);
         aiPending.delete(e.data.id);
@@ -2639,7 +2639,7 @@ $('rp-clip').addEventListener('click', async () => {
   playReplay(false);                       // one thing on the screen at a time
   clipLabel(t('clip_making').replace('%n', '0'), { busy: true });
   try {
-    const { makeClip } = await import('./clip.js?v=182');
+    const { makeClip } = await import('./clip.js?v=183');
     const last = game.history[game.history.length - 1];
     const winner = last?.winner ?? game.state?.winner ?? null;
     const quad = isQuad();
@@ -4258,7 +4258,8 @@ function renderPremium() {
   }
   // before sign-in has settled, the <head> already decided from the device copy
   if (session || profile) document.documentElement.classList.toggle('premium', on);
-  const offered = !window.WR_EMBED && Boolean(premiumInfo?.enabled);
+  // not offered inside the Google Play app (Play billing rules) nor in portals
+  const offered = !window.WR_EMBED && !window.WR_TWA && Boolean(premiumInfo?.enabled);
   const end = on ? premiumPaidEnd() : 0;
   const days = on ? daysLeft(end) : 0;
   // ending soon and nothing will renew it: say so, three days ahead
@@ -4397,10 +4398,10 @@ function fillPremiumModal() {
   $('pm-resume').hidden = !resumable;
   // buying again is offered whenever nothing renews it on its own; the new
   // period starts where the current one ends
-  const canBuy = logged && !renews && !resumable;
+  const canBuy = logged && !renews && !resumable && !window.WR_TWA;
   $('pm-plans').hidden = !canBuy;
   $('pm-extend').hidden = !(on && canBuy);
-  $('pm-signup').hidden = on || logged;
+  $('pm-signup').hidden = on || logged || Boolean(window.WR_TWA);
   $('pm-fine').hidden = on && !canBuy;
   $('pm-fine').textContent = t('pm_fine') + (prices.currency === 'RUB'
     ? ' ' + t('pm_rub_note').replace('%m', money(prices.month)).replace('%y', money(prices.year)) : '');
