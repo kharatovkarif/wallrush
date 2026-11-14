@@ -1,16 +1,16 @@
 // WallRush client app: screens, board UI, online play (WebSocket), AI mode, auth.
-import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, wallBetween, N } from './engine.js?v=177';
-import { scheduleTick } from './sfx.js?v=177';
-import { aiMove } from './ai.js?v=177';
-import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=177';
-import { rankOf, nextRank } from './ranks.js?v=177';
-import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=177';
-import { checkNick, nickOk, randomNick } from './nick.js?v=177';
+import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, wallBetween, N } from './engine.js?v=178';
+import { scheduleTick } from './sfx.js?v=178';
+import { aiMove } from './ai.js?v=178';
+import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=178';
+import { rankOf, nextRank } from './ranks.js?v=178';
+import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=178';
+import { checkNick, nickOk, randomNick } from './nick.js?v=178';
 import {
   embedded, initPortal, inPortal, portalAd, portalPlaying, portalHappy,
   portalLoaded, portalInviteCode, portalShowInvite, portalHideInvite, portalInstant,
   portalRoom, portalOnJoin, portalInviteLink, portalMuted, portalOnMute, portalUserName,
-} from './portal.js?v=177';
+} from './portal.js?v=178';
 
 /* ================= state ================= */
 const $ = (id) => document.getElementById(id);
@@ -265,7 +265,7 @@ function getAiWorker() {
   if (aiWorker === false) return null;
   if (!aiWorker) {
     try {
-      aiWorker = new Worker('js/ai-worker.js?v=177', { type: 'module' });
+      aiWorker = new Worker('js/ai-worker.js?v=178', { type: 'module' });
       aiWorker.onmessage = (e) => {
         const cb = aiPending.get(e.data.id);
         aiPending.delete(e.data.id);
@@ -2632,7 +2632,7 @@ $('rp-clip').addEventListener('click', async () => {
   playReplay(false);                       // one thing on the screen at a time
   clipLabel(t('clip_making').replace('%n', '0'), { busy: true });
   try {
-    const { makeClip } = await import('./clip.js?v=177');
+    const { makeClip } = await import('./clip.js?v=178');
     const last = game.history[game.history.length - 1];
     const winner = last?.winner ?? game.state?.winner ?? null;
     const quad = isQuad();
@@ -4294,7 +4294,7 @@ function renderPremium() {
 async function loadPremiumInfo() {
   if (window.WR_EMBED) return;
   try {
-    const r = await fetch('/api/premium/info?cur=' + premiumCurrency());
+    const r = await fetch('/api/premium/info?cur=' + premiumCurrency() + '&local=' + premiumLocalCurrency());
     if (r.ok) premiumInfo = await r.json();
   } catch { /* offline: the offer just stays hidden */ }
   renderPremium();
@@ -4311,8 +4311,47 @@ function premiumCurrency() {
 }
 const money = (n, cur = premiumInfo?.prices?.currency || 'USD') => {
   const v = Math.round(Number(n) * 100) / 100;
-  return cur === 'RUB' ? `${Math.round(v)} ₽` : '$' + v.toString();
+  // 149.99 stays 149.99 — rounding it to 150 would show a price nobody is charged
+  return cur === 'RUB' ? `${v.toLocaleString('ru', { maximumFractionDigits: 2 })} ₽` : '$' + v.toString();
 };
+
+/* The player's own currency, guessed from the phone's timezone (never the IP,
+   so a VPN changes nothing). Only for showing "≈ so much" under the dollar
+   price. The Iranian rial is left out on purpose: the official rate the public
+   sources carry is far from what people actually pay, and a wrong "≈" is worse
+   than none. */
+const TZ_CUR = [
+  [/Moscow|Kaliningrad|Samara|Volgograd|Saratov|Astrakhan|Kirov|Ulyanovsk|Yekaterinburg|Omsk|Novosibirsk|Barnaul|Tomsk|Novokuznetsk|Krasnoyarsk|Irkutsk|Chita|Yakutsk|Khandyga|Vladivostok|Ust-Nera|Magadan|Sakhalin|Srednekolymsk|Kamchatka|Anadyr|Simferopol/, 'RUB'],
+  [/Almaty|Astana|Qostanay|Aqtobe|Aqtau|Atyrau|Oral|Qyzylorda/, 'KZT'],
+  [/Tashkent|Samarkand/, 'UZS'], [/Bishkek/, 'KGS'], [/Dushanbe/, 'TJS'], [/Ashgabat/, 'TMT'],
+  [/Minsk/, 'BYN'], [/Kiev|Kyiv|Uzhgorod|Zaporozhye/, 'UAH'], [/Chisinau|Tiraspol/, 'MDL'],
+  [/Baku/, 'AZN'], [/Yerevan/, 'AMD'], [/Tbilisi/, 'GEL'],
+  [/Istanbul/, 'TRY'], [/Kolkata|Calcutta/, 'INR'], [/Karachi/, 'PKR'], [/Dhaka/, 'BDT'],
+  [/Jakarta|Pontianak|Makassar|Jayapura/, 'IDR'], [/Manila/, 'PHP'], [/Ho_Chi_Minh|Saigon/, 'VND'],
+  [/Bangkok/, 'THB'], [/Kuala_Lumpur|Kuching/, 'MYR'], [/Cairo/, 'EGP'], [/Lagos/, 'NGN'],
+  [/Riyadh/, 'SAR'], [/Dubai/, 'AED'], [/Casablanca/, 'MAD'], [/Algiers/, 'DZD'], [/Tunis/, 'TND'],
+  [/Sao_Paulo|Bahia|Fortaleza|Recife|Manaus|Belem|Maceio|Cuiaba|Campo_Grande|Porto_Velho|Boa_Vista|Rio_Branco|Araguaina|Santarem/, 'BRL'],
+  [/Mexico_City|Tijuana|Monterrey|Merida|Cancun|Chihuahua|Hermosillo|Mazatlan|Matamoros|Bahia_Banderas/, 'MXN'],
+  [/Bogota/, 'COP'], [/Lima/, 'PEN'], [/Santiago/, 'CLP'], [/Buenos_Aires|Argentina/, 'ARS'],
+  [/London/, 'GBP'], [/Warsaw/, 'PLN'], [/Prague/, 'CZK'], [/Budapest/, 'HUF'], [/Bucharest/, 'RON'],
+  [/Europe\/(Berlin|Paris|Madrid|Rome|Vienna|Brussels|Amsterdam|Lisbon|Athens|Helsinki|Dublin|Bratislava|Ljubljana|Riga|Vilnius|Tallinn|Luxembourg|Monaco|Malta|Zagreb)/, 'EUR'],
+];
+function premiumLocalCurrency() {
+  let tz = '';
+  try { tz = Intl.DateTimeFormat().resolvedOptions().timeZone || ''; } catch { /* old browser */ }
+  for (const [re, cur] of TZ_CUR) if (re.test(tz)) return cur;
+  return '';
+}
+// "≈ 1 012 ₸" for a dollar amount, in the player's own currency
+function approxLocal(usd) {
+  const loc = premiumInfo?.local;
+  if (!loc || !usd) return '';
+  const v = usd * loc.perUsd;
+  try {
+    return '≈ ' + new Intl.NumberFormat(lang, { style: 'currency', currency: loc.code, currencyDisplay: 'narrowSymbol',
+      maximumFractionDigits: v >= 100 ? 0 : 2 }).format(v);
+  } catch { return ''; }
+}
 
 function fillPremiumModal() {
   const on = premiumNow();
@@ -4322,14 +4361,20 @@ function fillPremiumModal() {
      charged, so their dollar value at today's rate is the big number and the
      rouble amount sits under it — the payment page then shows no surprise. */
   const asUsd = prices.currency === 'RUB' && prices.usdMonth && prices.usdYear;
-  $('pm-price-month').textContent = asUsd ? '$' + prices.usdMonth : money(prices.month);
-  $('pm-price-year').textContent = asUsd ? '$' + prices.usdYear : money(prices.year);
-  $('pm-charge-month').hidden = !asUsd;
-  $('pm-charge-year').hidden = !asUsd;
-  if (asUsd) {
-    $('pm-charge-month').textContent = t('pm_charged').replace('%p', money(prices.month));
-    $('pm-charge-year').textContent = t('pm_charged').replace('%p', money(prices.year));
-  }
+  const usdM = asUsd ? prices.usdMonth : prices.currency === 'USD' ? prices.month : null;
+  const usdY = asUsd ? prices.usdYear : prices.currency === 'USD' ? prices.year : null;
+  $('pm-price-month').textContent = usdM ? '$' + usdM : money(prices.month);
+  $('pm-price-year').textContent = usdY ? '$' + usdY : money(prices.year);
+  /* Under the dollars: what it is in the player's own money. A player charged
+     in roubles who lives in Russia sees the exact rouble price (that is what
+     the bank will show); anyone else sees an "≈" in their own currency. */
+  const local = premiumInfo?.local?.code;
+  const lineM = prices.currency === 'RUB' && local === 'RUB' ? money(prices.month) : approxLocal(usdM);
+  const lineY = prices.currency === 'RUB' && local === 'RUB' ? money(prices.year) : approxLocal(usdY);
+  $('pm-charge-month').textContent = lineM;
+  $('pm-charge-year').textContent = lineY;
+  $('pm-charge-month').hidden = !lineM || local === 'USD';
+  $('pm-charge-year').hidden = !lineY || local === 'USD';
   $('pm-per-month').textContent = t('pm_per_month').replace('%p', asUsd
     ? '$' + Math.floor(prices.usdYear / 12 * 100) / 100
     : money(Math.floor(prices.year / 12 * 100) / 100));
@@ -4350,6 +4395,8 @@ function fillPremiumModal() {
   $('pm-extend').hidden = !(on && canBuy);
   $('pm-signup').hidden = on || logged;
   $('pm-fine').hidden = on && !canBuy;
+  $('pm-fine').textContent = t('pm_fine') + (prices.currency === 'RUB'
+    ? ' ' + t('pm_rub_note').replace('%m', money(prices.month)).replace('%y', money(prices.year)) : '');
   $('pm-active').hidden = !on;
   const end = premiumPaidEnd();
   if (on) {

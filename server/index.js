@@ -13,7 +13,7 @@ import { localDay } from '../public/js/streak.js';
 import { taskForDay } from '../public/js/daily.js';
 import { initPush, pushPublicKey, saveSub, dropSub, pushTick, sendTestPush } from './push.js';
 import { mountPages } from './pages.js';
-import { premiumConfigured, createCheckout, handleWebhook, claimByEmail, offerPrices, premiumState, cancelRenewal, CURRENCIES, syncFromLava, syncState, startPremiumSync, resumeRenewal, REMIND_AHEAD, lastCharge, chargeText, usdRub, rubToUsd } from './premium.js';
+import { premiumConfigured, createCheckout, handleWebhook, claimByEmail, offerPrices, premiumState, cancelRenewal, CURRENCIES, syncFromLava, syncState, startPremiumSync, resumeRenewal, REMIND_AHEAD, lastCharge, chargeText, usdRub, rubToUsd, usdRates } from './premium.js';
 import { logVisitLater, startWriteQueue, queueStatus, flushWrites } from './queue.js';
 import { dbEnabled, dbStatus, dbDetail, cleanEnv, likeEscape, supa, verifyUser, getProfile, createProfile, claimGuestProgress, leaderboard, dailyLeaderboard, sweepDayPoints, mskDay, myRank, myDayRank, publicProfile, clearNickNotice, restoreStreak, deleteAccount, cacheStats } from './db.js';
 
@@ -168,11 +168,15 @@ app.get('/api/premium/info', async (req, res) => {
     priceCache.set(cur, hit);
   }
   let prices = hit.prices;
+  const rates = await usdRates();
   if (prices.currency === 'RUB') {
-    const rate = await usdRub();
+    const rate = Number(rates?.RUB) || 0;
     if (rate) prices = { ...prices, usdMonth: rubToUsd(prices.month, rate), usdYear: rubToUsd(prices.year, rate) };
   }
-  res.json({ enabled: true, prices });
+  // the player's own currency, for the "≈" line under the dollar price
+  const local = /^[A-Z]{3}$/.test(String(req.query.local || '')) ? String(req.query.local) : '';
+  const localRate = local && rates ? Number(rates[local]) || 0 : 0;
+  res.json({ enabled: true, prices, local: localRate ? { code: local, perUsd: localRate } : null });
 });
 
 app.post('/api/premium/cancel', async (req, res) => {

@@ -125,6 +125,7 @@ export default {
   pm_cancel_done: 'Renovación desactivada. Premium sigue hasta el final del periodo pagado.',
   pm_cancel_err: 'No se pudo desactivar desde aquí. Usa el enlace del correo de lava.top o escribe a ads@wallrush.online.',
   pm_fine: 'Pago a través de lava.top. La suscripción se renueva sola; puedes desactivar la renovación cuando quieras, aquí mismo o con el enlace del correo de lava.top. ¿Cambiaste de opinión? Te devolvemos el dinero en 14 días.',
+  pm_rub_note: 'El cobro se hace en rublos: %m al mes, %y al año.',
   pm_charged: 'se cobra %p',
   pm_year_price: 'el precio anual',
   pm_notice: 'Tu suscripción anual se renueva en %n días: se cobrarán %p. Puedes desactivar la renovación aquí.',

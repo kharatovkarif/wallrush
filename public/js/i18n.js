@@ -126,6 +126,7 @@ export const I18N = {
     pm_cancel_done: 'Автопродление отключено. Premium работает до конца оплаченного срока.',
     pm_cancel_err: 'Не получилось отключить отсюда. Отключи по ссылке из письма lava.top или напиши на ads@wallrush.online.',
     pm_fine: 'Оплата через lava.top. Подписка продлевается сама; отключить автопродление можно в любой момент здесь же или по ссылке из письма lava.top. Передумали — вернём деньги в течение 14 дней.',
+    pm_rub_note: 'Оплата списывается в рублях: месяц %m, год %y.',
     pm_charged: 'оплата %p',
     pm_year_price: 'цена за год',
     pm_notice: 'Через %n дн. продлится годовая подписка: спишется %p. Отключить автопродление можно здесь.',
@@ -541,6 +542,7 @@ export const I18N = {
     pm_cancel_done: 'Auto-renewal is off. Premium stays until the end of the paid period.',
     pm_cancel_err: 'Could not turn it off from here. Use the link in the lava.top email or write to ads@wallrush.online.',
     pm_fine: 'Paid through lava.top. The subscription renews automatically; turn off auto-renewal any time, right here or with the link in the lava.top email. Changed your mind? Refund within 14 days.',
+    pm_rub_note: 'You are charged in roubles: %m a month, %y a year.',
     pm_charged: 'charged %p',
     pm_year_price: 'the yearly price',
     pm_notice: 'Your yearly subscription renews in %n days: %p will be charged. You can turn auto-renewal off here.',
@@ -846,7 +848,7 @@ export const LANGS = [
 export const LANG_CODES = LANGS.map((l) => l.code);
 export const RTL = new Set(['fa']);
 
-const V = '177';
+const V = '178';
 
 // Loads a translation file on demand. Safe to call repeatedly and safe to fail:
 // if the request never lands, makeT keeps falling back to English.
