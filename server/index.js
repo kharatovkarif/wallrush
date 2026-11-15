@@ -891,26 +891,33 @@ const ADMIN_CSS = `
      those six as layers — the way the reference picture stacks its capsules —
      not from borders. Green and red are kept for one job only, up and down,
      and toned down to sit inside the slate. */
+  /* 15 Nov 2026: the owner's new reference — a night-navy screen that turns
+     royal blue and then cyan towards the bottom, big wide bold headings,
+     glass capsules with a light rim, white blocks for lists, cyan for the one
+     thing that matters, dashed rules between sections. */
   :root {
-    --c1: #06141B; --c2: #11212D; --c3: #253745; --c4: #4A5C6A; --c5: #9BA8AB; --c6: #CCD0CF;
-    --c25: #1a2c39;
-    --bg: var(--c1); --card: var(--c2); --line: rgba(74, 92, 106, .35);
-    --ink: var(--c6); --dim: var(--c5); --faint: #74858C;
-    --accent: var(--c6); --accent-soft: rgba(204, 208, 207, .10);
-    --up: #7FC8A9; --down: #E39A9F;
-    --lift: 0 18px 34px rgba(0, 0, 0, .40), inset 0 1px 0 rgba(204, 208, 207, .07);
-    --lift-sm: 0 10px 22px rgba(0, 0, 0, .32), inset 0 1px 0 rgba(204, 208, 207, .06);
+    --c1: #030a1a; --c2: rgba(58, 98, 190, .26); --c3: rgba(255, 255, 255, .10); --c4: #7d97d8; --c5: #b4c4ea; --c6: #ffffff;
+    --c25: rgba(44, 80, 165, .22);
+    --cy: #46e2ff; --navy: #06143a; --rim: rgba(160, 190, 255, .28);
+    --bg: var(--c1); --card: var(--c2); --line: rgba(160, 190, 255, .16);
+    --ink: var(--c6); --dim: var(--c5); --faint: #8ea3d4;
+    --accent: var(--cy); --accent-soft: rgba(70, 226, 255, .12);
+    --up: #5ff0b4; --down: #ff8f9d;
+    --lift: 0 18px 40px rgba(0, 4, 20, .45), inset 0 1px 0 rgba(255, 255, 255, .10);
+    --lift-sm: 0 10px 26px rgba(0, 4, 20, .38), inset 0 1px 0 rgba(255, 255, 255, .08);
+    --disp: "Unbounded", "Montserrat", system-ui, sans-serif;
   }
   * { box-sizing: border-box; }
-  html { -webkit-text-size-adjust: 100%; overscroll-behavior-y: none; background: var(--c1); }
+  html { -webkit-text-size-adjust: 100%; background: var(--c1); }
   a, button, .card2, .dayrow, .geo, .pcard, .an-btn, .tabs a, .seg a, .li { -webkit-tap-highlight-color: transparent; }
   a, button { touch-action: manipulation; }
   body {
     margin: 0; color: var(--ink); min-height: 100vh;
     font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; -webkit-font-smoothing: antialiased;
     background:
-      radial-gradient(120% 55% at 0% 0%, rgba(155, 168, 171, .20), transparent 55%),
-      linear-gradient(180deg, #0b1d27 0%, var(--c1) 55%);
+      radial-gradient(90% 45% at 0% 100%, rgba(40, 200, 235, .55), transparent 70%),
+      radial-gradient(70% 40% at 100% 70%, rgba(30, 80, 220, .45), transparent 70%),
+      linear-gradient(180deg, #02060f 0%, #041233 30%, #06257a 70%, #0b3fa8 100%);
     background-attachment: fixed;
     padding: 18px 16px 30px;
   }
@@ -1112,6 +1119,81 @@ const ADMIN_CSS = `
   .card2:active { transform: scale(.978); }
   .seg a:active, .tabs a:active, .rb-btn:active, .back:active { transform: scale(.94); }
   .an-btn:active { transform: scale(.9); }
+  /* ================= the new look (15 Nov 2026) ================= */
+  .brand { font-family: var(--disp); font-size: 22px; font-weight: 800; letter-spacing: .01em; }
+  .brand small { font-family: system-ui, sans-serif; color: var(--c5); }
+  .livepill { background: var(--c2); border: 1.5px solid var(--rim); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); color: var(--c5); }
+  .livepill .dot { background: var(--cy); box-shadow: 0 0 0 4px rgba(70, 226, 255, .18); }
+  h2 { font-family: var(--disp); font-size: 30px; font-weight: 800; letter-spacing: 0; margin: 10px 2px 18px; line-height: 1.15; }
+  .sect, .h, .subsect { font-family: var(--disp); font-size: 22px; font-weight: 700; letter-spacing: 0; text-transform: none;
+    color: #fff; margin: 30px 2px 14px; padding-top: 26px; border-top: 2px dashed rgba(160, 190, 255, .28); }
+  .note, .cmp-note { color: var(--faint); }
+  .back { background: var(--c2); border: 1.5px solid var(--rim); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
+
+  /* capsules of glass with a light rim, like the reference's buttons */
+  .card2, .c, .dayrow, .pcard, .geo, .person, .adreq, .live-strip, .tchart, .wrap, .totals-grid, .layer, .seg, .tabs, .search-box {
+    border: 1.5px solid var(--rim) !important;
+    backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+  }
+  .card2, .c, .dayrow, .pcard, .geo, .person, .adreq, .live-strip, .tchart, .wrap, .totals-grid { background: var(--c2); border-radius: 26px; }
+  .dayrow .go, .pc-go, .li .go { color: #fff; opacity: .8; font-size: 24px; }
+
+  /* the hero is the cyan block of the reference: dark ink on bright cyan */
+  .hero { background: linear-gradient(135deg, #5ce8ff, #3fd3f5 55%, #2bb8ee); color: var(--navy); border-radius: 30px;
+          box-shadow: 0 20px 44px rgba(20, 160, 220, .35), inset 0 1px 0 rgba(255, 255, 255, .5); }
+  .hero .k { color: rgba(6, 20, 58, .7); }
+  .hero .v { font-family: var(--disp); font-weight: 800; color: var(--navy); font-size: 48px; }
+  .hero .d { color: rgba(6, 20, 58, .75); }
+  .hero .pill.up { background: rgba(6, 20, 58, .12); color: #046c45; }
+  .hero .pill.down { background: rgba(6, 20, 58, .12); color: #a3122a; }
+  .hero .pill.flat { background: rgba(6, 20, 58, .1); color: var(--navy); }
+  .hero svg path, .hero svg polyline { stroke: var(--navy) !important; }
+  .layer.l1 { background: rgba(58, 98, 190, .34); }
+  .layer.l2 { background: rgba(40, 72, 160, .28); }
+
+  /* lists are the white block of the reference: navy ink, dashed rules */
+  .list { background: #fff; color: var(--navy); border-radius: 26px; box-shadow: 0 18px 40px rgba(0, 4, 20, .4); }
+  .li { color: var(--navy); }
+  .li + .li { border-top: 1.5px dashed rgba(6, 20, 58, .16); }
+  .li .ic { background: #eaf2ff; }
+  .li .ic.warn { background: #ffe6ea; }
+  .li .t small { color: #5a6b95; }
+  .li .go { color: var(--navy); opacity: .7; }
+  .li .n.warn { color: #d0213f; } .li .n.ok { color: #0b9a62; }
+  .meter { background: #e3ebff; } .meter i { background: linear-gradient(90deg, #2b6cf0, var(--cy)); }
+
+  /* numbers in the wide display face */
+  .c2-val, .c b, .cell .v, .totals-grid b, .ar-price, .person b.nick, .dayrow .d { font-family: var(--disp); font-weight: 700; }
+  .c2-val { font-size: 25px; } .cell .v { font-size: 22px; }
+
+  /* switches: a glass capsule, the chosen one white */
+  .seg, .tabs { background: rgba(10, 30, 80, .45); box-shadow: none; }
+  .seg a.on, .tabs a.on { background: #fff; color: var(--navy); box-shadow: 0 6px 16px rgba(0, 0, 0, .3); }
+  .seg a, .tabs a { color: var(--c5); }
+
+  .geo .track, .meter { background: rgba(255, 255, 255, .12); }
+  .geo .track i { background: linear-gradient(90deg, #2b6cf0, var(--cy)); }
+  .pc-avatar { background: linear-gradient(135deg, #2b6cf0, var(--cy)); color: #fff; border-radius: 50%; }
+  .bar .fill { background: linear-gradient(180deg, var(--cy), #2b6cf0); }
+  .tc-line { stroke: var(--cy); }
+  .tc-dot { stroke: var(--cy); }
+  .tc-tip { background: #fff; color: var(--navy); }
+  .tc-tip i, .tc-tip u { color: #5a6b95; }
+  th { background: #071a4a; } .wrap th { background: transparent; }
+  .search-box { background: rgba(10, 30, 80, .45); color: #fff; }
+  .search-box::placeholder { color: var(--c4); }
+  .rv-reply-go, .ar-line a { background: #fff; color: var(--navy); }
+  .live-strip .dot { background: var(--cy); box-shadow: 0 0 0 4px rgba(70, 226, 255, .18); }
+  .live-strip.bad { background: linear-gradient(160deg, rgba(255, 143, 157, .25), var(--c2)); }
+  .live-strip.bad .dot { background: var(--down); }
+
+  /* the floating menu: dark glass, the open section in cyan */
+  .adm-nav { background: rgba(3, 10, 30, .78); border: 1.5px solid var(--rim); }
+  .an-btn { color: var(--c4); }
+  .an-btn.on { background: rgba(70, 226, 255, .14); color: var(--cy); }
+  #admProg { background: var(--cy); }
+  .adm-stamp { text-align: center; font-size: 12px; color: var(--faint); margin: 26px 0 6px; }
+
   @media (min-width: 700px) { .adm-body, .adm-top { max-width: 620px; margin-left: auto; margin-right: auto; } }
   @media (prefers-reduced-motion: reduce) {
     .adm-body { animation: none; }
@@ -1195,9 +1277,11 @@ const mskDateLong = () => {
 // the background.
 const adminPage = (title, body, active = 'obzor') => `<!DOCTYPE html><html lang="ru"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="theme-color" content="#06141B">
+<meta name="theme-color" content="#02060f">
 <meta http-equiv="Cache-Control" content="no-store">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23253745'/%3E%3Crect x='6' y='9' width='9' height='6' rx='2' fill='white'/%3E%3Crect x='17' y='9' width='9' height='6' rx='2' fill='white'/%3E%3Crect x='6' y='17' width='20' height='6' rx='2' fill='white'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700;800&display=swap">
 <title>${title}</title><style>${ADMIN_CSS}</style></head><body>
 <div id="admProg"></div>
 <header class="adm-top">
@@ -1205,11 +1289,7 @@ const adminPage = (title, body, active = 'obzor') => `<!DOCTYPE html><html lang=
   <div class="livepill"><span class="dot"></span><b>${realOnline().toLocaleString('ru')}</b> сейчас</div>
 </header>
 <div class="adm-body">${body}
-<div class="refresh-bar">
-  <button type="button" class="rb-btn" onclick="admReload()">↻ Обновить</button>
-  <label class="rb-auto"><input type="checkbox" id="admAuto"> каждую минуту</label>
-  <span class="rb-time">данные на ${nowMskHms()} МСК</span>
-</div>
+<p class="adm-stamp">данные на ${nowMskHms()} МСК · потяни вниз, чтобы обновить</p>
 </div>
 ${bottomNav(active)}
 <script>
@@ -1401,28 +1481,11 @@ window.addEventListener('resize', function () {
   chartResizeTimer = setTimeout(function () { if (chartRedraw) chartRedraw(); }, 150);
 });
 
-/* ---------- auto-refresh switch (lives inside the swapped section) ---------- */
-function wireRefresh(root) {
-  var box = root.querySelector('#admAuto');
-  if (!box) return;
-  box.checked = localStorage.getItem(KEY) === '1';
-  box.addEventListener('change', function () {
-    localStorage.setItem(KEY, box.checked ? '1' : '0');
-    schedule();
-  });
-  schedule();
-}
-function schedule() {
-  clearTimeout(timer);
-  var box = document.getElementById('admAuto');
-  if (!box || !box.checked) return;
-  timer = setTimeout(function () {
-    if (document.visibilityState === 'visible') admReload(); else schedule();
-  }, 60000);
-}
-document.addEventListener('visibilitychange', schedule);
+/* No refresh button and no refreshing by itself any more (owner, 15 Nov
+   2026): the browser's own pull-down does it. */
+try { localStorage.removeItem(KEY); } catch (e) {}
 
-function enhance(root) { wireRefresh(root); countUp(root); chart(root); }
+function enhance(root) { countUp(root); chart(root); }
 
 /* ---------- section switching without the white blink ---------- */
 var busy = false;
