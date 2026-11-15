@@ -1,16 +1,16 @@
 // WallRush client app: screens, board UI, online play (WebSocket), AI mode, auth.
-import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, wallBetween, N } from './engine.js?v=191';
-import { scheduleTick } from './sfx.js?v=191';
-import { aiMove } from './ai.js?v=191';
-import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=191';
-import { rankOf, nextRank } from './ranks.js?v=191';
-import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=191';
-import { checkNick, nickOk, randomNick } from './nick.js?v=191';
+import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, wallBetween, N } from './engine.js?v=192';
+import { scheduleTick } from './sfx.js?v=192';
+import { aiMove } from './ai.js?v=192';
+import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=192';
+import { rankOf, nextRank } from './ranks.js?v=192';
+import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=192';
+import { checkNick, nickOk, randomNick } from './nick.js?v=192';
 import {
   embedded, initPortal, inPortal, portalAd, portalPlaying, portalHappy,
   portalLoaded, portalInviteCode, portalShowInvite, portalHideInvite, portalInstant,
   portalRoom, portalOnJoin, portalInviteLink, portalMuted, portalOnMute, portalUserName,
-} from './portal.js?v=191';
+} from './portal.js?v=192';
 
 /* ================= state ================= */
 const $ = (id) => document.getElementById(id);
@@ -266,7 +266,7 @@ function getAiWorker() {
   if (aiWorker === false) return null;
   if (!aiWorker) {
     try {
-      aiWorker = new Worker('js/ai-worker.js?v=191', { type: 'module' });
+      aiWorker = new Worker('js/ai-worker.js?v=192', { type: 'module' });
       aiWorker.onmessage = (e) => {
         const cb = aiPending.get(e.data.id);
         aiPending.delete(e.data.id);
@@ -2643,7 +2643,7 @@ $('rp-clip').addEventListener('click', async () => {
   playReplay(false);                       // one thing on the screen at a time
   clipLabel(t('clip_making').replace('%n', '0'), { busy: true });
   try {
-    const { makeClip } = await import('./clip.js?v=191');
+    const { makeClip } = await import('./clip.js?v=192');
     const last = game.history[game.history.length - 1];
     const winner = last?.winner ?? game.state?.winner ?? null;
     const quad = isQuad();
@@ -2961,9 +2961,13 @@ function renderLeaderboard(rows, savedAt, scope = 'all', me = null) {
     return;
   }
   if (scope === 'tourney') {
-    const note = document.createElement('p');
+    // the prize line opens the Premium window: what the prize is, and that it
+    // can be had right now without waiting for the 25th
+    const note = document.createElement('button');
     note.className = 'lb-tn-note';
-    note.textContent = tnState() === 'over' ? t('tn_over') : t('tn_note').replace('%s', tnLeft());
+    note.innerHTML = '<span class="tn-crown">👑</span><span class="tn-txt"></span><span class="tn-more">›</span>';
+    note.querySelector('.tn-txt').textContent = tnState() === 'over' ? t('tn_over') : t('tn_note').replace('%s', tnLeft());
+    note.addEventListener('click', () => openPremium());
     list.appendChild(note);
   }
   if (savedAt) {
