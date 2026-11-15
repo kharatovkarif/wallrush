@@ -20,7 +20,7 @@ import { dbEnabled, supa } from './db.js';
 
 export const TOURNEY = {
   id: '2026-11',
-  start: Date.parse('2026-11-15T09:00:00Z'),   // 12:00 Moscow
+  start: Date.parse('2026-11-15T08:00:00Z'),   // at once: the owner wanted it running from the moment it went live
   end: Date.parse('2026-11-25T09:00:00Z'),     // 12:00 Moscow
   places: 100,
   days: 30,

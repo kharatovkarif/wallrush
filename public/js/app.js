@@ -1,16 +1,16 @@
 // WallRush client app: screens, board UI, online play (WebSocket), AI mode, auth.
-import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, wallBetween, N } from './engine.js?v=189';
-import { scheduleTick } from './sfx.js?v=189';
-import { aiMove } from './ai.js?v=189';
-import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=189';
-import { rankOf, nextRank } from './ranks.js?v=189';
-import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=189';
-import { checkNick, nickOk, randomNick } from './nick.js?v=189';
+import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, wallBetween, N } from './engine.js?v=190';
+import { scheduleTick } from './sfx.js?v=190';
+import { aiMove } from './ai.js?v=190';
+import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=190';
+import { rankOf, nextRank } from './ranks.js?v=190';
+import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=190';
+import { checkNick, nickOk, randomNick } from './nick.js?v=190';
 import {
   embedded, initPortal, inPortal, portalAd, portalPlaying, portalHappy,
   portalLoaded, portalInviteCode, portalShowInvite, portalHideInvite, portalInstant,
   portalRoom, portalOnJoin, portalInviteLink, portalMuted, portalOnMute, portalUserName,
-} from './portal.js?v=189';
+} from './portal.js?v=190';
 
 /* ================= state ================= */
 const $ = (id) => document.getElementById(id);
@@ -266,7 +266,7 @@ function getAiWorker() {
   if (aiWorker === false) return null;
   if (!aiWorker) {
     try {
-      aiWorker = new Worker('js/ai-worker.js?v=189', { type: 'module' });
+      aiWorker = new Worker('js/ai-worker.js?v=190', { type: 'module' });
       aiWorker.onmessage = (e) => {
         const cb = aiPending.get(e.data.id);
         aiPending.delete(e.data.id);
@@ -2643,7 +2643,7 @@ $('rp-clip').addEventListener('click', async () => {
   playReplay(false);                       // one thing on the screen at a time
   clipLabel(t('clip_making').replace('%n', '0'), { busy: true });
   try {
-    const { makeClip } = await import('./clip.js?v=189');
+    const { makeClip } = await import('./clip.js?v=190');
     const last = game.history[game.history.length - 1];
     const winner = last?.winner ?? game.state?.winner ?? null;
     const quad = isQuad();
@@ -2733,7 +2733,7 @@ const LB_CACHE = 'wr_lb';
    is remembered per browser, because someone who prefers the other one should
    not have to say so every time. */
 // the wins tournament's dates (more below, before lbRow)
-const TN = { start: Date.parse('2026-11-15T09:00:00Z'), end: Date.parse('2026-11-25T09:00:00Z'), places: 100 };
+const TN = { start: Date.parse('2026-11-15T08:00:00Z'), end: Date.parse('2026-11-25T09:00:00Z'), places: 100 };
 const tnState = (now = Date.now()) => now < TN.start ? 'soon' : now < TN.end ? 'live' : 'over';
 function tnLive() { return !window.WR_TWA && tnState() === 'live'; }
 // the result stays up for three days after the end
@@ -2796,7 +2796,7 @@ $('lb-tabs').addEventListener('click', (e) => {
 
 /* ---------- the wins tournament (server/tourney.js) ----------
 
-   Most wins from 12:00 Moscow on 15 Nov to 12:00 Moscow on 25 Nov 2026; the
+   Most wins from the release on 15 Nov to 12:00 Moscow on 25 Nov 2026; the
    top 100 accounts get a month of Premium. The dates live here too, so the
    banner and the tab know whether to show before the server has answered.
    Not in the Play app: it has no Premium to win. */
