@@ -249,8 +249,13 @@ export function hookBody(raw) {
 
 export async function handleWebhook(headers, rawBody) {
   const ev = hookBody(rawBody);
-  if (!secretMatches(hookKeyFrom(headers), hookSecret())) {
-    await logHook(headers, ev, 401, hookSecret() ? 'bad_secret' : 'no_secret_set');
+  // lava.top puts a key in X-Api-Key, but it did not match the webhook secret on
+  // any of the 443 calls of 13–15 Nov 2026. Our own API key is accepted too
+  // (whoever has it can already act on the account).
+  const given = hookKeyFrom(headers);
+  if (!secretMatches(given, hookSecret()) && !secretMatches(given, apiKey())) {
+    // never the key itself: only lengths, to tell an empty field from a typo
+    await logHook(headers, ev, 401, hookSecret() ? `bad_secret:len${given.length}/${hookSecret().length}` : 'no_secret_set');
     return { status: 401 };
   }
   const type = String(ev.eventType || ev.event_type || ev.type || '');
