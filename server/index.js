@@ -14,7 +14,7 @@ import { RANKS } from '../public/js/ranks.js';
 import { checkNick } from '../public/js/nick.js';
 import { localDay } from '../public/js/streak.js';
 import { taskForDay } from '../public/js/daily.js';
-import { initPush, pushPublicKey, saveSub, dropSub, pushTick, sendTestPush } from './push.js';
+import { initPush, pushPublicKey, saveSub, dropSub, pushTick, sendTestPush, announceNow } from './push.js';
 import { mountPages } from './pages.js';
 import { premiumConfigured, createCheckout, handleWebhook, claimByEmail, offerPrices, premiumState, cancelRenewal, CURRENCIES, syncFromLava, syncState, startPremiumSync, resumeRenewal, REMIND_AHEAD, lastCharge, chargeText, usdRub, rubToUsd, usdRates, stopPremiumSync } from './premium.js';
 import { logVisitLater, startWriteQueue, queueStatus, flushWrites } from './queue.js';
@@ -2517,6 +2517,9 @@ server.listen(PORT, () => {
   startPremiumSync();   // ask lava.top what was paid, in case a webhook never arrives
   // the tournament's prize, given once just after it ends (server/tourney.js)
   setInterval(() => { if (!isDraining()) awardTourney(); }, 60_000).unref?.();
+  // the tournament announcement, to everyone who is awake (server/push.js)
+  setTimeout(() => { if (!isDraining()) announceNow(); }, 30_000);
+  setInterval(() => { if (!isDraining()) announceNow(); }, 10 * 60_000).unref?.();
   // Hourly, so every timezone gets its own evening. The tick decides who is
   // due; most hours it finds nobody and does nothing.
   setInterval(() => {

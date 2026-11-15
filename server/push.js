@@ -289,7 +289,10 @@ export function pickMessage(sub, ctx, now, onlineNow) {
    instead of that day's usual reminder (so nobody gets two). Ends by itself
    after `until`; push_subs.campaign_sent records who already had it.
    Premium owners are skipped: telling them about what they bought is noise. */
-export const CAMPAIGN = {
+/* The Premium announcement (13–15 Nov) went to whoever had an evening in
+   that time; it was replaced on 15 Nov by the tournament announcement, which
+   the owner wanted sent to everyone straight away (see announceNow below). */
+export const PREMIUM_CAMPAIGN = {
   id: 'premium-2026-11',
   until: Date.parse('2026-11-17T00:00:00Z'),
   url: '/?premium=1',
@@ -302,6 +305,49 @@ export const CAMPAIGN = {
     fa: { title: '👑 تازه در WallRush: Premium', body: 'صفحهٔ سه‌بعدی که با انگشت می‌چرخد، تاج کنار نامت و بازی بدون تبلیغ. سری بزن!' },
   },
 };
+
+export const CAMPAIGN = {
+  id: 'tourney-2026-11',
+  until: Date.parse('2026-11-25T09:00:00Z'),
+  url: '/?tourney=1',
+  everyone: true,      // Premium owners can win it too
+  text: {
+    ru: { title: '🏆 Турнир в WallRush!', body: 'Больше всех побед до 25 ноября — топ-100 получат 👑 Premium на месяц бесплатно. Вперёд!' },
+    en: { title: '🏆 WallRush tournament!', body: 'Most wins by 25 November — the top 100 get 👑 Premium for a month, free. Go!' },
+    es: { title: '🏆 ¡Torneo en WallRush!', body: 'Más victorias hasta el 25 de noviembre: el top 100 gana 👑 Premium un mes gratis. ¡Vamos!' },
+    fr: { title: '🏆 Tournoi WallRush !', body: 'Le plus de victoires d’ici le 25 novembre : le top 100 gagne 👑 Premium un mois offert. À toi !' },
+    tr: { title: '🏆 WallRush turnuvası!', body: '25 Kasım’a kadar en çok galibiyet — ilk 100 bir ay ücretsiz 👑 Premium kazanır. Hadi!' },
+    fa: { title: '🏆 مسابقهٔ WallRush!', body: 'بیشترین برد تا ۲۵ نوامبر — ۱۰۰ نفر برتر یک ماه 👑 Premium رایگان می‌گیرند. برو!' },
+  },
+};
+
+/* The campaign to everyone at once rather than in each one's evening, but
+   never at night where they are: whoever is between 09:00 and 22:00 gets it
+   now, the rest when their morning comes (this runs every ten minutes). Once
+   per device, marked in campaign_sent like the evening one. */
+export async function announceNow() {
+  if (!ready || !dbEnabled || !CAMPAIGN?.everyone || Date.now() >= CAMPAIGN.until) return 0;
+  let sent = 0;
+  try {
+    const now = Date.now();
+    const { data: subs } = await supa.from('push_subs')
+      .select('endpoint, device_id, p256dh, auth, tz_offset, lang, fails, last_sent, last_kind, campaign_sent')
+      .or(`campaign_sent.is.null,campaign_sent.neq.${CAMPAIGN.id}`)
+      .limit(1500);
+    for (const s of subs || []) {
+      const h = new Date(now - (s.tz_offset || 0) * 60000).getUTCHours();
+      if (h < 9 || h >= 22) continue;
+      const text = CAMPAIGN.text[String(s.lang || '').slice(0, 2)] || CAMPAIGN.text.en;
+      // marked first, so a slow send and the next run cannot both deliver it
+      await supa.from('push_subs').update({ campaign_sent: CAMPAIGN.id }).eq('endpoint', s.endpoint);
+      if (await deliver(s, { ...text, url: CAMPAIGN.url }, 'campaign')) sent++;
+    }
+    if (sent) console.log(`push: tournament announcement sent to ${sent}`);
+  } catch (e) {
+    console.error('announceNow failed:', e.message);
+  }
+  return sent;
+}
 
 // Runs hourly. Picks the people for whom it is currently early evening and
 // who have not been written to in the last twenty hours, gathers what is true
@@ -369,7 +415,7 @@ export async function pushTick(onlineNow, onlineUserIds = new Set()) {
     // who already has Premium (their devices get the usual message instead)
     const campaignOn = CAMPAIGN && now < CAMPAIGN.until;
     const premiumUsers = new Set();
-    if (campaignOn) {
+    if (campaignOn && !CAMPAIGN.everyone) {
       const uids = [...new Set((rows || []).map(r => r.user_id).filter(Boolean))];
       if (uids.length) {
         const { data: pr } = await supa.from('profiles').select('id')
@@ -410,7 +456,7 @@ export async function pushTick(onlineNow, onlineUserIds = new Set()) {
       if (await deliver(s, body, kind)) sent++;
       if (sent >= 400) break;                    // gentle on the free tier
     }
-    if (sent) console.log(`push: sent ${sent} notifications${announced ? ` (${announced} of them the Premium announcement)` : ''}`);
+    if (sent) console.log(`push: sent ${sent} notifications${announced ? ` (${announced} of them the ${CAMPAIGN.id} announcement)` : ''}`);
   } catch (e) {
     console.error('pushTick failed:', e.message);
   }
