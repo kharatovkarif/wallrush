@@ -83,7 +83,7 @@
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
   <!-- Opens the connection to the ad host early. Costs one handshake and no
        download, and takes that handshake off the wait once Support is tapped. -->
-  <link rel="stylesheet" href="css/style.css?v=188">
+  <link rel="stylesheet" href="css/style.css?v=189">
   <!-- Are we inside somebody else's page? Every game portal forbids running
        your own ads inside theirs, and the ad scripts below start the moment
        the parser reaches them — long before any module could stop one. So the
@@ -159,6 +159,15 @@
           <button class="premium-pill" id="premium-pill" hidden>👑 <span id="premium-pill-text"></span></button>
         </div>
       </header>
+
+      <!-- The wins tournament (15–25 Nov 2026): a banner whose line changes
+           every few seconds, like an ad would, and opens the tournament table.
+           Hidden in the Play app, which has no Premium to give. -->
+      <button class="tn-banner" id="tn-banner" hidden>
+        <span class="tn-cup">🏆</span>
+        <span class="tn-mid"><b id="tn-line"></b><small id="tn-left"></small></span>
+        <span class="tn-go">›</span>
+      </button>
 
       <!-- The task of the day. A strip, not a window: it is a reason to come
            back, and something that greets a player with a dialog every day
@@ -851,6 +860,7 @@
            day's one is back to nothing every midnight, so a good evening is
            enough to be on it. Today is the one shown first, for that reason. -->
       <div class="lb-tabs" id="lb-tabs">
+        <button data-scope="tourney" id="lb-tab-tn" data-i18n="lb_tourney" hidden></button>
         <button data-scope="today" class="on" data-i18n="lb_today"></button>
         <button data-scope="all" data-i18n="lb_all"></button>
       </div>
@@ -1106,7 +1116,7 @@
     <div id="toast" hidden></div>
   </div>
 
-  <script src="vendor/supabase.js?v=188" defer></script>
-  <script type="module" src="js/app.js?v=188"></script>
+  <script src="vendor/supabase.js?v=189" defer></script>
+  <script type="module" src="js/app.js?v=189"></script>
 </body>
 </html>

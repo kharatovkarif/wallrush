@@ -127,6 +127,22 @@ export const I18N = {
     pm_cancel_done: 'Автопродление отключено. Premium работает до конца оплаченного срока.',
     pm_cancel_err: 'Не получилось отключить отсюда. Отключи по ссылке из письма lava.top или напиши на ads@wallrush.online.',
     pm_fine: 'Оплата через lava.top. Подписка продлевается сама; отключить автопродление можно в любой момент здесь же или по ссылке из письма lava.top.',
+    lb_tourney: '🏆 Турнир',
+    tn_sub: 'Больше всех побед до 25 ноября 12:00 МСК · топ-100 получат 👑 Premium на месяц бесплатно',
+    tn_b1: 'Турнир побед — бесплатно!',
+    tn_b2: 'Топ-100 получат 👑 Premium на месяц',
+    tn_b3: 'Считаются только победы · до 25.11, 12:00 МСК',
+    tn_left: '⏳ Осталось %s',
+    tn_me: 'Ты #%r в турнире · %w побед 🔥',
+    tn_me_out: 'У тебя %w побед · место %r — до топ-100 ещё чуть-чуть',
+    tn_guest: 'Твои победы в турнире: %w. Войди в аккаунт, чтобы попасть в таблицу и получить приз — победы сохранятся.',
+    tn_none: 'У тебя пока нет побед в турнире — выиграй партию, и попадёшь в таблицу.',
+    tn_empty: 'Турнир только начался — выиграй первым!',
+    tn_note: 'Топ-100 по победам получат 👑 Premium на месяц · осталось %s',
+    tn_over: 'Турнир окончен · топ-100 получили 👑 Premium на месяц',
+    tn_d: 'д',
+    tn_h: 'ч',
+    tn_m: 'м',
     pm_rub_note: 'Оплата списывается в рублях: месяц %m, год %y.',
     pm_charged: 'оплата %p',
     pm_year_price: 'цена за год',
@@ -544,6 +560,22 @@ export const I18N = {
     pm_cancel_done: 'Auto-renewal is off. Premium stays until the end of the paid period.',
     pm_cancel_err: 'Could not turn it off from here. Use the link in the lava.top email or write to ads@wallrush.online.',
     pm_fine: 'Paid through lava.top. The subscription renews automatically; turn off auto-renewal any time, right here or with the link in the lava.top email.',
+    lb_tourney: '🏆 Tournament',
+    tn_sub: 'Most wins until 25 Nov, 12:00 Moscow time · the top 100 get 👑 Premium for a month, free',
+    tn_b1: 'Wins tournament — free to enter!',
+    tn_b2: 'Top 100 get 👑 Premium for a month',
+    tn_b3: 'Only wins count · until 25 Nov, 12:00 Moscow',
+    tn_left: '⏳ %s left',
+    tn_me: 'You are #%r in the tournament · %w wins 🔥',
+    tn_me_out: 'You have %w wins · place %r — the top 100 is close',
+    tn_guest: 'Your tournament wins: %w. Sign in to get on the table and win the prize — your wins are kept.',
+    tn_none: 'No tournament wins yet — win a game and you are on the table.',
+    tn_empty: 'The tournament has just started — be the first to win!',
+    tn_note: 'The top 100 by wins get 👑 Premium for a month · %s left',
+    tn_over: 'The tournament is over · the top 100 got 👑 Premium for a month',
+    tn_d: 'd',
+    tn_h: 'h',
+    tn_m: 'm',
     pm_rub_note: 'You are charged in roubles: %m a month, %y a year.',
     pm_charged: 'charged %p',
     pm_year_price: 'the yearly price',
@@ -850,7 +882,7 @@ export const LANGS = [
 export const LANG_CODES = LANGS.map((l) => l.code);
 export const RTL = new Set(['fa']);
 
-const V = '188';
+const V = '189';
 
 // Loads a translation file on demand. Safe to call repeatedly and safe to fail:
 // if the request never lands, makeT keeps falling back to English.

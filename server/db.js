@@ -383,6 +383,10 @@ export async function claimGuestProgress(userId, deviceId) {
        from profiles alone so nothing is counted twice, and a player who signs
        out still finds their guest progress where they left it. */
     await supa.from('visitors').update({ user_id: userId }).eq('device_id', deviceId);
+    // tournament wins won as a guest come along too
+    const { claimTourneyWins } = await import('./tourney.js');
+    const { data: prof } = await supa.from('profiles').select('nick').eq('id', userId).maybeSingle();
+    await claimTourneyWins(userId, deviceId, prof?.nick);
     return { points, streak };
   } catch (e) {
     console.error('claimGuestProgress failed:', e.message);

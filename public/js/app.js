@@ -1,16 +1,16 @@
 // WallRush client app: screens, board UI, online play (WebSocket), AI mode, auth.
-import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, wallBetween, N } from './engine.js?v=188';
-import { scheduleTick } from './sfx.js?v=188';
-import { aiMove } from './ai.js?v=188';
-import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=188';
-import { rankOf, nextRank } from './ranks.js?v=188';
-import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=188';
-import { checkNick, nickOk, randomNick } from './nick.js?v=188';
+import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, wallBetween, N } from './engine.js?v=189';
+import { scheduleTick } from './sfx.js?v=189';
+import { aiMove } from './ai.js?v=189';
+import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=189';
+import { rankOf, nextRank } from './ranks.js?v=189';
+import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=189';
+import { checkNick, nickOk, randomNick } from './nick.js?v=189';
 import {
   embedded, initPortal, inPortal, portalAd, portalPlaying, portalHappy,
   portalLoaded, portalInviteCode, portalShowInvite, portalHideInvite, portalInstant,
   portalRoom, portalOnJoin, portalInviteLink, portalMuted, portalOnMute, portalUserName,
-} from './portal.js?v=188';
+} from './portal.js?v=189';
 
 /* ================= state ================= */
 const $ = (id) => document.getElementById(id);
@@ -266,7 +266,7 @@ function getAiWorker() {
   if (aiWorker === false) return null;
   if (!aiWorker) {
     try {
-      aiWorker = new Worker('js/ai-worker.js?v=188', { type: 'module' });
+      aiWorker = new Worker('js/ai-worker.js?v=189', { type: 'module' });
       aiWorker.onmessage = (e) => {
         const cb = aiPending.get(e.data.id);
         aiPending.delete(e.data.id);
@@ -378,6 +378,7 @@ function show(screenId) {
   document.querySelectorAll('.nav-btn').forEach(b =>
     b.classList.toggle('active', b.dataset.screen === screenId));
   if (screenId === 'screen-leaderboard') loadLeaderboard();
+  if (screenId === 'screen-home') loadTourney();
   if (screenId === 'screen-reviews') loadReviews();
   if (screenId === 'screen-profile') { updateProfileUI(); renderPushRow(); loadFriends(); } // points move every match
   if (screenId === 'screen-friends') { renderFriends(); loadFriends(); }
@@ -2642,7 +2643,7 @@ $('rp-clip').addEventListener('click', async () => {
   playReplay(false);                       // one thing on the screen at a time
   clipLabel(t('clip_making').replace('%n', '0'), { busy: true });
   try {
-    const { makeClip } = await import('./clip.js?v=188');
+    const { makeClip } = await import('./clip.js?v=189');
     const last = game.history[game.history.length - 1];
     const winner = last?.winner ?? game.state?.winner ?? null;
     const quad = isQuad();
@@ -2731,19 +2732,30 @@ const LB_CACHE = 'wr_lb';
    that has not moved in a month for anybody outside the top fifty. The choice
    is remembered per browser, because someone who prefers the other one should
    not have to say so every time. */
+// the wins tournament's dates (more below, before lbRow)
+const TN = { start: Date.parse('2026-11-15T09:00:00Z'), end: Date.parse('2026-11-25T09:00:00Z'), places: 100 };
+const tnState = (now = Date.now()) => now < TN.start ? 'soon' : now < TN.end ? 'live' : 'over';
+function tnLive() { return !window.WR_TWA && tnState() === 'live'; }
+// the result stays up for three days after the end
+function tnShown() { return !window.WR_TWA && Date.now() < TN.end + 3 * 86400_000; }
 let lbScope = 'today';
-try { if (localStorage.getItem('wr_lb_scope') === 'all') lbScope = 'all'; } catch {}
+try {
+  const saved = localStorage.getItem('wr_lb_scope');
+  if (saved === 'all' || saved === 'today' || (saved === 'tourney' && tnShown())) lbScope = saved;
+  else if (tnLive()) lbScope = 'tourney';    // while it runs, the tournament is what opens first
+} catch {}
 
 // Each board is cached under its own key: yesterday's all-time list is still
 // worth showing on a train, yesterday's daily list is not today's.
-const lbCacheKey = (scope) => (scope === 'today' ? LB_CACHE + '_day' : LB_CACHE);
+const lbCacheKey = (scope) => (scope === 'today' ? LB_CACHE + '_day' : scope === 'tourney' ? LB_CACHE + '_tn' : LB_CACHE);
 
 async function loadLeaderboard() {
   const list = $('lb-list');
   const scope = lbScope;
   $('lb-tabs').querySelectorAll('button').forEach(b =>
     b.classList.toggle('on', b.dataset.scope === scope));
-  $('lb-sub').textContent = t(scope === 'today' ? 'lb_today_sub' : 'leaderboard_sub');
+  $('lb-tab-tn').hidden = !tnShown();
+  $('lb-sub').textContent = t(scope === 'today' ? 'lb_today_sub' : scope === 'tourney' ? 'tn_sub' : 'leaderboard_sub');
   try {
     // Says who is asking, so the answer can carry their own place on the list.
     // An account proves it with its token; a guest names the device its points
@@ -2754,6 +2766,7 @@ async function loadLeaderboard() {
     });
     const { rows, day, me } = await res.json();
     if (scope !== lbScope) return;          // they tapped the other one while this was in flight
+    if (scope === 'tourney') tnMe = me;
     if (rows?.length) {
       try { localStorage.setItem(lbCacheKey(scope), JSON.stringify({ at: Date.now(), day, rows, me })); } catch {}
     }
@@ -2781,6 +2794,71 @@ $('lb-tabs').addEventListener('click', (e) => {
   loadLeaderboard();
 });
 
+/* ---------- the wins tournament (server/tourney.js) ----------
+
+   Most wins from 12:00 Moscow on 15 Nov to 12:00 Moscow on 25 Nov 2026; the
+   top 100 accounts get a month of Premium. The dates live here too, so the
+   banner and the tab know whether to show before the server has answered.
+   Not in the Play app: it has no Premium to win. */
+let tnMe = null;
+let tnTimer = 0;
+let tnLine = 0;
+let tnFetchedAt = 0;
+
+function tnLeft(now = Date.now()) {
+  const ms = Math.max(0, TN.end - now);
+  const d = Math.floor(ms / 86400_000), h = Math.floor(ms / 3600_000) % 24, m = Math.floor(ms / 60_000) % 60;
+  return d ? `${d}${t('tn_d')} ${h}${t('tn_h')}` : `${h}${t('tn_h')} ${m}${t('tn_m')}`;
+}
+
+function tnLines() {
+  if (tnState() === 'over') return [t('tn_over')];
+  const lines = [t('tn_b1'), t('tn_b2'), t('tn_b3')];
+  if (tnMe?.wins && tnMe.rank && tnMe.rank <= TN.places) lines.push(t('tn_me').replace('%r', tnMe.rank).replace('%w', tnMe.wins));
+  else if (tnMe?.wins) lines.push(t('tn_me_out').replace('%w', tnMe.wins).replace('%r', tnMe.rank || '—'));
+  return lines;
+}
+
+function renderTourney() {
+  const el = $('tn-banner');
+  el.hidden = !tnShown();
+  if (el.hidden) { clearInterval(tnTimer); tnTimer = 0; return; }
+  const lines = tnLines();
+  tnLine %= lines.length;
+  $('tn-line').textContent = lines[tnLine];
+  $('tn-left').textContent = tnState() === 'over' ? '' : t('tn_left').replace('%s', tnLeft());
+  if (!tnTimer) {
+    // the line changes every few seconds, like an ad would
+    tnTimer = setInterval(() => {
+      if (currentScreen !== 'screen-home' || document.hidden) return;
+      const b = $('tn-line');
+      b.classList.add('fade');
+      setTimeout(() => { tnLine++; renderTourney(); b.classList.remove('fade'); }, 250);
+    }, 3500);
+  }
+}
+
+// my own wins and place, asked for at most every two minutes
+async function loadTourney() {
+  renderTourney();
+  if (!tnShown() || Date.now() - tnFetchedAt < 120_000) return;
+  tnFetchedAt = Date.now();
+  try {
+    const auth = await authHeaders();
+    const res = await fetch('/api/leaderboard?scope=tourney', { headers: { ...auth, 'x-device': deviceId } });
+    const { me } = await res.json();
+    tnMe = me || null;
+    renderTourney();
+  } catch { /* the banner works without it */ }
+}
+
+$('tn-banner').addEventListener('click', () => {
+  lbScope = 'tourney';
+  try { localStorage.setItem('wr_lb_scope', lbScope); } catch {}
+  show('screen-leaderboard');
+});
+setTimeout(loadTourney, 800);
+
 /* One row of the board. Used for the fifty on the list and for the one pinned
    underneath it, because a player looking for themselves should find the same
    thing they were scrolling past. */
@@ -2802,7 +2880,14 @@ function lbRow(row, place, scope, mine) {
   el.querySelector('.r-avatar').textContent = (row.nick || '?')[0].toUpperCase();
   el.querySelector('.lb-name').textContent = row.nick;
   // the day's board shows no rank, so there the crown sits by the name
-  if (row.premium && scope === 'today') el.querySelector('.lb-name').append(crownEl());
+  if (row.premium && scope !== 'all') el.querySelector('.lb-name').append(crownEl());
+  if (scope === 'tourney') {
+    // the tournament counts wins and nothing else, so wins are the number
+    el.querySelector('.lb-badge').textContent = '';
+    el.querySelector('.lb-score b').textContent = (row.wins || 0).toLocaleString();
+    el.querySelector('.lb-score small').textContent = t('lb_wins');
+    return el;
+  }
   // A rank is built out of a lifetime of points, so it says nothing about an
   // evening's worth of them — on the day's board it is left off.
   el.querySelector('.lb-badge').textContent = scope === 'today' ? '' : rankChip(pts, row.premium);
@@ -2827,6 +2912,21 @@ function pinMe(list, me, scope, shown) {
 
   const wrap = document.createElement('div');
   wrap.className = 'lb-mine';
+  if (scope === 'tourney' && (me.guest || !me.rank || me.rank > TN.places)) {
+    // a guest cannot be paid, and a player outside the hundred is told how far
+    wrap.innerHTML = `<p class="lb-mine-note"></p>`;
+    const note = wrap.querySelector('.lb-mine-note');
+    note.textContent = me.guest ? t('tn_guest').replace('%w', me.wins || 0)
+      : !me.wins ? t('tn_none') : t('tn_me_out').replace('%w', me.wins).replace('%r', me.rank);
+    if (me.guest) {
+      const go = document.createElement('button');
+      go.textContent = t('signin_now');
+      go.onclick = () => { if (ensureAuthAvailable()) show('screen-profile'); };
+      note.append(document.createElement('br'), go);
+    }
+    list.appendChild(wrap);
+    return;
+  }
   if (scope === 'today' && !me.rank) {
     // Nothing won today is not a place on today's board; say that, not "0".
     wrap.innerHTML = `<p class="lb-mine-note"></p>`;
@@ -2856,8 +2956,15 @@ function renderLeaderboard(rows, savedAt, scope = 'all', me = null) {
   list.innerHTML = '';
   if (!rows?.length) {
     // An empty day is not a broken board — it is early. Say which it is.
-    list.innerHTML = `<div class="lb-empty">${t(scope === 'today' ? 'lb_today_empty' : 'leaderboard_empty')}</div>`;
+    list.innerHTML = `<div class="lb-empty">${t(scope === 'today' ? 'lb_today_empty' : scope === 'tourney' ? 'tn_empty' : 'leaderboard_empty')}</div>`;
+    if (scope === 'tourney') pinMe(list, me, scope, []);
     return;
+  }
+  if (scope === 'tourney') {
+    const note = document.createElement('p');
+    note.className = 'lb-tn-note';
+    note.textContent = tnState() === 'over' ? t('tn_over') : t('tn_note').replace('%s', tnLeft());
+    list.appendChild(note);
   }
   if (savedAt) {
     const p = document.createElement('p');

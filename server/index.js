@@ -7,6 +7,7 @@ import http from 'http';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { WebSocketServer } from 'ws';
+import { tourneyInfo, tourneyBoard, myTourney, awardTourney } from './tourney.js';
 import { attachWs, realOnline, onlineUserIds, roomStats, endingStats, startDraining, isDraining } from './rooms.js';
 import { fakeOnline, botStatus } from './bots.js';
 import { RANKS } from '../public/js/ranks.js';
@@ -91,6 +92,10 @@ app.get('/api/leaderboard', async (req, res) => {
   const me = { userId: user?.id || null, deviceId: /^[A-Za-z0-9-]{8,64}$/.test(dev) ? dev : null };
   const anon = !me.userId && !me.deviceId;
 
+  if (String(req.query.scope) === 'tourney') {
+    const [rows, mine] = await Promise.all([tourneyBoard(), anon ? null : myTourney(me)]);
+    return res.json({ scope: 'tourney', tourney: tourneyInfo(), rows, me: mine });
+  }
   if (String(req.query.scope) === 'today') {
     sweepDayPoints().catch(() => {});   // yesterday's housekeeping, not this request's business
     const [rows, mine] = await Promise.all([
@@ -2510,6 +2515,8 @@ server.listen(PORT, () => {
   startWriteQueue();
   initPush();
   startPremiumSync();   // ask lava.top what was paid, in case a webhook never arrives
+  // the tournament's prize, given once just after it ends (server/tourney.js)
+  setInterval(() => { if (!isDraining()) awardTourney(); }, 60_000).unref?.();
   // Hourly, so every timezone gets its own evening. The tick decides who is
   // due; most hours it finds nobody and does nothing.
   setInterval(() => {

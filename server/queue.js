@@ -21,6 +21,7 @@
    notice losing. Only the tallies. That is a good trade for staying up. */
 
 import * as realDb from './db.js';
+import { TOURNEY, tourneyLive } from './tourney.js';
 
 /* The database this queue writes to. A seam, in the same spirit as the clock's:
    the suite cannot reach Frankfurt, and what needs proving here — that nothing
@@ -39,6 +40,7 @@ const MAX_HELD = 4_000;
 let visits = [];          // { device_id, kind }
 let matches = [];         // mode
 const days = new Map();   // who -> { day, who, nick, kind, points, wins, losses }
+const tourney = new Map(); // who -> { t, w, n, k, win }: tournament wins (server/tourney.js)
 let dropped = 0;
 let lastError = '';
 
@@ -74,6 +76,13 @@ export function bumpDayLater(pl, delta, result = null) {
   if (result === 'win') row.win++;
   if (result === 'loss') row.loss++;
   days.set(key, row);
+  // the wins tournament: people only, and only while it runs
+  if (result === 'win' && !pl.isBot && tourneyLive()) {
+    const t = tourney.get(who) || { t: TOURNEY.id, w: who, n: row.n, k: row.k === 'user' ? 'user' : 'guest', win: 0 };
+    t.n = row.n;
+    t.win++;
+    tourney.set(who, t);
+  }
 }
 
 let flushing = false;
@@ -86,12 +95,14 @@ export async function flushWrites() {
   const v = visits; visits = [];
   const m = matches; matches = [];
   const d = [...days.values()]; days.clear();
+  const tw = [...tourney.values()]; tourney.clear();
   try {
     if (v.length) await db.supa.from('visit_log').insert(v);
     if (m.length) await db.supa.from('human_matches').insert(m.map(mode => ({ mode })));
     // One call each, still: the upsert has to add to what is already there,
     // which a bulk insert cannot do. Coalescing above is what makes this small.
     for (const r of d) await db.supa.rpc('day_points', r);
+    for (const r of tw) await db.supa.rpc('tourney_win', r);
     lastError = '';
   } catch (e) {
     lastError = e.message || String(e);
