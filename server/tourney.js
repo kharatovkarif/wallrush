@@ -1,7 +1,7 @@
 /* ---------- the wins tournament ----------
 
    The first one (owner's call, 15 Nov 2026): most wins from 12:00 Moscow on
-   15 November to 12:00 Moscow on 25 November, and the top 100 accounts get a
+   15 November to 12:00 Moscow on 25 November, and the top 50 accounts get a
    month of Premium. Only wins, not points, and only wins scored after the
    start: nothing from before counts.
 
@@ -22,7 +22,8 @@ export const TOURNEY = {
   id: '2026-11',
   start: Date.parse('2026-11-15T08:00:00Z'),   // at once: the owner wanted it running from the moment it went live
   end: Date.parse('2026-11-25T09:00:00Z'),     // 12:00 Moscow
-  places: 100,
+  places: 50,      // who gets the prize (owner, 15 Nov: 50, not 100)
+  shown: 100,      // how many the table lists
   days: 30,
 };
 
@@ -36,7 +37,7 @@ export const tourneyInfo = (now = Date.now()) => ({
 
 /* The table: accounts only, flagged ones dropped, ties to whoever got there
    first, the same order the prize is given out in (db tourney_award). */
-export function shapeTourney(raw, flaggedIds = [], premiumIds = [], limit = TOURNEY.places) {
+export function shapeTourney(raw, flaggedIds = [], premiumIds = [], limit = TOURNEY.shown) {
   const out = new Set(flaggedIds);
   const crown = new Set(premiumIds);
   return (raw || [])
@@ -56,7 +57,7 @@ export async function tourneyBoard() {
       .select('who, nick, kind, wins')
       .eq('tid', TOURNEY.id).eq('kind', 'user').gt('wins', 0)
       .order('wins', { ascending: false }).order('updated_at', { ascending: true })
-      .limit(TOURNEY.places + 30);
+      .limit(TOURNEY.shown + 30);
     if (error) throw new Error(error.message);
     const ids = (data || []).map(r => r.who.slice(2));
     let flagged = [], premium = [];

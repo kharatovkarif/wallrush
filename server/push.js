@@ -312,12 +312,12 @@ export const CAMPAIGN = {
   url: '/?tourney=1',
   everyone: true,      // Premium owners can win it too
   text: {
-    ru: { title: '🏆 Турнир в WallRush!', body: 'Больше всех побед до 25 ноября — топ-100 получат 👑 Premium на месяц бесплатно. Вперёд!' },
-    en: { title: '🏆 WallRush tournament!', body: 'Most wins by 25 November — the top 100 get 👑 Premium for a month, free. Go!' },
-    es: { title: '🏆 ¡Torneo en WallRush!', body: 'Más victorias hasta el 25 de noviembre: el top 100 gana 👑 Premium un mes gratis. ¡Vamos!' },
-    fr: { title: '🏆 Tournoi WallRush !', body: 'Le plus de victoires d’ici le 25 novembre : le top 100 gagne 👑 Premium un mois offert. À toi !' },
-    tr: { title: '🏆 WallRush turnuvası!', body: '25 Kasım’a kadar en çok galibiyet — ilk 100 bir ay ücretsiz 👑 Premium kazanır. Hadi!' },
-    fa: { title: '🏆 مسابقهٔ WallRush!', body: 'بیشترین برد تا ۲۵ نوامبر — ۱۰۰ نفر برتر یک ماه 👑 Premium رایگان می‌گیرند. برو!' },
+    ru: { title: '🏆 Турнир в WallRush!', body: 'Больше всех побед до 25 ноября — топ-50 получат 👑 Premium на месяц бесплатно. Вперёд!' },
+    en: { title: '🏆 WallRush tournament!', body: 'Most wins by 25 November — the top 50 get 👑 Premium for a month, free. Go!' },
+    es: { title: '🏆 ¡Torneo en WallRush!', body: 'Más victorias hasta el 25 de noviembre: el top 50 gana 👑 Premium un mes gratis. ¡Vamos!' },
+    fr: { title: '🏆 Tournoi WallRush !', body: 'Le plus de victoires d’ici le 25 novembre : le top 50 gagne 👑 Premium un mois offert. À toi !' },
+    tr: { title: '🏆 WallRush turnuvası!', body: '25 Kasım’a kadar en çok galibiyet — ilk 50 bir ay ücretsiz 👑 Premium kazanır. Hadi!' },
+    fa: { title: '🏆 مسابقهٔ WallRush!', body: 'بیشترین برد تا ۲۵ نوامبر — ۵۰ نفر برتر یک ماه 👑 Premium رایگان می‌گیرند. برو!' },
   },
 };
 

@@ -83,7 +83,7 @@
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
   <!-- Opens the connection to the ad host early. Costs one handshake and no
        download, and takes that handshake off the wait once Support is tapped. -->
-  <link rel="stylesheet" href="css/style.css?v=192">
+  <link rel="stylesheet" href="css/style.css?v=193">
   <!-- Are we inside somebody else's page? Every game portal forbids running
        your own ads inside theirs, and the ad scripts below start the moment
        the parser reaches them — long before any module could stop one. So the
@@ -669,6 +669,32 @@
          Lists only what premium actually does today. Paying happens on
          lava.top's page; premium is switched on by their webhook, not by the
          browser coming back, so this window only ever reads the server. -->
+    <!-- ============ TOURNAMENT ============
+         What the prize is and the rules, opened from the prize line on the
+         tournament table; "buy now" leads on to the Premium window. -->
+    <div class="overlay" id="overlay-tourney" hidden>
+      <div class="modal pm-modal">
+        <button class="pl-close" id="tn-close" aria-label="close">✕</button>
+        <div class="pm-crown tn-spin">👑</div>
+        <h2 data-i18n="tn_m_title"></h2>
+        <p class="tn-lead" data-i18n="tn_m_lead"></p>
+        <ul class="pm-list tn-rules">
+          <li><span>🏆</span><span data-i18n="tn_r1"></span></li>
+          <li><span>⏳</span><span id="tn-r2"></span></li>
+          <li><span>👤</span><span data-i18n="tn_r3"></span></li>
+        </ul>
+        <p class="tn-what" data-i18n="tn_m_prize"></p>
+        <ul class="pm-list">
+          <li><span>🚫</span><span data-i18n="pm_noads"></span></li>
+          <li><span>👑</span><span data-i18n="pm_badge"></span></li>
+          <li><span>🔥</span><span data-i18n="pm_streak"></span></li>
+          <li><span>🧊</span><span data-i18n="pm_3d"></span></li>
+        </ul>
+        <button class="btn-big tn-buy" id="tn-buy" data-i18n="tn_m_buy"></button>
+        <button class="btn-link" id="tn-play" data-i18n="tn_m_play"></button>
+      </div>
+    </div>
+
     <div class="overlay" id="overlay-premium" hidden>
       <div class="modal pm-modal">
         <button class="pl-close" id="pm-close" aria-label="close">✕</button>
@@ -1116,7 +1142,7 @@
     <div id="toast" hidden></div>
   </div>
 
-  <script src="vendor/supabase.js?v=192" defer></script>
-  <script type="module" src="js/app.js?v=192"></script>
+  <script src="vendor/supabase.js?v=193" defer></script>
+  <script type="module" src="js/app.js?v=193"></script>
 </body>
 </html>

@@ -1615,3 +1615,12 @@ html.twa #btn-res-support, html.twa [data-support] { display: none !important; }
 @media (prefers-reduced-motion: reduce) { .tn-crown { animation: none; } }
 .lb-mine-note button { margin-top: 8px; border: 0; border-radius: 999px; padding: 8px 16px; font: inherit; font-weight: 700;
   background: var(--blue); color: #fff; cursor: pointer; }
+
+.tn-spin { display: inline-block; font-size: 64px; animation: tnSpin 2.6s linear infinite; }
+@media (prefers-reduced-motion: reduce) { .tn-spin { animation: none; } }
+.tn-lead { margin: 4px 0 10px; font-size: 16px; font-weight: 700; color: var(--text); }
+.tn-what { margin: 12px 0 4px; font-weight: 700; text-align: start; }
+.tn-buy { margin-top: 14px; background: linear-gradient(135deg, #ffe08a, #ffc93c 55%, #f0a91f) !important; color: #5a3b00 !important; }
+.lb-badge.tn-prize { color: #c98a00; font-weight: 700; }
+.lb-tn-cut { margin: 6px 4px 10px; text-align: center; font-size: 12.5px; color: var(--muted, #8a8fa3);
+  border-top: 2px dashed rgba(240, 169, 31, .55); padding-top: 8px; }

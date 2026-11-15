@@ -1,16 +1,16 @@
 // WallRush client app: screens, board UI, online play (WebSocket), AI mode, auth.
-import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, wallBetween, N } from './engine.js?v=192';
-import { scheduleTick } from './sfx.js?v=192';
-import { aiMove } from './ai.js?v=192';
-import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=192';
-import { rankOf, nextRank } from './ranks.js?v=192';
-import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=192';
-import { checkNick, nickOk, randomNick } from './nick.js?v=192';
+import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, wallBetween, N } from './engine.js?v=193';
+import { scheduleTick } from './sfx.js?v=193';
+import { aiMove } from './ai.js?v=193';
+import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=193';
+import { rankOf, nextRank } from './ranks.js?v=193';
+import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=193';
+import { checkNick, nickOk, randomNick } from './nick.js?v=193';
 import {
   embedded, initPortal, inPortal, portalAd, portalPlaying, portalHappy,
   portalLoaded, portalInviteCode, portalShowInvite, portalHideInvite, portalInstant,
   portalRoom, portalOnJoin, portalInviteLink, portalMuted, portalOnMute, portalUserName,
-} from './portal.js?v=192';
+} from './portal.js?v=193';
 
 /* ================= state ================= */
 const $ = (id) => document.getElementById(id);
@@ -266,7 +266,7 @@ function getAiWorker() {
   if (aiWorker === false) return null;
   if (!aiWorker) {
     try {
-      aiWorker = new Worker('js/ai-worker.js?v=192', { type: 'module' });
+      aiWorker = new Worker('js/ai-worker.js?v=193', { type: 'module' });
       aiWorker.onmessage = (e) => {
         const cb = aiPending.get(e.data.id);
         aiPending.delete(e.data.id);
@@ -2643,7 +2643,7 @@ $('rp-clip').addEventListener('click', async () => {
   playReplay(false);                       // one thing on the screen at a time
   clipLabel(t('clip_making').replace('%n', '0'), { busy: true });
   try {
-    const { makeClip } = await import('./clip.js?v=192');
+    const { makeClip } = await import('./clip.js?v=193');
     const last = game.history[game.history.length - 1];
     const winner = last?.winner ?? game.state?.winner ?? null;
     const quad = isQuad();
@@ -2733,7 +2733,7 @@ const LB_CACHE = 'wr_lb';
    is remembered per browser, because someone who prefers the other one should
    not have to say so every time. */
 // the wins tournament's dates (more below, before lbRow)
-const TN = { start: Date.parse('2026-11-15T08:00:00Z'), end: Date.parse('2026-11-25T09:00:00Z'), places: 100 };
+const TN = { start: Date.parse('2026-11-15T08:00:00Z'), end: Date.parse('2026-11-25T09:00:00Z'), places: 50, shown: 100 };
 const tnState = (now = Date.now()) => now < TN.start ? 'soon' : now < TN.end ? 'live' : 'over';
 function tnLive() { return !window.WR_TWA && tnState() === 'live'; }
 // the result stays up for three days after the end
@@ -2797,7 +2797,7 @@ $('lb-tabs').addEventListener('click', (e) => {
 /* ---------- the wins tournament (server/tourney.js) ----------
 
    Most wins from the release on 15 Nov to 12:00 Moscow on 25 Nov 2026; the
-   top 100 accounts get a month of Premium. The dates live here too, so the
+   top 50 accounts get a month of Premium (the table shows 100). The dates live here too, so the
    banner and the tab know whether to show before the server has answered.
    Not in the Play app: it has no Premium to win. */
 let tnMe = null;
@@ -2852,6 +2852,17 @@ async function loadTourney() {
   } catch { /* the banner works without it */ }
 }
 
+function openTourney() {
+  $('tn-r2').textContent = t('tn_r2').replace('%s', tnLeft());
+  $('tn-buy').hidden = Boolean(window.WR_TWA || window.WR_EMBED);
+  $('overlay-tourney').hidden = false;
+}
+const closeTourney = () => { $('overlay-tourney').hidden = true; };
+$('tn-close').addEventListener('click', closeTourney);
+$('overlay-tourney').addEventListener('click', (e) => { if (e.target.id === 'overlay-tourney') closeTourney(); });
+$('tn-buy').addEventListener('click', () => { closeTourney(); openPremium(); });
+$('tn-play').addEventListener('click', () => { closeTourney(); show('screen-home'); $('btn-quick').click(); });
+
 $('tn-banner').addEventListener('click', () => {
   lbScope = 'tourney';
   try { localStorage.setItem('wr_lb_scope', lbScope); } catch {}
@@ -2882,8 +2893,12 @@ function lbRow(row, place, scope, mine) {
   // the day's board shows no rank, so there the crown sits by the name
   if (row.premium && scope !== 'all') el.querySelector('.lb-name').append(crownEl());
   if (scope === 'tourney') {
-    // the tournament counts wins and nothing else, so wins are the number
-    el.querySelector('.lb-badge').textContent = '';
+    // the tournament counts wins and nothing else, so wins are the number;
+    // the places that win the prize say so, which is what there is to play for
+    el.querySelector('.lb-name .crown')?.remove();
+    const badge = el.querySelector('.lb-badge');
+    badge.textContent = place && place <= TN.places ? t('tn_prize') : '';
+    badge.classList.toggle('tn-prize', Boolean(place && place <= TN.places));
     el.querySelector('.lb-score b').textContent = (row.wins || 0).toLocaleString();
     el.querySelector('.lb-score small').textContent = t('lb_wins');
     return el;
@@ -2967,7 +2982,7 @@ function renderLeaderboard(rows, savedAt, scope = 'all', me = null) {
     note.className = 'lb-tn-note';
     note.innerHTML = '<span class="tn-crown">👑</span><span class="tn-txt"></span><span class="tn-more">›</span>';
     note.querySelector('.tn-txt').textContent = tnState() === 'over' ? t('tn_over') : t('tn_note').replace('%s', tnLeft());
-    note.addEventListener('click', () => openPremium());
+    note.addEventListener('click', openTourney);
     list.appendChild(note);
   }
   if (savedAt) {
@@ -2977,7 +2992,16 @@ function renderLeaderboard(rows, savedAt, scope = 'all', me = null) {
     list.appendChild(p);
   }
   const mine = myNick();
-  rows.forEach((row, i) => list.appendChild(lbRow(row, i + 1, scope, row.nick === mine)));
+  rows.forEach((row, i) => {
+    list.appendChild(lbRow(row, i + 1, scope, row.nick === mine));
+    // the line under the last prize place
+    if (scope === 'tourney' && i + 1 === TN.places && rows.length > TN.places) {
+      const cut = document.createElement('p');
+      cut.className = 'lb-tn-cut';
+      cut.textContent = t('tn_cut');
+      list.appendChild(cut);
+    }
+  });
   pinMe(list, me, scope, rows);
 }
 
