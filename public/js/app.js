@@ -1,16 +1,16 @@
 // WallRush client app: screens, board UI, online play (WebSocket), AI mode, auth.
-import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, wallBetween, N } from './engine.js?v=195';
-import { scheduleTick } from './sfx.js?v=195';
-import { aiMove } from './ai.js?v=195';
-import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=195';
-import { rankOf, nextRank } from './ranks.js?v=195';
-import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=195';
-import { checkNick, nickOk, randomNick } from './nick.js?v=195';
+import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, wallBetween, N } from './engine.js?v=196';
+import { scheduleTick } from './sfx.js?v=196';
+import { aiMove } from './ai.js?v=196';
+import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=196';
+import { rankOf, nextRank } from './ranks.js?v=196';
+import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=196';
+import { checkNick, nickOk, randomNick } from './nick.js?v=196';
 import {
   embedded, initPortal, inPortal, portalAd, portalPlaying, portalHappy,
   portalLoaded, portalInviteCode, portalShowInvite, portalHideInvite, portalInstant,
   portalRoom, portalOnJoin, portalInviteLink, portalMuted, portalOnMute, portalUserName,
-} from './portal.js?v=195';
+} from './portal.js?v=196';
 
 /* ================= state ================= */
 const $ = (id) => document.getElementById(id);
@@ -266,7 +266,7 @@ function getAiWorker() {
   if (aiWorker === false) return null;
   if (!aiWorker) {
     try {
-      aiWorker = new Worker('js/ai-worker.js?v=195', { type: 'module' });
+      aiWorker = new Worker('js/ai-worker.js?v=196', { type: 'module' });
       aiWorker.onmessage = (e) => {
         const cb = aiPending.get(e.data.id);
         aiPending.delete(e.data.id);
@@ -2643,7 +2643,7 @@ $('rp-clip').addEventListener('click', async () => {
   playReplay(false);                       // one thing on the screen at a time
   clipLabel(t('clip_making').replace('%n', '0'), { busy: true });
   try {
-    const { makeClip } = await import('./clip.js?v=195');
+    const { makeClip } = await import('./clip.js?v=196');
     const last = game.history[game.history.length - 1];
     const winner = last?.winner ?? game.state?.winner ?? null;
     const quad = isQuad();
@@ -4847,11 +4847,8 @@ applyB3d();
 // Only the home slot reserves height (the large ones reserve none), and only
 // it is on screen at this point — the others sit on hidden screens, where a
 // size check would read zero and fold away ads that did arrive.
-setTimeout(() => {
-  document.querySelectorAll('.ad-slot:not(.ad-slot-lg)').forEach(slot => {
-    if (!slot.querySelector('iframe, img, ins, video')) slot.style.display = 'none';
-  });
-}, 20000);   // the ad network gets a second try after a failure (index.html), so give it time
+// (14 Nov 2026 the empty home slot was folded away after a few seconds; removed
+// 18 Nov on the owner's word — a slow ad must never lose its place.)
 
 
 /* Turning the 3D board by hand. One finger (or the mouse) on the board: a short

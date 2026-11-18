@@ -9,12 +9,12 @@
    The file is made on the phone and stays there. Nothing is uploaded, the
    server never learns a clip was made, and the database is not touched. */
 
-import { scheduleTick } from './sfx.js?v=195';
+import { scheduleTick } from './sfx.js?v=196';
 
 import {
   W, H, FPS, RATE,
   lerp, clamp01, spin, spinWall, geometry, buildTimeline, frameState, dedupeHistory,
-} from './clipmath.js?v=195';
+} from './clipmath.js?v=196';
 
 /* The picture is flat colour and slow gradients, which is exactly what a low
    ceiling turns into visible banding across the board. Raised until the board
@@ -458,7 +458,7 @@ const codecSupported = async (config) => {
 };
 
 async function encodeMp4(art, audio, onProgress) {
-  const { Muxer, ArrayBufferTarget } = await import('../vendor/mp4-muxer.js?v=195');
+  const { Muxer, ArrayBufferTarget } = await import('../vendor/mp4-muxer.js?v=196');
 
   /* H.264 baseline first: it is the one profile every phone made in the last
      decade can play, and on an iPhone it is decoded in hardware. Main and high
