@@ -83,7 +83,7 @@
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
   <!-- Opens the connection to the ad host early. Costs one handshake and no
        download, and takes that handshake off the wait once Support is tapped. -->
-  <link rel="stylesheet" href="css/style.css?v=194">
+  <link rel="stylesheet" href="css/style.css?v=195">
   <!-- Are we inside somebody else's page? Every game portal forbids running
        your own ads inside theirs, and the ad scripts below start the moment
        the parser reaches them — long before any module could stop one. So the
@@ -92,7 +92,13 @@
     /* Opened as the Google Play app: Android passes the app as the referrer
        on the first page, and the flag is kept for the rest of the visit. */
     try {
-      if (document.referrer.indexOf('android-app://') === 0) sessionStorage.setItem('wr_twa', '1');
+      /* Only OUR app. Android also passes android-app://<their package> when
+         a link is opened from Instagram, Telegram, Gmail and the rest, and
+         from 14 to 18 Nov 2026 every one of those visitors was taken for the
+         Play app and shown no ads at all. */
+      var ref = document.referrer || '';
+      if (ref.indexOf('android-app://online.wallrush') === 0) sessionStorage.setItem('wr_twa', '1');
+      else if (ref.indexOf('android-app://') === 0) sessionStorage.removeItem('wr_twa');
       window.WR_TWA = sessionStorage.getItem('wr_twa') === '1';
     } catch (e) { window.WR_TWA = false; }
     if (window.WR_TWA) document.documentElement.className += ' twa';
@@ -1183,7 +1189,7 @@
     <div id="toast" hidden></div>
   </div>
 
-  <script src="vendor/supabase.js?v=194" defer></script>
-  <script type="module" src="js/app.js?v=194"></script>
+  <script src="vendor/supabase.js?v=195" defer></script>
+  <script type="module" src="js/app.js?v=195"></script>
 </body>
 </html>
