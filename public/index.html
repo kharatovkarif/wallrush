@@ -83,7 +83,7 @@
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
   <!-- Opens the connection to the ad host early. Costs one handshake and no
        download, and takes that handshake off the wait once Support is tapped. -->
-  <link rel="stylesheet" href="css/style.css?v=196">
+  <link rel="stylesheet" href="css/style.css?v=197">
   <!-- Are we inside somebody else's page? Every game portal forbids running
        your own ads inside theirs, and the ad scripts below start the moment
        the parser reaches them — long before any module could stop one. So the
@@ -266,7 +266,7 @@
 
       <!-- HilltopAds 300x100 banner: lives inside the home screen, so it shows
            in the menu only and is never present on the game screen. -->
-      <div class="ad-slot" aria-hidden="true">
+      <div class="ad-slot">
         <script>
         if (!window.WR_NOADS) (function(osjgznp){
         var d = document,
@@ -901,7 +901,7 @@
       <!-- HilltopAds 300x250 banner, in the menu only and never in-game. Back
            under the table: above it, the ad was the first thing anyone opening
            the leaderboard saw, in place of the leaderboard. -->
-      <div class="ad-slot ad-slot-lg" aria-hidden="true">
+      <div class="ad-slot ad-slot-lg">
         <script>
         if (!window.WR_NOADS) (function(immt){
         var d = document,
@@ -1113,7 +1113,7 @@
       <!-- HilltopAds 300x250 banner, its own ad code so this slot is measured
            separately from the one on the leaderboard. Below the settings: the
            profile is read from the top down, and nothing here is in the way. -->
-      <div class="ad-slot ad-slot-lg" aria-hidden="true">
+      <div class="ad-slot ad-slot-lg">
         <script>
         if (!window.WR_NOADS) (function(usypz){
         var d = document,
@@ -1148,7 +1148,7 @@
     <div id="toast" hidden></div>
   </div>
 
-  <script src="vendor/supabase.js?v=196" defer></script>
-  <script type="module" src="js/app.js?v=196"></script>
+  <script src="vendor/supabase.js?v=197" defer></script>
+  <script type="module" src="js/app.js?v=197"></script>
 </body>
 </html>
