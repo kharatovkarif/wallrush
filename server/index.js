@@ -82,6 +82,43 @@ app.get('/api/config', (req, res) => {
    is empty again tomorrow — the one a player who arrived this week can get on.
    An unknown scope falls back to the all-time board rather than erroring: an
    old cached page asking the old way must keep working. */
+/* Ad health, counted per day, slot and event (index.html, wrAdNote). No ids,
+   nothing about the player: the only question is whether the slots fill. */
+const AD_SLOTS = new Set(['home', 'lb', 'profile']);
+const AD_NAMES = { home: 'Главная (300×100)', lb: 'Рейтинг (300×250)', profile: 'Профиль (300×250)' };
+// the admin's "is the advertising working" block: last 7 days, per slot
+async function adHealth() {
+  try {
+    const since = new Date(Date.now() - 6 * 86400e3 + 3 * 3600e3).toISOString().slice(0, 10);
+    const { data } = await supa.from('ad_stats').select('day, slot, event, n').gte('day', since);
+    const today = mskDay();
+    const sum = (slot, ev, onlyToday) => (data || []).filter(r => r.slot === slot && r.event === ev && (!onlyToday || r.day === today)).reduce((a, r) => a + r.n, 0);
+    const rows = ['home', 'lb', 'profile'].map((slot) => {
+      const asked = sum(slot, 'asked'), filled = sum(slot, 'filled'), failed = sum(slot, 'failed'), retry = sum(slot, 'retry');
+      const pct = asked ? Math.round(100 * filled / asked) : 0;
+      return `<div class="li"><span class="ic${pct < 50 && asked ? ' warn' : ''}">📢</span><span class="t"><b>${AD_NAMES[slot]}</b>`
+        + `<small>сегодня показано ${sum(slot, 'filled', true).toLocaleString('ru')} · за 7 дней: запросов ${asked.toLocaleString('ru')}, показано ${filled.toLocaleString('ru')}, сбоев сети ${failed.toLocaleString('ru')} (повторов ${retry.toLocaleString('ru')})</small></span>`
+        + `<span class="n ${pct >= 70 ? 'ok' : asked ? 'warn' : ''}">${asked ? pct + '%' : '—'}</span></div>`;
+    });
+    return `<p class="sect">📢 Реклама — работает ли</p><div class="list">${rows.join('')}</div>
+<p class="note">«Показано» — в блоке появилась реклама. Процент — сколько запросов закончились показом. Учёт с 18.11.2026. Деньги — в кабинете HilltopAds.</p>`;
+  } catch (e) { return ''; }
+}
+const AD_EVENTS = new Set(['asked', 'loaded', 'filled', 'empty', 'retry', 'failed']);
+app.post('/api/adstat', async (req, res) => {
+  res.status(204).end();
+  if (!dbEnabled) return;
+  const e = req.body?.e;
+  if (!e || typeof e !== 'object') return;
+  const day = mskDay();
+  for (const [k, v] of Object.entries(e).slice(0, 20)) {
+    const [slot, ev] = String(k).split('|');
+    const n = Math.min(5, Math.max(0, Math.floor(Number(v) || 0)));
+    if (!n || !AD_SLOTS.has(slot) || !AD_EVENTS.has(ev)) continue;
+    supa.rpc('ad_stat', { d: day, s: slot, e: ev, k: n }).then(() => {}, () => {});
+  }
+});
+
 app.get('/api/leaderboard', async (req, res) => {
   /* Who is asking, if they are willing to say. An account proves it with the
      same token every other route takes; a guest has nothing to prove and sends
@@ -2065,6 +2102,7 @@ ${list.filter(r => r.stars >= 4).map(card).join('') || '<p class="note">Пока
 <p class="note" style="margin:6px 0 6px">Сверка с lava.top: ${sync.ok ? `оплаченных счетов там ${num(sync.found)}, новых сейчас добавлено ${num(sync.applied)}` : `не удалась${sync.error ? ' — ' + esc(sync.error) : ''}`} · <a href="/admin?key=${ADMIN_KEY}&view=premium&sync=1">проверить ещё раз</a></p>
 <p class="note" style="margin:6px 0 14px">Суммы — до комиссии lava.top (8%). Деньги и возвраты — в кабинете lava.top → «Продажи». Возврат: игрок пишет на ads@wallrush.online в течение 14 дней с оплаты → возвращаешь в lava.top → Premium снимется сам.</p>
 ${overdue.length ? `<div class="adreq" style="border:1px solid var(--down)"><div class="ar-top"><b>⚠️ Не удалось отменить в lava.top: ${num(overdue.length)}</b></div><div class="ar-line">Эти игроки выключили автопродление, а lava.top не дала отменить подписку. Отмени вручную в кабинете lava.top, иначе их спишут: ${overdue.map(c => esc(nicks.get(c.user_id) || c.email)).join(', ')}</div>${(cancelFails || []).map(f => `<div class="ar-line">${mskDdMm(f.at.slice(0, 10))} ${f.at.slice(11, 16)} UTC · ответ lava.top: ${esc(JSON.stringify(f.body).slice(0, 160))}</div>`).join('')}</div>` : ''}
+${await adHealth()}
 <p class="sect">Покупатели</p>
 ${(contracts || []).map(buyer).join('') || '<p class="note">Пока никто не купил.</p>'}
 <p class="sect" style="margin-top:22px">Отмены и возвраты</p>

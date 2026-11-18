@@ -83,7 +83,7 @@
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
   <!-- Opens the connection to the ad host early. Costs one handshake and no
        download, and takes that handshake off the wait once Support is tapped. -->
-  <link rel="stylesheet" href="css/style.css?v=193">
+  <link rel="stylesheet" href="css/style.css?v=194">
   <!-- Are we inside somebody else's page? Every game portal forbids running
        your own ads inside theirs, and the ad scripts below start the moment
        the parser reaches them — long before any module could stop one. So the
@@ -107,6 +107,41 @@
     catch (e) { window.WR_PREMIUM = false; }
     // the Google Play app starts with no ads at all (owner's decision, 14 Nov 2026)
     window.WR_NOADS = window.WR_EMBED || window.WR_PREMIUM || window.WR_TWA;
+    /* Is the advertising working? (owner, 18 Nov 2026: "ads are the income,
+       make sure they work"). Each slot reports, once per page: asked for,
+       script came, script failed, and whether anything was drawn in it. When
+       the ad network's script fails, it is asked for once more before the slot
+       is folded away. Counts only, no ids: see /api/adstat. */
+    (function () {
+      var counts = {};
+      function note(slot, ev) { var k = (slot && slot.getAttribute('data-ad') || '?') + '|' + ev; counts[k] = (counts[k] || 0) + 1; }
+      window.wrAdNote = note;
+      window.wrAdLoaded = function (slot) {
+        note(slot, 'loaded');
+        setTimeout(function () { note(slot, slot.querySelector('iframe, img, ins, video') ? 'filled' : 'empty'); }, 7000);
+      };
+      window.wrAdFailed = function (slot, src) {
+        if (slot.getAttribute('data-retried')) { note(slot, 'failed'); slot.style.display = 'none'; return; }
+        slot.setAttribute('data-retried', '1');
+        note(slot, 'retry');
+        setTimeout(function () {
+          var r = document.createElement('script');
+          r.src = src; r.async = true; r.referrerPolicy = 'no-referrer-when-downgrade';
+          r.onload = function () { window.wrAdLoaded(slot); };
+          r.onerror = function () { window.wrAdFailed(slot, src); };
+          slot.appendChild(r);
+        }, 4000);
+      };
+      var sent = false;
+      function send() {
+        if (sent || !Object.keys(counts).length) return;
+        sent = true;
+        try { navigator.sendBeacon('/api/adstat', new Blob([JSON.stringify({ e: counts })], { type: 'application/json' })); } catch (e) {}
+      }
+      setTimeout(send, 20000);
+      addEventListener('pagehide', send);
+      document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'hidden') send(); });
+    })();
     if (window.WR_PREMIUM) document.documentElement.className += ' premium';
   </script>
 </head>
@@ -260,7 +295,7 @@
 
       <!-- HilltopAds 300x100 banner: lives inside the home screen, so it shows
            in the menu only and is never present on the game screen. -->
-      <div class="ad-slot" aria-hidden="true">
+      <div class="ad-slot" aria-hidden="true" data-ad="home">
         <script>
         if (!window.WR_NOADS) (function(osjgznp){
         var d = document,
@@ -272,7 +307,9 @@
         s.referrerPolicy = 'no-referrer-when-downgrade';
         // their server goes down sometimes; when it does, drop the slot rather
         // than leave a hole where an ad should be
-        s.onerror = function () { var b = l.parentNode; if (b) b.style.display = 'none'; };
+        s.onload = function () { window.wrAdLoaded && wrAdLoaded(l.parentNode); };
+        s.onerror = function () { window.wrAdFailed ? wrAdFailed(l.parentNode, s.src) : (l.parentNode.style.display = 'none'); };
+        window.wrAdNote && wrAdNote(l.parentNode, 'asked');
         l.parentNode.insertBefore(s, l);
         })({})
         </script>
@@ -895,7 +932,7 @@
       <!-- HilltopAds 300x250 banner, in the menu only and never in-game. Back
            under the table: above it, the ad was the first thing anyone opening
            the leaderboard saw, in place of the leaderboard. -->
-      <div class="ad-slot ad-slot-lg" aria-hidden="true">
+      <div class="ad-slot ad-slot-lg" aria-hidden="true" data-ad="lb">
         <script>
         if (!window.WR_NOADS) (function(immt){
         var d = document,
@@ -907,7 +944,9 @@
         s.referrerPolicy = 'no-referrer-when-downgrade';
         // their server goes down sometimes; when it does, drop the slot rather
         // than leave a hole where an ad should be
-        s.onerror = function () { var b = l.parentNode; if (b) b.style.display = 'none'; };
+        s.onload = function () { window.wrAdLoaded && wrAdLoaded(l.parentNode); };
+        s.onerror = function () { window.wrAdFailed ? wrAdFailed(l.parentNode, s.src) : (l.parentNode.style.display = 'none'); };
+        window.wrAdNote && wrAdNote(l.parentNode, 'asked');
         l.parentNode.insertBefore(s, l);
         })({})
         </script>
@@ -1107,7 +1146,7 @@
       <!-- HilltopAds 300x250 banner, its own ad code so this slot is measured
            separately from the one on the leaderboard. Below the settings: the
            profile is read from the top down, and nothing here is in the way. -->
-      <div class="ad-slot ad-slot-lg" aria-hidden="true">
+      <div class="ad-slot ad-slot-lg" aria-hidden="true" data-ad="profile">
         <script>
         if (!window.WR_NOADS) (function(usypz){
         var d = document,
@@ -1119,7 +1158,9 @@
         s.referrerPolicy = 'no-referrer-when-downgrade';
         // their server goes down sometimes; when it does, drop the slot rather
         // than leave a hole where an ad should be
-        s.onerror = function () { var b = l.parentNode; if (b) b.style.display = 'none'; };
+        s.onload = function () { window.wrAdLoaded && wrAdLoaded(l.parentNode); };
+        s.onerror = function () { window.wrAdFailed ? wrAdFailed(l.parentNode, s.src) : (l.parentNode.style.display = 'none'); };
+        window.wrAdNote && wrAdNote(l.parentNode, 'asked');
         l.parentNode.insertBefore(s, l);
         })({})
         </script>
@@ -1142,7 +1183,7 @@
     <div id="toast" hidden></div>
   </div>
 
-  <script src="vendor/supabase.js?v=193" defer></script>
-  <script type="module" src="js/app.js?v=193"></script>
+  <script src="vendor/supabase.js?v=194" defer></script>
+  <script type="module" src="js/app.js?v=194"></script>
 </body>
 </html>
