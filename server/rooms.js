@@ -567,6 +567,52 @@ export function grantedOf(before, delta, total) {
   return Math.min(0, Math.max(delta, real));
 }
 
+/* ---------- no farming by machine (owner, 18 Nov 2026) ----------
+
+   Two accounts topped the wins tournament by playing 500–1 070 scored games a
+   day, around the clock, up to 158 an hour — a script, not a person; the next
+   busiest real player managed about 300 in his best day. The terms already
+   forbid bots and helper programs (section 5); this makes it pointless:
+
+   • a player marked by the owner (flagged) is matched only with our own bots,
+     so no real person has to face the script, and nothing they play is scored;
+   • for everybody, at most SCORE_HOUR scored games an hour and SCORE_DAY in
+     24 hours. Past that the game is still played, it just counts for nothing:
+     no points, no day's board, no tournament win. A human at full tilt plays
+     about one game a minute and a half, so the hour limit is never felt by a
+     person, and the day limit sits above the busiest real player we have.
+
+   Kept in memory, per account (or per device for a guest). A restart forgets
+   it, which costs at most one more hour's allowance. */
+const SCORE_HOUR = 45;
+const SCORE_DAY = 350;
+const scoreLog = new Map();   // who -> timestamps of scored games, last 24 h
+const scoreKey = (pl) => pl.userId ? 'u:' + pl.userId : pl.deviceId ? 'd:' + pl.deviceId : null;
+export function mayScore(pl, now = Date.now()) {
+  if (pl.isBot) return true;
+  if (pl.flagged) return false;
+  const k = scoreKey(pl);
+  if (!k) return true;
+  const list = (scoreLog.get(k) || []).filter(t => now - t < 86400_000);
+  scoreLog.set(k, list);
+  const lastHour = list.filter(t => now - t < 3600_000).length;
+  return lastHour < SCORE_HOUR && list.length < SCORE_DAY;
+}
+function noteScored(room, now = Date.now()) {
+  for (const pl of room.players) {
+    const k = !pl.isBot && scoreKey(pl);
+    if (!k) continue;
+    const list = scoreLog.get(k) || [];
+    list.push(now);
+    scoreLog.set(k, list);
+  }
+  if (scoreLog.size > 20000) {   // the map is keyed by player; sweep the idle ones
+    for (const [k, v] of scoreLog) if (!v.length || now - v[v.length - 1] > 86400_000) scoreLog.delete(k);
+  }
+}
+// a game is scored only if every person at the table is still within the limit
+const scorable = (room) => room.players.every(pl => mayScore(pl));
+
 // Updates the in-memory totals straight away so the game_over message is
 // already correct, and writes to the database in the background.
 const MIN_RANKED_MOVES = 6;
@@ -585,6 +631,8 @@ function awardQuadPoints(room, winnerIdx) {
   const deltas = new Array(n).fill(0);
   if (!isRanked(room)) return deltas;
   if ((room.moves || 0) < MIN_QUAD_MOVES) return deltas;
+  if (!scorable(room)) return deltas;
+  noteScored(room);
   const w = room.players[winnerIdx];
   if (w.fromPage === false) return deltas;   // won from outside the game itself
   const field = Math.max(...room.players.map((pl, i) => (i === winnerIdx ? 0 : pl.points || 0)));
@@ -614,6 +662,9 @@ function awardPoints(room, w, l) {
   // No genuine match is decided in fewer than six moves, so below that the
   // result stands but nothing is scored.
   if ((room.moves || 0) < MIN_RANKED_MOVES) return deltas;
+  if (w.fromPage === false) return deltas;  // won from outside the game itself
+  if (!scorable(room)) return deltas;
+  noteScored(room);
   const wp = w.points || 0, lp = l.points || 0;
   const dw = Math.round(pointsDelta(wp, lp, true) * factor);
   const dl = Math.round(pointsDelta(lp, wp, false) * factor);
@@ -754,6 +805,11 @@ function joinRoom(client, room) {
   if (room.status !== 'open') { send(client, { t: 'error', code: 'room_full' }); return; }
   if (room.players.includes(client)) return;
   if (room.players.length >= seatsOf(room)) { send(client, { t: 'error', code: 'room_full' }); return; }
+  // a player marked for automated play shares a public table only with our bots
+  if (!room.code && !client.isBot && room.players.some(p => !p.isBot && (p.flagged || client.flagged))) {
+    send(client, { t: 'error', code: 'room_full' });
+    return;
+  }
   if (client.roomId && client.roomId !== room.id) leaveRoom(client, false);
   room.players.push(client);
   client.roomId = room.id;
@@ -834,6 +890,7 @@ async function handleHello(client, msg) {
   client.ownerId = pts.ownerId || null;
   client.points = pts.points;
   client.premium = Boolean(pts.premium);
+  client.flagged = Boolean(pts.flagged);
   client.veteran = pts.veteran;
   client.streakBest = pts.streakBest;
   // Alive is not the same as safe, and lost is not the same as gone. The
@@ -1083,7 +1140,9 @@ export function attachWs(wss) {
           case 'quick': {
             const mode = msg.mode === 'race' ? 'race' : 'duel';
             const opens = [...rooms.values()].filter(r =>
-              r.status === 'open' && !r.code && (r.mode || 'duel') === mode && r.players[0] !== client);
+              r.status === 'open' && !r.code && (r.mode || 'duel') === mode && r.players[0] !== client
+              && !r.players[0].flagged                           // nobody is sent to a marked player
+              && (!client.flagged || r.players[0].isBot));      // a marked player meets only our bots
             // prefer a real human's room over a bot's, so live players meet live players
             const open = opens.find(r => !r.players[0].isBot) || opens[0];
             if (open) joinRoom(client, open);

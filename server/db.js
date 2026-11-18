@@ -123,6 +123,8 @@ async function readPoints({ userId, deviceId }) {
     streakPrev: d?.streak_prev || 0,
     // Premium players wear a crown instead of their rank icon, in matches too
     premium: Boolean(d?.premium_until && new Date(d.premium_until) > new Date()),
+    // marked by the owner for automated play: plays only our bots, scores nothing
+    flagged: Boolean(d?.flagged),
     /* Whose device this is, when we are reading it as a guest's. The row
        remembers the account that was signed in on it, and that is the only way
        to tell a real guest from somebody whose login quietly fell off. */
@@ -131,12 +133,12 @@ async function readPoints({ userId, deviceId }) {
   try {
     if (userId) {
       const { data } = await supa.from('profiles')
-        .select('points, streak, streak_best, streak_day, freeze_month, streak_prev, premium_until').eq('id', userId).maybeSingle();
+        .select('points, streak, streak_best, streak_day, freeze_month, streak_prev, premium_until, flagged').eq('id', userId).maybeSingle();
       return shape(data, false);
     }
     if (deviceId) {
       const { data } = await supa.from('visitors')
-        .select('points, veteran, streak, streak_best, streak_day, freeze_month, streak_prev, user_id')
+        .select('points, veteran, streak, streak_best, streak_day, freeze_month, streak_prev, user_id, flagged')
         .eq('device_id', deviceId).maybeSingle();
       return shape(data, Boolean(data?.veteran), data?.user_id || null);
     }
