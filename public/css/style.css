@@ -74,13 +74,11 @@ html.in-game > body > *:not(#app):not(script):not(style) { display: none !import
 /* Boxed to the size of the banner that belongs here. Left unbounded, anything
    the network returns fills the page — when their server answered 502, nginx's
    error page rendered full width inside the home screen. */
-.ad-slot { display: flex; justify-content: center; align-items: center; margin: 16px auto 6px;
-           width: min(300px, 100%); min-height: 100px; max-height: 110px; overflow: hidden; }
-.ad-slot iframe, .ad-slot img { max-width: 100%; border: 0; }
 /* No reserved height now that this sits above the list. At the bottom a 250px
    hole cost nothing; at the top it would push the leaderboard off the screen
    every time an ad does not arrive, which is most times. */
-.ad-slot-lg { min-height: 0; max-height: 260px; margin: 4px auto 10px; }
+.hta { display: block; width: 300px; max-width: 100%; margin: 14px auto 8px; text-align: center; }
+.hta iframe, .hta img { max-width: 100%; border: 0; }
 
 /* Optional "Support WallRush" button on the game-over screen: deliberately
    quieter than Rematch/Menu so it reads as an offer, never a demand. */
@@ -127,7 +125,7 @@ html[data-theme="dark"] .side-support { color: #ffd76a; background: rgba(255, 19
 
 /* Inside a portal our own banners never load, so their reserved height would
    be three empty gaps down the page. */
-html.embedded .ad-slot { display: none !important; }
+html.embedded .hta { display: none !important; }
 
 /* The one paragraph that is real text in the served file, and the only place
    on the home screen that says in plain words what this game is. Quiet, at the
@@ -1452,7 +1450,7 @@ html[data-theme="dark"] .rv-bt { background: #262c42; }
 /* ================= Premium ================= */
 /* Gold, because the crown is gold; the rest stays in the game's own colours so
    the offer reads as part of the game rather than as an ad for something. */
-html.premium .ad-slot { display: none !important; }
+html.premium .hta { display: none !important; }
 .premium-pill {
   display: inline-flex; align-items: center; gap: 5px; margin-top: 12px;
   border: 0; font: inherit; font-size: 14px; font-weight: 700; cursor: pointer;
@@ -1563,7 +1561,7 @@ html[data-theme="dark"] .pm-active .pm-notice { color: #ffc93c; }
 /* The Google Play app (html.twa): no ads anywhere and nothing to support with
    an ad or a payment — Play's rules cover both, and the owner wants the app
    clean to begin with. */
-html.twa .ad-slot, html.twa #btn-open-support, html.twa .side-support,
+html.twa .hta, html.twa #btn-open-support, html.twa .side-support,
 html.twa #btn-res-support, html.twa [data-support] { display: none !important; }
 
 /* the four sides of a 3D wall block: hung from the lid (lifted by --wh) down
