@@ -1,16 +1,16 @@
 // WallRush client app: screens, board UI, online play (WebSocket), AI mode, auth.
-import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, wallBetween, N } from './engine.js?v=200';
-import { scheduleTick } from './sfx.js?v=200';
-import { aiMove } from './ai.js?v=200';
-import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=200';
-import { rankOf, nextRank } from './ranks.js?v=200';
-import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=200';
-import { checkNick, nickOk, randomNick } from './nick.js?v=200';
+import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, wallBetween, N } from './engine.js?v=201';
+import { scheduleTick } from './sfx.js?v=201';
+import { aiMove } from './ai.js?v=201';
+import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=201';
+import { rankOf, nextRank } from './ranks.js?v=201';
+import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=201';
+import { checkNick, nickOk, randomNick } from './nick.js?v=201';
 import {
   embedded, initPortal, inPortal, portalAd, portalPlaying, portalHappy,
   portalLoaded, portalInviteCode, portalShowInvite, portalHideInvite, portalInstant,
   portalRoom, portalOnJoin, portalInviteLink, portalMuted, portalOnMute, portalUserName,
-} from './portal.js?v=200';
+} from './portal.js?v=201';
 
 /* ================= state ================= */
 const $ = (id) => document.getElementById(id);
@@ -266,7 +266,7 @@ function getAiWorker() {
   if (aiWorker === false) return null;
   if (!aiWorker) {
     try {
-      aiWorker = new Worker('js/ai-worker.js?v=200', { type: 'module' });
+      aiWorker = new Worker('js/ai-worker.js?v=201', { type: 'module' });
       aiWorker.onmessage = (e) => {
         const cb = aiPending.get(e.data.id);
         aiPending.delete(e.data.id);
@@ -2643,7 +2643,7 @@ $('rp-clip').addEventListener('click', async () => {
   playReplay(false);                       // one thing on the screen at a time
   clipLabel(t('clip_making').replace('%n', '0'), { busy: true });
   try {
-    const { makeClip } = await import('./clip.js?v=200');
+    const { makeClip } = await import('./clip.js?v=201');
     const last = game.history[game.history.length - 1];
     const winner = last?.winner ?? game.state?.winner ?? null;
     const quad = isQuad();
@@ -4556,9 +4556,27 @@ function fillPremiumModal() {
   // buying again is offered whenever nothing renews it on its own; the new
   // period starts where the current one ends
   const canBuy = logged && !renews && !resumable && !window.WR_TWA;
-  $('pm-plans').hidden = !canBuy;
+  // prices are shown to everyone who has not got Premium, guests included:
+  // the price is part of the offer
+  const shopping = (canBuy || (!on && !logged)) && !window.WR_TWA && !window.WR_EMBED;
+  $('pm-plans').hidden = !shopping;
+  $('pm-buy').hidden = !shopping;
+  $('pm-trust').hidden = !shopping;
+  $('pm-buy').querySelector('b').textContent = t('pm_cta');
+  $('pm-buy').dataset.guest = logged ? '' : '1';
+  const perMo = (v, n) => money(Math.floor(v / n * 100) / 100);
+  $('pm-pm-year').textContent = perMo(prices.year, 12);
+  $('pm-per-month').textContent = t('pm_per_mo_word') + ' · ' + t('pm_total_year').replace('%p', money(prices.year));
+  $('pm-was-year').textContent = money(prices.month);
+  if (half) {
+    $('pm-pm-half').textContent = perMo(half, 6);
+    $('pm-per-month-half').textContent = t('pm_per_mo_word') + ' · ' + t('pm_total_half').replace('%p', money(half));
+    $('pm-was-half').textContent = money(prices.month);
+  }
+  if (pmPlan === 'half' && !half) pmPlan = 'year';
+  selectPlan(pmPlan);
   $('pm-extend').hidden = !(on && canBuy);
-  $('pm-signup').hidden = on || logged || Boolean(window.WR_TWA);
+  $('pm-signup').hidden = true;   // the big button signs a guest up now
   $('pm-fine').hidden = on && !canBuy;
   $('pm-fine').textContent = t('pm_fine') + (prices.currency === 'RUB'
     ? ' ' + t('pm_rub_note').replace('%m', money(prices.month)).replace('%y', money(prices.year)) : '');
@@ -4640,7 +4658,40 @@ $('pm-resume').addEventListener('click', async () => {
   fillPremiumModal();
 });
 
-function openPremium() {
+/* What the player came for goes first (Duolingo does the same): opened from
+   the 3D switch the 3D board leads, from a theme the themes, and so on. */
+const PERK_FROM = { b3d: '3d', theme: 'themes', streak: 'streak', ads: 'noads', badge: 'badge' };
+const PM_SHOW = [
+  ['ice', 'glass', ['#f4fcff', '#dcf0fb', '#c6e4f5', 'rgba(60,135,190,.38)', '#a6cde6']],
+  ['wood', 'gem', ['#f2d6a2', '#dcb075', '#c39253', 'rgba(100,55,15,.40)', '#7f5126']],
+  ['neon', 'metal', ['#17163a', '#100f2a', '#0a0a1d', 'rgba(0,235,255,.55)', '#2b1d63']],
+  ['space', 'gem', ['#2b1b52', '#1a1239', '#0c0922', 'rgba(195,165,255,.30)', '#3a2970']],
+  ['gold', 'classic', ['#fff9e3', '#fbe8ad', '#f1d176', 'rgba(145,105,15,.36)', '#c79c35']],
+];
+var pmShowTimer = 0, pmShowAt = 0;
+function pmShowStep() {
+  const [bt, pt, c] = PM_SHOW[pmShowAt++ % PM_SHOW.length];
+  const box = $('pm-show').querySelector('.pm-show-board');
+  ['--bt-a', '--bt-b', '--bt-c', '--bt-line', '--bt-bezel'].forEach((k, i) => box.style.setProperty(k, c[i]));
+  $('pm-show').dataset.pt = pt;
+  $('pm-show-name').textContent = t('bt_' + bt) + ' · ' + t('pt_' + pt);
+  // the two pieces take a step, so the little board looks alive
+  const r = box.querySelector('.pawn.red'), b = box.querySelector('.pawn.blue');
+  const step = pmShowAt % 2 ? 30 : 0;
+  r.style.top = (3 + step * .75) + 'px'; b.style.top = (92 - step * .75) + 'px';
+}
+function openPremium(from) {
+  if (from && typeof from === 'object') from = null;   // called straight from a click
+  const lead = PERK_FROM[from] || 'noads';
+  const perks = $('pm-perks');
+  const first = perks.querySelector(`[data-perk="${lead}"]`);
+  if (first) perks.prepend(first);
+  $('pm-me-nick').textContent = myNick();
+  clearInterval(pmShowTimer);
+  pmShowStep();
+  pmShowTimer = setInterval(() => { if (!$('overlay-premium').hidden) pmShowStep(); else clearInterval(pmShowTimer); }, 2200);
+  selectPlan(pmPlan);
+  $('pm-buy').disabled = false;
   $('pm-note').hidden = true;
   delete $('pm-cancel').dataset.armed;
   document.querySelectorAll('.pm-plan').forEach(b => { b.disabled = false; });
@@ -4660,7 +4711,22 @@ $('pm-signup').addEventListener('click', () => {
   if (ensureAuthAvailable()) openAuthForm('register');
 });
 
-document.querySelectorAll('.pm-plan').forEach(btn => btn.addEventListener('click', async () => {
+var pmPlan = 'year';   // var: fillPremiumModal can run before this line during boot
+function selectPlan(plan) {
+  pmPlan = plan || 'year';
+  plan = pmPlan;
+  document.querySelectorAll('.pm-plan').forEach(b => { const on = b.dataset.plan === plan; b.classList.toggle('on', on); b.setAttribute('aria-checked', String(on)); });
+  const prices = premiumInfo?.prices || { month: 5, half: 24.9, year: 39.9 };
+  const sub = { year: 'pm_buy_year', half: 'pm_buy_half', month: 'pm_buy_month' }[plan];
+  $('pm-buy-sub').textContent = t(sub).replace('%p', money(prices[plan] ?? prices.month))
+    + ($('pm-buy').dataset.guest ? ' · ' + t('pm_buy_guest') : '');
+}
+document.querySelectorAll('.pm-plan').forEach(btn => btn.addEventListener('click', () => selectPlan(btn.dataset.plan)));
+$('pm-buy').addEventListener('click', async () => {
+  // a guest is asked to make an account first; the chosen plan waits for them
+  if (!(session && profile)) { closePremium(); show('screen-profile'); if (ensureAuthAvailable()) openAuthForm('register'); return; }
+  const btn = { dataset: { plan: pmPlan } };
+  $('pm-buy').disabled = true;
   const note = $('pm-note');
   note.hidden = true;
   document.querySelectorAll('.pm-plan').forEach(b => { b.disabled = true; });
@@ -4689,7 +4755,8 @@ document.querySelectorAll('.pm-plan').forEach(btn => btn.addEventListener('click
   }
   note.hidden = false;
   document.querySelectorAll('.pm-plan').forEach(b => { b.disabled = false; });
-}));
+  $('pm-buy').disabled = false;
+});
 
 /* Back from the payment page. The webhook usually lands within seconds, but
    not always before the player does, so the profile is asked again a few
@@ -4764,7 +4831,7 @@ function applyThemes() {
   try { gl3d?.refresh?.(); } catch { /* the 3D board picks it up on its next frame */ }
 }
 function pickTheme(key, list, value) {
-  if (!can3d()) { openPremium(); return; }
+  if (!can3d()) { openPremium('theme'); return; }
   if (!list.includes(value)) return;
   try { localStorage.setItem(key, value); } catch { /* private mode */ }
   applyThemes();
@@ -4864,7 +4931,7 @@ function applyB3d() {
 $('b3d-toggle').addEventListener('change', (e) => {
   if (e.target.checked && !can3d()) {
     e.target.checked = false;
-    openPremium();
+    openPremium('b3d');
     return;
   }
   try { localStorage.setItem('wr_3d', e.target.checked ? '1' : '0'); } catch { /* private mode */ }

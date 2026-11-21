@@ -1686,3 +1686,86 @@ html[data-pt="gem"] #board .pawn::before, .pt-gem i::before {
 .th-chip:active { transform: scale(.94); }
 .th-lock[hidden] { display: none; }
 .th-chip.pt-gem i.pawn { border-radius: 24%; transform: rotate(45deg) scale(.8); }
+
+/* ================= the selling Premium window (21 Nov 2026) ================= */
+.pm-show { display: flex; flex-direction: column; align-items: center; gap: 10px; margin: 0 0 6px; }
+.pm-show-board { position: relative; width: 112px; height: 112px; border-radius: 16px; transition: background .5s, box-shadow .5s;
+  background: linear-gradient(168deg, var(--bt-a), var(--bt-b) 70%, var(--bt-c));
+  box-shadow: 0 0 0 7px var(--bt-bezel), 0 14px 30px rgba(30, 40, 90, .35);
+  background-image: linear-gradient(var(--bt-line) 1.5px, transparent 1.5px), linear-gradient(90deg, var(--bt-line) 1.5px, transparent 1.5px),
+    linear-gradient(168deg, var(--bt-a), var(--bt-b) 70%, var(--bt-c));
+  background-size: 22.4px 22.4px, 22.4px 22.4px, 100% 100%; background-position: -1px -1px, -1px -1px, 0 0;
+  animation: pmFloat 4s ease-in-out infinite; }
+@keyframes pmFloat { 50% { transform: translateY(-4px) rotate(-1deg); } }
+.pm-show-board .pawn { position: absolute; width: 17px; height: 17px; transition: left .6s ease, top .6s ease; }
+.pm-show-board .pawn.red { left: 47px; top: 3px; }
+.pm-show-board .pawn.blue { left: 47px; top: 92px; }
+.pm-show-board b { position: absolute; left: 50%; bottom: -34px; transform: translateX(-50%); font-size: 12px; font-weight: 700;
+  color: var(--muted); white-space: nowrap; }
+.pm-me { display: flex; flex-direction: column; align-items: center; margin-top: 22px; }
+.pm-me small { font-size: 11.5px; color: var(--muted); }
+.pm-me b { font-size: 16px; }
+.pm-head { font-size: 24px; line-height: 1.15; margin: 8px 0 4px; }
+.pm-sub { margin: 0 0 12px; color: var(--muted); font-size: 14px; }
+.pm-perks { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 0 0 12px; text-align: start; }
+.pm-perk { display: grid; grid-template-columns: 30px 1fr; grid-template-rows: auto auto; column-gap: 6px; align-items: center;
+  background: var(--bg); border-radius: 14px; padding: 9px 10px; }
+.pm-perk span { grid-row: 1 / 3; font-size: 22px; text-align: center; }
+.pm-perk b { font-size: 13.5px; line-height: 1.2; }
+.pm-perk small { font-size: 11.5px; color: var(--muted); line-height: 1.25; }
+.pm-perk:first-child { grid-column: 1 / -1; background: linear-gradient(120deg, rgba(47,109,246,.14), rgba(123,61,240,.12)); }
+.pm-cmp { width: 100%; border-collapse: collapse; font-size: 13px; margin: 0 0 8px; }
+.pm-cmp th { font-size: 11.5px; color: var(--muted); font-weight: 700; padding: 4px 6px; }
+.pm-cmp td { padding: 6px; border-top: 1px solid rgba(140, 150, 180, .18); text-align: center; }
+.pm-cmp td:first-child { text-align: start; }
+.pm-cmp td.no { color: #c0c5d4; }
+.pm-cmp .pm-cmp-p { background: rgba(47, 109, 246, .08); color: var(--blue); font-weight: 800; }
+.pm-cmp th.pm-cmp-p { border-radius: 10px 10px 0 0; color: var(--blue); }
+.pm-plans { display: flex !important; flex-direction: column; gap: 8px; }
+.pm-plan { display: grid !important; grid-template-columns: 22px 1fr auto; align-items: center; gap: 10px; text-align: start;
+  padding: 12px 14px !important; position: relative; }
+.pm-plan .pm-radio { width: 20px; height: 20px; border-radius: 50%; border: 2px solid #b9c1d6; }
+.pm-plan.on { border-color: var(--blue) !important; box-shadow: 0 0 0 2px var(--blue); }
+.pm-plan.best.on { border-color: #f0a91f !important; box-shadow: 0 0 0 2px #f0a91f; }
+.pm-plan.on .pm-radio { border-color: currentColor; background: radial-gradient(circle, var(--blue) 0 45%, transparent 50%); }
+.pm-plan.best.on .pm-radio { background: radial-gradient(circle, #f0a91f 0 45%, transparent 50%); border-color: #f0a91f; }
+.pm-pl-t { display: flex; flex-direction: column; }
+.pm-pl-t small { font-size: 11.5px; color: var(--muted); }
+.pm-plan.best .pm-pl-t small { color: #b97a00; font-weight: 700; }
+.pm-pl-p { display: flex; flex-direction: column; align-items: flex-end; line-height: 1.15; }
+.pm-pl-p s { font-size: 12px; color: var(--muted); }
+.pm-pl-p .pm-price { font-size: 20px !important; }
+.pm-pl-p small { font-size: 11px; color: var(--muted); }
+.pm-plan .pm-tag { position: absolute; top: -9px; right: 12px; left: auto; transform: none; }
+.pm-buy { display: flex; flex-direction: column; align-items: center; gap: 2px; width: 100%; margin: 12px 0 6px; padding: 14px 16px;
+  border: 0; border-radius: 18px; cursor: pointer; font: inherit; color: #3d2800;
+  background: linear-gradient(135deg, #ffe08a, #ffc93c 55%, #f0a91f); box-shadow: 0 10px 26px rgba(240, 169, 31, .45);
+  animation: pmPulse 2.4s ease-in-out infinite; }
+.pm-buy b { font-size: 18px; font-weight: 900; }
+.pm-buy small { font-size: 12px; opacity: .85; font-weight: 600; }
+.pm-buy:active { transform: scale(.97); }
+.pm-buy[disabled] { opacity: .6; animation: none; cursor: wait; }
+@keyframes pmPulse { 50% { box-shadow: 0 10px 34px rgba(240, 169, 31, .7); } }
+.pm-trust { display: flex; justify-content: center; flex-wrap: wrap; gap: 4px 12px; font-size: 11.5px; color: var(--muted); margin: 0 0 6px; }
+@media (prefers-reduced-motion: reduce) { .pm-show-board, .pm-buy { animation: none; } }
+
+.pm-show[data-pt="matte"] .pawn::after { display: none; }
+.pm-show[data-pt="glass"] .pawn { opacity: .8; box-shadow: inset 0 0 0 2px rgba(255,255,255,.7); }
+.pm-show[data-pt="metal"] .pawn::before { content: ''; position: absolute; inset: 0; border-radius: inherit; mix-blend-mode: overlay;
+  background: conic-gradient(from 30deg, rgba(255,255,255,.75), rgba(0,0,0,.35), rgba(255,255,255,.6), rgba(0,0,0,.4), rgba(255,255,255,.75)); }
+.pm-show[data-pt="gem"] .pawn { border-radius: 24%; transform: rotate(45deg) scale(.86); }
+.pm-show[data-pt="gem"] .pawn::before { content: ''; position: absolute; inset: 0; border-radius: inherit; mix-blend-mode: soft-light;
+  background: conic-gradient(from 45deg, rgba(255,255,255,.9) 0 25%, rgba(0,0,0,.3) 0 50%, rgba(255,255,255,.55) 0 75%, rgba(0,0,0,.45) 0); }
+
+/* the button stays in reach: plans scroll, the button and the reassurances stick to the bottom */
+.pm-modal { max-height: 92dvh; overflow-y: auto; }
+.pm-buy { position: sticky; bottom: 34px; z-index: 3; }
+.pm-trust { position: sticky; bottom: 0; z-index: 3; background: var(--card); padding: 6px 0 8px; margin: 0; }
+.pm-show { flex-direction: row; justify-content: center; gap: 18px; }
+.pm-me { margin-top: 0; align-items: flex-start; text-align: start; }
+.pm-show-board b { bottom: -22px; }
+.pm-perk small { font-size: 11px; }
+
+.pm-show { padding-bottom: 24px; }
+.pm-buy { padding: 11px 14px; }
+.pm-buy b { font-size: 17px; }

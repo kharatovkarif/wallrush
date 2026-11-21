@@ -83,7 +83,7 @@
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
   <!-- Opens the connection to the ad host early. Costs one handshake and no
        download, and takes that handshake off the wait once Support is tapped. -->
-  <link rel="stylesheet" href="css/style.css?v=200">
+  <link rel="stylesheet" href="css/style.css?v=201">
   <!-- Are we inside somebody else's page? Every game portal forbids running
        your own ads inside theirs, and the ad scripts below start the moment
        the parser reaches them — long before any module could stop one. So the
@@ -701,33 +701,59 @@
     <div class="overlay" id="overlay-premium" hidden>
       <div class="modal pm-modal">
         <button class="pl-close" id="pm-close" aria-label="close">✕</button>
-        <div class="pm-crown">💎</div>
-        <h2 data-i18n="pm_title"></h2>
-        <ul class="pm-list">
-          <li><span>🚫</span><span data-i18n="pm_noads"></span></li>
-          <li><span>💎</span><span data-i18n="pm_badge"></span></li>
-          <li><span>🔥</span><span data-i18n="pm_streak"></span></li>
-          <li><span>🧊</span><span data-i18n="pm_3d"></span></li>
-          <li><span>🎨</span><span data-i18n="pm_themes"></span></li>
-        </ul>
+        <!-- A selling window (21 Nov 2026), after how subscription apps do it:
+             show the thing rather than list it, put first what the player came
+             for, compare free with Premium, one chosen plan and one big button,
+             the yearly price per month with the monthly one struck through,
+             and the reassurances right under the button. -->
+        <div class="pm-show" id="pm-show" aria-hidden="true">
+          <div class="pm-show-board"><i class="pawn red"></i><i class="pawn blue"></i><b id="pm-show-name"></b></div>
+          <div class="pm-me"><small data-i18n="pm_you_look"></small><b><span id="pm-me-nick"></span> 💎</b></div>
+        </div>
+        <h2 class="pm-head" data-i18n="pm_head"></h2>
+        <p class="pm-sub" data-i18n="pm_sub"></p>
+        <div class="pm-perks" id="pm-perks">
+          <div class="pm-perk" data-perk="noads"><span>🚫</span><b data-i18n="pm_p_noads"></b><small data-i18n="pm_p_noads_d"></small></div>
+          <div class="pm-perk" data-perk="themes"><span>🎨</span><b data-i18n="pm_p_themes"></b><small data-i18n="pm_p_themes_d"></small></div>
+          <div class="pm-perk" data-perk="3d"><span>🧊</span><b data-i18n="pm_p_3d"></b><small data-i18n="pm_p_3d_d"></small></div>
+          <div class="pm-perk" data-perk="badge"><span>💎</span><b data-i18n="pm_p_badge"></b><small data-i18n="pm_p_badge_d"></small></div>
+          <div class="pm-perk" data-perk="streak"><span>🔥</span><b data-i18n="pm_p_streak"></b><small data-i18n="pm_p_streak_d"></small></div>
+        </div>
+        <table class="pm-cmp">
+          <tr><th></th><th data-i18n="pm_cmp_free"></th><th class="pm-cmp-p">Premium</th></tr>
+          <tr><td data-i18n="pm_c_play"></td><td>✓</td><td class="pm-cmp-p">✓</td></tr>
+          <tr><td data-i18n="pm_c_ads"></td><td class="no">✗</td><td class="pm-cmp-p">✓</td></tr>
+          <tr><td data-i18n="pm_c_themes"></td><td class="no">✗</td><td class="pm-cmp-p">✓</td></tr>
+          <tr><td data-i18n="pm_c_3d"></td><td class="no">✗</td><td class="pm-cmp-p">✓</td></tr>
+          <tr><td data-i18n="pm_c_badge"></td><td class="no">✗</td><td class="pm-cmp-p">💎</td></tr>
+          <tr><td data-i18n="pm_c_streak"></td><td>📺</td><td class="pm-cmp-p">✓</td></tr>
+        </table>
         <p class="pm-fair" data-i18n="pm_fair"></p>
         <p class="pm-extend" id="pm-extend" data-i18n="pm_extend" hidden></p>
-        <div class="pm-plans" id="pm-plans">
-          <button class="pm-plan best" data-plan="year">
+        <div class="pm-plans" id="pm-plans" role="radiogroup">
+          <button class="pm-plan best on" data-plan="year" role="radio">
             <span class="pm-tag" id="pm-save-tag"></span>
-            <b data-i18n="pm_year"></b><span class="pm-price" id="pm-price-year"></span><small class="pm-charge" id="pm-charge-year" hidden></small>
-            <small id="pm-per-month"></small>
+            <span class="pm-radio"></span>
+            <span class="pm-pl-t"><b data-i18n="pm_year"></b><small data-i18n="pm_best"></small></span>
+            <span class="pm-pl-p"><s id="pm-was-year"></s><span class="pm-price" id="pm-pm-year"></span><small id="pm-per-month"></small></span>
+            <small class="pm-charge" id="pm-charge-year" hidden></small><span id="pm-price-year" hidden></span>
           </button>
-          <button class="pm-plan" data-plan="half" id="pm-plan-half" hidden>
+          <button class="pm-plan" data-plan="half" id="pm-plan-half" role="radio" hidden>
             <span class="pm-tag soft" id="pm-save-half"></span>
-            <b data-i18n="pm_half"></b><span class="pm-price" id="pm-price-half"></span><small class="pm-charge" id="pm-charge-half" hidden></small>
-            <small id="pm-per-month-half"></small>
+            <span class="pm-radio"></span>
+            <span class="pm-pl-t"><b data-i18n="pm_half"></b></span>
+            <span class="pm-pl-p"><s id="pm-was-half"></s><span class="pm-price" id="pm-pm-half"></span><small id="pm-per-month-half"></small></span>
+            <small class="pm-charge" id="pm-charge-half" hidden></small><span id="pm-price-half" hidden></span>
           </button>
-          <button class="pm-plan" data-plan="month">
-            <b data-i18n="pm_month"></b><span class="pm-price" id="pm-price-month"></span><small class="pm-charge" id="pm-charge-month" hidden></small>
-            <small data-i18n="pm_cancel_any"></small>
+          <button class="pm-plan" data-plan="month" role="radio">
+            <span class="pm-radio"></span>
+            <span class="pm-pl-t"><b data-i18n="pm_month"></b><small data-i18n="pm_cancel_any"></small></span>
+            <span class="pm-pl-p"><span class="pm-price" id="pm-price-month"></span><small data-i18n="pm_per_mo_word"></small></span>
+            <small class="pm-charge" id="pm-charge-month" hidden></small>
           </button>
         </div>
+        <button class="pm-buy" id="pm-buy"><b data-i18n="pm_cta"></b><small id="pm-buy-sub"></small></button>
+        <div class="pm-trust" id="pm-trust"><span data-i18n="pm_t_secure"></span><span data-i18n="pm_t_cancel"></span><span data-i18n="pm_t_fair"></span></div>
         <div class="pm-active" id="pm-active" hidden>
           <b id="pm-active-title"></b>
           <small id="pm-active-sub"></small>
@@ -1168,7 +1194,7 @@
     <div id="toast" hidden></div>
   </div>
 
-  <script src="vendor/supabase.js?v=200" defer></script>
-  <script type="module" src="js/app.js?v=200"></script>
+  <script src="vendor/supabase.js?v=201" defer></script>
+  <script type="module" src="js/app.js?v=201"></script>
 </body>
 </html>
