@@ -1,7 +1,7 @@
 // WallRush service worker: caches the app shell so the game opens instantly
 // and the AI mode keeps working offline. Pages go network-first (fresh
 // deploys land right away), versioned assets go cache-first.
-const V = '199';
+const V = '200';
 const CACHE = 'wr-' + V;
 const SHELL = [
   '/',

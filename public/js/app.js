@@ -1,16 +1,16 @@
 // WallRush client app: screens, board UI, online play (WebSocket), AI mode, auth.
-import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, wallBetween, N } from './engine.js?v=199';
-import { scheduleTick } from './sfx.js?v=199';
-import { aiMove } from './ai.js?v=199';
-import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=199';
-import { rankOf, nextRank } from './ranks.js?v=199';
-import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=199';
-import { checkNick, nickOk, randomNick } from './nick.js?v=199';
+import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, wallBetween, N } from './engine.js?v=200';
+import { scheduleTick } from './sfx.js?v=200';
+import { aiMove } from './ai.js?v=200';
+import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=200';
+import { rankOf, nextRank } from './ranks.js?v=200';
+import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=200';
+import { checkNick, nickOk, randomNick } from './nick.js?v=200';
 import {
   embedded, initPortal, inPortal, portalAd, portalPlaying, portalHappy,
   portalLoaded, portalInviteCode, portalShowInvite, portalHideInvite, portalInstant,
   portalRoom, portalOnJoin, portalInviteLink, portalMuted, portalOnMute, portalUserName,
-} from './portal.js?v=199';
+} from './portal.js?v=200';
 
 /* ================= state ================= */
 const $ = (id) => document.getElementById(id);
@@ -253,7 +253,7 @@ const rankIcon = (points) => rankOf(points).icon;
 // the raw score is noise next to a nickname.
 // Premium: the crown takes the place of the rank's icon; the rank's name stays
 function rankChip(points, premium = false) {
-  return `${premium ? '👑' : rankIcon(points)} ${rankName(points)}`;
+  return `${premium ? '💎' : rankIcon(points)} ${rankName(points)}`;
 }
 let aiTimer = null;
 
@@ -266,7 +266,7 @@ function getAiWorker() {
   if (aiWorker === false) return null;
   if (!aiWorker) {
     try {
-      aiWorker = new Worker('js/ai-worker.js?v=199', { type: 'module' });
+      aiWorker = new Worker('js/ai-worker.js?v=200', { type: 'module' });
       aiWorker.onmessage = (e) => {
         const cb = aiPending.get(e.data.id);
         aiPending.delete(e.data.id);
@@ -571,7 +571,7 @@ async function openPlayer(nick, opts = {}) {
 function renderPlayer(p) {
   const rank = rankOf(p.points || 0);
   $('pl-nick').textContent = p.nick;
-  $('pl-rank').textContent = `${p.premium ? '👑' : rank.icon} ${t(rank.key)}`;
+  $('pl-rank').textContent = `${p.premium ? '💎' : rank.icon} ${t(rank.key)}`;
   $('pl-place').textContent = p.place ? '#' + p.place.toLocaleString() : '';
 
   // A flame is shown only while it is burning. Plenty of real players are on
@@ -1066,7 +1066,7 @@ function renderRooms(rooms) {
     el.innerHTML = `<div class="r-avatar"></div><div class="r-info"><b></b><small></small></div><button class="btn-join"></button>`;
     el.querySelector('.r-avatar').textContent = letter;
     // the rank sits with the nickname, so you know who you are about to face
-    el.querySelector('b').textContent = `${room.premium ? '👑' : rankIcon(room.points || 0)} ${room.nick}`;
+    el.querySelector('b').textContent = `${room.premium ? '💎' : rankIcon(room.points || 0)} ${room.nick}`;
     // show what kind of room it is: mode · walls · time
     const modeLabel = room.mode === 'race' ? '🏁 ' + t('race_title')
       : room.mode === 'quad' ? '👥 ' + t('quad_title')
@@ -1203,7 +1203,7 @@ function renderWaitTable(msg) {
     if (pl) {
       el.innerHTML = '<span class="q-dot"></span><small></small><b></b>';
       el.querySelector('.q-dot').className = 'q-dot ' + SEAT_COLORS[i];
-      el.querySelector('small').textContent = pl.premium ? '👑' : rankIcon(pl.points || 0);
+      el.querySelector('small').textContent = pl.premium ? '💎' : rankIcon(pl.points || 0);
       el.querySelector('b').textContent = pl.nick;
     } else {
       el.textContent = t('waiting_seat');
@@ -1559,8 +1559,8 @@ function renderGame() {
   $('opp-nick').textContent = game.oppNick;
   const online = game.mode === 'online';
   // a crown in place of the rank icon for Premium players, on both sides
-  $('me-rank').textContent = online ? (premiumNow() ? '👑' : rankIcon(myPoints)) : (premiumNow() ? '👑' : '');
-  $('opp-rank').textContent = online ? (game.oppPremium ? '👑' : rankIcon(game.oppPoints || 0)) : '';
+  $('me-rank').textContent = online ? (premiumNow() ? '💎' : rankIcon(myPoints)) : (premiumNow() ? '💎' : '');
+  $('opp-rank').textContent = online ? (game.oppPremium ? '💎' : rankIcon(game.oppPoints || 0)) : '';
   $('me-walls').textContent = s.left[me];
   $('opp-walls').textContent = s.left[1 - me];
   $('dock-walls').textContent = s.left[me];
@@ -2643,7 +2643,7 @@ $('rp-clip').addEventListener('click', async () => {
   playReplay(false);                       // one thing on the screen at a time
   clipLabel(t('clip_making').replace('%n', '0'), { busy: true });
   try {
-    const { makeClip } = await import('./clip.js?v=199');
+    const { makeClip } = await import('./clip.js?v=200');
     const last = game.history[game.history.length - 1];
     const winner = last?.winner ?? game.state?.winner ?? null;
     const quad = isQuad();
@@ -2980,7 +2980,7 @@ function renderLeaderboard(rows, savedAt, scope = 'all', me = null) {
     // can be had right now without waiting for the 25th
     const note = document.createElement('button');
     note.className = 'lb-tn-note';
-    note.innerHTML = '<span class="tn-crown">👑</span><span class="tn-txt"></span><span class="tn-more">›</span>';
+    note.innerHTML = '<span class="tn-crown">💎</span><span class="tn-txt"></span><span class="tn-more">›</span>';
     note.querySelector('.tn-txt').textContent = tnState() === 'over' ? t('tn_over') : t('tn_note').replace('%s', tnLeft());
     note.addEventListener('click', openTourney);
     list.appendChild(note);
@@ -3292,7 +3292,7 @@ function renderRankCard() {
   const pts = myPoints;
   const cur = rankOf(pts);
   const next = nextRank(pts);
-  $('rank-badge').textContent = premiumNow() ? '👑' : cur.icon;
+  $('rank-badge').textContent = premiumNow() ? '💎' : cur.icon;
   $('rank-name').textContent = t(cur.key);
   $('rank-points').textContent = `${pts.toLocaleString()} ${t('points_label')}`;
   $('veteran-badge').hidden = !myVeteran;
@@ -4357,7 +4357,7 @@ boot();
 function crownEl() {
   const c = document.createElement('span');
   c.className = 'crown';
-  c.textContent = '👑';
+  c.textContent = '💎';
   c.title = 'Premium';
   return c;
 }
@@ -4387,6 +4387,7 @@ function premiumDate(ms) {
 }
 
 function renderPremium() {
+  try { applyThemes(); } catch { /* settings not drawn yet */ }
   const until = premiumUntil();
   const on = until > Date.now();
   if (profile && 'premium_until' in profile) {
@@ -4492,6 +4493,8 @@ function premiumLocalCurrency() {
 }
 // "≈ 1 012 ₸" for a dollar amount, in the player's own currency
 function approxLocal(usd) {
+  // only dollars on screen (owner, 21 Nov 2026): no "≈ local money" line any more
+  if (usd !== undefined) return '';
   const loc = premiumInfo?.local;
   if (!loc || !usd) return '';
   const v = usd * loc.perUsd;
@@ -4740,6 +4743,34 @@ function b3dWanted() { try { return localStorage.getItem('wr_3d') === '1'; } cat
 // Premium, or the 3D board on its own (profiles.b3d_access, given by hand —
 // the owner uses it to try the board without the rest of Premium)
 function can3d() { return premiumNow() || Boolean(profile?.b3d_access); }
+
+/* ---------- board and piece themes (Premium, 21 Nov 2026) ----------
+   The choice is kept on the device; it only shows while Premium is on (or the
+   3D-only access the owner tests with). html[data-bt] and html[data-pt] do
+   the painting (style.css), and the 3D board reads the same colours. */
+const BOARD_THEMES = ['classic', 'ice', 'wood', 'neon', 'space', 'gold', 'mint'];
+const PIECE_THEMES = ['classic', 'matte', 'glass', 'metal', 'gem'];
+const themeOf = (key, list) => { try { const v = localStorage.getItem(key); return list.includes(v) ? v : 'classic'; } catch { return 'classic'; } };
+function applyThemes() {
+  const on = can3d();
+  const bt = on ? themeOf('wr_bt', BOARD_THEMES) : 'classic';
+  const pt = on ? themeOf('wr_pt', PIECE_THEMES) : 'classic';
+  const root = document.documentElement;
+  if (bt === 'classic') delete root.dataset.bt; else root.dataset.bt = bt;
+  if (pt === 'classic') delete root.dataset.pt; else root.dataset.pt = pt;
+  document.querySelectorAll('#bt-chips .th-chip').forEach(b => b.classList.toggle('on', b.dataset.bt === bt));
+  document.querySelectorAll('#pt-chips .th-chip').forEach(b => b.classList.toggle('on', b.dataset.pt === pt));
+  document.querySelectorAll('.th-lock').forEach(l => { l.hidden = on; });
+  try { gl3d?.refresh?.(); } catch { /* the 3D board picks it up on its next frame */ }
+}
+function pickTheme(key, list, value) {
+  if (!can3d()) { openPremium(); return; }
+  if (!list.includes(value)) return;
+  try { localStorage.setItem(key, value); } catch { /* private mode */ }
+  applyThemes();
+}
+$('bt-chips').addEventListener('click', (e) => { const b = e.target.closest('[data-bt]'); if (b) pickTheme('wr_bt', BOARD_THEMES, b.dataset.bt); });
+$('pt-chips').addEventListener('click', (e) => { const b = e.target.closest('[data-pt]'); if (b) pickTheme('wr_pt', PIECE_THEMES, b.dataset.pt); });
 function b3dOn() { return b3dWanted() && can3d(); }
 
 // turned corner-on, a square is wider than it is flat; shrink it so the

@@ -297,12 +297,12 @@ export const PREMIUM_CAMPAIGN = {
   until: Date.parse('2026-11-17T00:00:00Z'),
   url: '/?premium=1',
   text: {
-    ru: { title: '👑 Новое в WallRush: Premium', body: '3D-доска, которую можно крутить пальцем, корона у ника и игра без рекламы. Загляни!' },
-    en: { title: '👑 New in WallRush: Premium', body: 'A 3D board you can spin with your finger, a crown by your name and no ads. Take a look!' },
-    es: { title: '👑 Novedad en WallRush: Premium', body: 'Un tablero 3D que giras con el dedo, una corona junto a tu apodo y sin anuncios. ¡Échale un vistazo!' },
-    fr: { title: '👑 Nouveau sur WallRush : Premium', body: 'Un plateau 3D à tourner du doigt, une couronne à côté de ton pseudo et zéro pub. Viens voir !' },
-    tr: { title: '👑 WallRush’ta yeni: Premium', body: 'Parmağınla döndürdüğün 3D tahta, takma adının yanında taç ve reklamsız oyun. Bir göz at!' },
-    fa: { title: '👑 تازه در WallRush: Premium', body: 'صفحهٔ سه‌بعدی که با انگشت می‌چرخد، تاج کنار نامت و بازی بدون تبلیغ. سری بزن!' },
+    ru: { title: '💎 Новое в WallRush: Premium', body: '3D-доска, которую можно крутить пальцем, алмаз у ника и игра без рекламы. Загляни!' },
+    en: { title: '💎 New in WallRush: Premium', body: 'A 3D board you can spin with your finger, a diamond by your name and no ads. Take a look!' },
+    es: { title: '💎 Novedad en WallRush: Premium', body: 'Un tablero 3D que giras con el dedo, un diamante junto a tu apodo y sin anuncios. ¡Échale un vistazo!' },
+    fr: { title: '💎 Nouveau sur WallRush : Premium', body: 'Un plateau 3D à tourner du doigt, un diamant à côté de ton pseudo et zéro pub. Viens voir !' },
+    tr: { title: '💎 WallRush’ta yeni: Premium', body: 'Parmağınla döndürdüğün 3D tahta, takma adının yanında elmas ve reklamsız oyun. Bir göz at!' },
+    fa: { title: '💎 تازه در WallRush: Premium', body: 'صفحهٔ سه‌بعدی که با انگشت می‌چرخد، الماس کنار نامت و بازی بدون تبلیغ. سری بزن!' },
   },
 };
 
@@ -312,12 +312,12 @@ export const CAMPAIGN = {
   url: '/?tourney=1',
   everyone: true,      // Premium owners can win it too
   text: {
-    ru: { title: '🏆 Турнир в WallRush!', body: 'Больше всех побед до 25 ноября — топ-50 получат 👑 Premium на месяц бесплатно. Вперёд!' },
-    en: { title: '🏆 WallRush tournament!', body: 'Most wins by 25 November — the top 50 get 👑 Premium for a month, free. Go!' },
-    es: { title: '🏆 ¡Torneo en WallRush!', body: 'Más victorias hasta el 25 de noviembre: el top 50 gana 👑 Premium un mes gratis. ¡Vamos!' },
-    fr: { title: '🏆 Tournoi WallRush !', body: 'Le plus de victoires d’ici le 25 novembre : le top 50 gagne 👑 Premium un mois offert. À toi !' },
-    tr: { title: '🏆 WallRush turnuvası!', body: '25 Kasım’a kadar en çok galibiyet — ilk 50 bir ay ücretsiz 👑 Premium kazanır. Hadi!' },
-    fa: { title: '🏆 مسابقهٔ WallRush!', body: 'بیشترین برد تا ۲۵ نوامبر — ۵۰ نفر برتر یک ماه 👑 Premium رایگان می‌گیرند. برو!' },
+    ru: { title: '🏆 Турнир в WallRush!', body: 'Больше всех побед до 25 ноября — топ-50 получат 💎 Premium на месяц бесплатно. Вперёд!' },
+    en: { title: '🏆 WallRush tournament!', body: 'Most wins by 25 November — the top 50 get 💎 Premium for a month, free. Go!' },
+    es: { title: '🏆 ¡Torneo en WallRush!', body: 'Más victorias hasta el 25 de noviembre: el top 50 gana 💎 Premium un mes gratis. ¡Vamos!' },
+    fr: { title: '🏆 Tournoi WallRush !', body: 'Le plus de victoires d’ici le 25 novembre : le top 50 gagne 💎 Premium un mois offert. À toi !' },
+    tr: { title: '🏆 WallRush turnuvası!', body: '25 Kasım’a kadar en çok galibiyet — ilk 50 bir ay ücretsiz 💎 Premium kazanır. Hadi!' },
+    fa: { title: '🏆 مسابقهٔ WallRush!', body: 'بیشترین برد تا ۲۵ نوامبر — ۵۰ نفر برتر یک ماه 💎 Premium رایگان می‌گیرند. برو!' },
   },
 };
 

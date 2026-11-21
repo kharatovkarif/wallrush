@@ -50,6 +50,10 @@ export function mount3d({ board, wrap, getView, setView, saveView, onTap, isDrag
   scene.add(pivot);
 
   const dark = () => document.documentElement.dataset.theme === 'dark';
+  // the board theme's colours, set as custom properties on #board (style.css)
+  const tv = (name) => getComputedStyle(board).getPropertyValue(name).trim();
+  const boardTheme = () => document.documentElement.dataset.bt || '';
+  const pieceTheme = () => document.documentElement.dataset.pt || '';
 
   // light: soft sky light plus one sun that casts the shadows that make it 3D
   const hemi = new THREE.HemisphereLight(0xffffff, 0x8a96b8, 1.15);
@@ -84,6 +88,7 @@ export function mount3d({ board, wrap, getView, setView, saveView, onTap, isDrag
   const mat = (key, opts) => mats[key] || (mats[key] = new THREE.MeshStandardMaterial(opts));
   const box = new THREE.BoxGeometry(1, 1, 1);
   const ball = new THREE.SphereGeometry(1, 48, 32);
+  const gemGeo = new THREE.OctahedronGeometry(1.1, 0);   // the crystal pieces
   const ring = new THREE.TorusGeometry(1, 0.08, 12, 48);
 
   let W = 0, H = 0, topSig = '';
@@ -96,7 +101,7 @@ export function mount3d({ board, wrap, getView, setView, saveView, onTap, isDrag
       side: ['top', 'bottom', 'left', 'right'].find(s => b.classList.contains(s) || b.classList.contains('side-' + s)) || 'top',
       finish: b.classList.contains('finish') }));
     const goals = [...board.querySelectorAll('.goal-cell')].map(local);
-    const sig = [W, H, dark(), JSON.stringify(lines), JSON.stringify(bands), goals.length].join('|');
+    const sig = [W, H, dark(), boardTheme(), JSON.stringify(lines), JSON.stringify(bands), goals.length].join('|');
     if (sig === topSig) return;
     topSig = sig;
     const k = Math.min(4, 2048 / Math.max(W, H));   // texture pixels per board pixel
@@ -104,7 +109,8 @@ export function mount3d({ board, wrap, getView, setView, saveView, onTap, isDrag
     const g = topCanvas.getContext('2d');
     g.setTransform(k, 0, 0, k, 0, 0);
     const grad = g.createLinearGradient(0, 0, W * 0.3, H);
-    if (dark()) { grad.addColorStop(0, '#272e4a'); grad.addColorStop(0.7, '#1d2340'); grad.addColorStop(1, '#171c33'); }
+    if (boardTheme() && tv('--bt-a')) { grad.addColorStop(0, tv('--bt-a')); grad.addColorStop(0.7, tv('--bt-b')); grad.addColorStop(1, tv('--bt-c')); }
+    else if (dark()) { grad.addColorStop(0, '#272e4a'); grad.addColorStop(0.7, '#1d2340'); grad.addColorStop(1, '#171c33'); }
     else { grad.addColorStop(0, '#fdfdff'); grad.addColorStop(0.7, '#f0f1f8'); grad.addColorStop(1, '#e9ebf4'); }
     g.fillStyle = grad; g.fillRect(0, 0, W, H);
     const hex = { blue: '47,109,246', red: '227,61,82', yellow: '240,180,41', green: '33,163,90', neutral: '33,192,122' };
@@ -121,7 +127,7 @@ export function mount3d({ board, wrap, getView, setView, saveView, onTap, isDrag
       else if (b.side === 'left') g.fillRect(b.x, b.y, 3, b.h);
       else g.fillRect(b.x + b.w - 3, b.y, 3, b.h);
     }
-    g.fillStyle = dark() ? 'rgba(185,200,235,.17)' : 'rgba(95,115,165,.30)';
+    g.fillStyle = (boardTheme() && tv('--bt-line')) || (dark() ? 'rgba(185,200,235,.17)' : 'rgba(95,115,165,.30)');
     for (const l of lines) g.fillRect(l.x, l.y, l.w, l.h);
     g.strokeStyle = 'rgba(255,201,60,.85)'; g.lineWidth = 2;
     for (const c of goals) g.strokeRect(c.x + 1, c.y + 1, c.w - 2, c.h - 2);
@@ -140,7 +146,7 @@ export function mount3d({ board, wrap, getView, setView, saveView, onTap, isDrag
       Object.assign(sun.shadow.camera, { left: -s, right: s, top: s, bottom: -s, near: 10, far: s * 4 });
       sun.shadow.camera.updateProjectionMatrix();
     }
-    slabMat.color.set(dark() ? 0x2c3349 : 0xc9d2e2);
+    slabMat.color.set((boardTheme() && tv('--bt-bezel')) || (dark() ? 0x2c3349 : 0xc9d2e2));
     drawTop();
 
     // walls: blocks standing on the board, as tall as a pawn is wide
@@ -183,7 +189,12 @@ export function mount3d({ board, wrap, getView, setView, saveView, onTap, isDrag
       g.position.set(x, 0, z);
       const [s, rg] = g.children;
       s.scale.setScalar(rad); s.position.y = rad;
-      s.material = mat('pawn:' + colorOf(el), { color: COLORS[colorOf(el)], roughness: 0.22, metalness: 0.1 });
+      // the piece theme: how the ball's surface takes the light
+      const pt = pieceTheme();
+      const look = { matte: { roughness: 0.85, metalness: 0 }, glass: { roughness: 0.05, metalness: 0, transparent: true, opacity: 0.72 },
+        metal: { roughness: 0.18, metalness: 0.85 }, gem: { roughness: 0.04, metalness: 0.35, flatShading: true } }[pt] || { roughness: 0.22, metalness: 0.1 };
+      s.material = mat('pawn:' + colorOf(el) + ':' + pt, { color: COLORS[colorOf(el)], ...look });
+      s.geometry = pt === 'gem' ? gemGeo : ball;
       rg.visible = el.classList.contains('glow');      // whose move it is
       rg.scale.setScalar(rad * 1.25); rg.position.y = 1.5;
     });

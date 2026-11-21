@@ -545,12 +545,12 @@ export function needsReminder(c, now = Date.now()) {
 }
 
 const REMIND_TEXT = {
-  ru: (d, p) => ({ title: '👑 Premium продлится через ' + d + ' дн.', body: `Спишется ${p} за год. Отключить автопродление можно в игре: Профиль → Premium.` }),
-  en: (d, p) => ({ title: `👑 Premium renews in ${d} days`, body: `${p} for a year will be charged. You can turn auto-renewal off in the game: Profile → Premium.` }),
-  es: (d, p) => ({ title: `👑 Premium se renueva en ${d} días`, body: `Se cobrarán ${p} por un año. Puedes desactivar la renovación en el juego: Perfil → Premium.` }),
-  fr: (d, p) => ({ title: `👑 Premium se renouvelle dans ${d} jours`, body: `${p} pour un an seront prélevés. Tu peux désactiver le renouvellement dans le jeu : Profil → Premium.` }),
-  tr: (d, p) => ({ title: `👑 Premium ${d} gün içinde yenileniyor`, body: `Bir yıllık ${p} tahsil edilecek. Otomatik yenilemeyi oyunda kapatabilirsin: Profil → Premium.` }),
-  fa: (d, p) => ({ title: `👑 Premium تا ${d} روز دیگر تمدید می‌شود`, body: `${p} برای یک سال برداشت می‌شود. تمدید خودکار را در بازی خاموش کن: پروفایل ← Premium.` }),
+  ru: (d, p) => ({ title: '💎 Premium продлится через ' + d + ' дн.', body: `Спишется ${p} за год. Отключить автопродление можно в игре: Профиль → Premium.` }),
+  en: (d, p) => ({ title: `💎 Premium renews in ${d} days`, body: `${p} for a year will be charged. You can turn auto-renewal off in the game: Profile → Premium.` }),
+  es: (d, p) => ({ title: `💎 Premium se renueva en ${d} días`, body: `Se cobrarán ${p} por un año. Puedes desactivar la renovación en el juego: Perfil → Premium.` }),
+  fr: (d, p) => ({ title: `💎 Premium se renouvelle dans ${d} jours`, body: `${p} pour un an seront prélevés. Tu peux désactiver le renouvellement dans le jeu : Profil → Premium.` }),
+  tr: (d, p) => ({ title: `💎 Premium ${d} gün içinde yenileniyor`, body: `Bir yıllık ${p} tahsil edilecek. Otomatik yenilemeyi oyunda kapatabilirsin: Profil → Premium.` }),
+  fa: (d, p) => ({ title: `💎 Premium تا ${d} روز دیگر تمدید می‌شود`, body: `${p} برای یک سال برداشت می‌شود. تمدید خودکار را در بازی خاموش کن: پروفایل ← Premium.` }),
 };
 
 // what the last charge on this subscription was, to name the amount

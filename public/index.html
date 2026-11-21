@@ -83,7 +83,7 @@
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
   <!-- Opens the connection to the ad host early. Costs one handshake and no
        download, and takes that handshake off the wait once Support is tapped. -->
-  <link rel="stylesheet" href="css/style.css?v=199">
+  <link rel="stylesheet" href="css/style.css?v=200">
   <!-- Are we inside somebody else's page? Every game portal forbids running
        your own ads inside theirs, and the ad scripts below start the moment
        the parser reaches them — long before any module could stop one. So the
@@ -162,7 +162,7 @@
           <div class="online-pill"><span class="dot"></span><b id="online-count">0</b>&nbsp;<span data-i18n="online_count"></span></div>
           <!-- the one way in to Premium from the first screen; turns into the
                player's own crown once they have it -->
-          <button class="premium-pill" id="premium-pill" hidden>👑 <span id="premium-pill-text"></span></button>
+          <button class="premium-pill" id="premium-pill" hidden>💎 <span id="premium-pill-text"></span></button>
         </div>
       </header>
 
@@ -678,7 +678,7 @@
     <div class="overlay" id="overlay-tourney" hidden>
       <div class="modal pm-modal">
         <button class="pl-close" id="tn-close" aria-label="close">✕</button>
-        <div class="pm-crown tn-spin">👑</div>
+        <div class="pm-crown tn-spin">💎</div>
         <h2 data-i18n="tn_m_title"></h2>
         <p class="tn-lead" data-i18n="tn_m_lead"></p>
         <ul class="pm-list tn-rules">
@@ -689,7 +689,7 @@
         <p class="tn-what" data-i18n="tn_m_prize"></p>
         <ul class="pm-list">
           <li><span>🚫</span><span data-i18n="pm_noads"></span></li>
-          <li><span>👑</span><span data-i18n="pm_badge"></span></li>
+          <li><span>💎</span><span data-i18n="pm_badge"></span></li>
           <li><span>🔥</span><span data-i18n="pm_streak"></span></li>
           <li><span>🧊</span><span data-i18n="pm_3d"></span></li>
         </ul>
@@ -701,14 +701,14 @@
     <div class="overlay" id="overlay-premium" hidden>
       <div class="modal pm-modal">
         <button class="pl-close" id="pm-close" aria-label="close">✕</button>
-        <div class="pm-crown">👑</div>
+        <div class="pm-crown">💎</div>
         <h2 data-i18n="pm_title"></h2>
         <ul class="pm-list">
           <li><span>🚫</span><span data-i18n="pm_noads"></span></li>
-          <li><span>👑</span><span data-i18n="pm_badge"></span></li>
+          <li><span>💎</span><span data-i18n="pm_badge"></span></li>
           <li><span>🔥</span><span data-i18n="pm_streak"></span></li>
           <li><span>🧊</span><span data-i18n="pm_3d"></span></li>
-          <li class="pm-soon"><span>🎨</span><span data-i18n="pm_soon"></span></li>
+          <li><span>🎨</span><span data-i18n="pm_themes"></span></li>
         </ul>
         <p class="pm-fair" data-i18n="pm_fair"></p>
         <p class="pm-extend" id="pm-extend" data-i18n="pm_extend" hidden></p>
@@ -1017,7 +1017,7 @@
         <p class="veteran-badge" id="veteran-badge" data-i18n="veteran" hidden></p>
         <!-- Premium: an offer for those without it, the days left for those with -->
         <button class="premium-card" id="premium-card" hidden>
-          <span class="pc-crown">👑</span>
+          <span class="pc-crown">💎</span>
           <span class="pc-meta"><b id="premium-card-title"></b><small id="premium-card-sub"></small></span>
           <span class="pc-go">›</span>
         </button>
@@ -1080,8 +1080,32 @@
         </div>
         <!-- Premium only: without it the switch opens the Premium window -->
         <div class="setting-row">
-          <span><span data-i18n="board3d"></span> <small class="b3d-lock" id="b3d-lock">👑</small></span>
+          <span><span data-i18n="board3d"></span> <small class="b3d-lock" id="b3d-lock">💎</small></span>
           <label class="toggle"><input type="checkbox" id="b3d-toggle"><span></span></label>
+        </div>
+        <!-- Premium: how the board and the pieces look. Without Premium a tap
+             opens the Premium window. -->
+        <div class="setting-row theme-row">
+          <span><span data-i18n="bt_label"></span> <small class="b3d-lock th-lock">💎</small></span>
+          <div class="th-chips" id="bt-chips">
+            <button class="th-chip bt-classic" data-bt="classic"><i></i><small data-i18n="bt_classic"></small></button>
+            <button class="th-chip bt-ice" data-bt="ice"><i></i><small data-i18n="bt_ice"></small></button>
+            <button class="th-chip bt-wood" data-bt="wood"><i></i><small data-i18n="bt_wood"></small></button>
+            <button class="th-chip bt-neon" data-bt="neon"><i></i><small data-i18n="bt_neon"></small></button>
+            <button class="th-chip bt-space" data-bt="space"><i></i><small data-i18n="bt_space"></small></button>
+            <button class="th-chip bt-gold" data-bt="gold"><i></i><small data-i18n="bt_gold"></small></button>
+            <button class="th-chip bt-mint" data-bt="mint"><i></i><small data-i18n="bt_mint"></small></button>
+          </div>
+        </div>
+        <div class="setting-row theme-row">
+          <span><span data-i18n="pt_label"></span> <small class="b3d-lock th-lock">💎</small></span>
+          <div class="th-chips" id="pt-chips">
+            <button class="th-chip pt-classic" data-pt="classic"><i class="pawn blue"></i><small data-i18n="pt_classic"></small></button>
+            <button class="th-chip pt-matte" data-pt="matte"><i class="pawn blue"></i><small data-i18n="pt_matte"></small></button>
+            <button class="th-chip pt-glass" data-pt="glass"><i class="pawn blue"></i><small data-i18n="pt_glass"></small></button>
+            <button class="th-chip pt-metal" data-pt="metal"><i class="pawn blue"></i><small data-i18n="pt_metal"></small></button>
+            <button class="th-chip pt-gem" data-pt="gem"><i class="pawn blue"></i><small data-i18n="pt_gem"></small></button>
+          </div>
         </div>
         <!-- The game used to offer notifications exactly once, after a third
              match, and never again — so anyone who tapped past that prompt had
@@ -1144,7 +1168,7 @@
     <div id="toast" hidden></div>
   </div>
 
-  <script src="vendor/supabase.js?v=199" defer></script>
-  <script type="module" src="js/app.js?v=199"></script>
+  <script src="vendor/supabase.js?v=200" defer></script>
+  <script type="module" src="js/app.js?v=200"></script>
 </body>
 </html>

@@ -11,7 +11,7 @@ export const RANKS = [
   { key: 'rank_strategist', icon: '🟣', min: 500 },
   { key: 'rank_master', icon: '🟠', min: 1500 },
   { key: 'rank_pro', icon: '🔴', min: 4000 },
-  { key: 'rank_legend', icon: '💎', min: 10000 },
+  { key: 'rank_legend', icon: '🌟', min: 10000 },
   { key: 'rank_goat', icon: '🐐', min: 20000 },
 ];
 

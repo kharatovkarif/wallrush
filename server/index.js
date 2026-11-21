@@ -2092,9 +2092,9 @@ ${list.filter(r => r.stars >= 4).map(card).join('') || '<p class="note">Пока
     const overdue = (contracts || []).filter(c => c.status === 'renew_off' && c.paid_until < soonIso);
     const { data: cancelFails } = await supa.from('premium_hooks').select('at, body')
       .eq('reason', 'cancel_failed').order('id', { ascending: false }).limit(5);
-    content = `<h2>👑 Premium</h2>
+    content = `<h2>💎 Premium</h2>
 <div class="grid2">
-  ${statCard('👑', 'Сейчас с Premium', num(active.length))}
+  ${statCard('💎', 'Сейчас с Premium', num(active.length))}
   ${statCard('💵', 'Оплачено всего', sumTxt)}
   ${statCard('🧾', 'Оплат и продлений', num(paidEv.length))}
   ${statCard('👀', 'Открыли оплату, не заплатили', num(tried || 0))}
@@ -2344,7 +2344,7 @@ ${period === 'today' && !short ? `<p class="cmp-note" style="margin-top:12px">Д
 
 <p class="h">Подробнее</p>
 <div class="list">
-  <a class="li" href="/admin?key=${ADMIN_KEY}&view=premium"><div class="ic">👑</div><div class="t"><b>Premium</b><small>кто купил, когда, сколько, отмены и возвраты</small></div><div class="n">${num(premiumNow)}</div><span class="go">›</span></a>
+  <a class="li" href="/admin?key=${ADMIN_KEY}&view=premium"><div class="ic">💎</div><div class="t"><b>Premium</b><small>кто купил, когда, сколько, отмены и возвраты</small></div><div class="n">${num(premiumNow)}</div><span class="go">›</span></a>
   <a class="li" href="/admin?key=${ADMIN_KEY}&view=days"><div class="ic">📅</div><div class="t"><b>По дням</b><small>две недели: новые, заходы, партии, по часам</small></div><span class="go">›</span></a>
 </div>
 
