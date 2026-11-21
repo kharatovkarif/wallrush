@@ -925,6 +925,7 @@ select count(*) from pg_proc p join pg_namespace n on n.oid=p.pronamespace
 - БД: таблица `tourney_wins` (tid, who 'u:'/'d:', nick, kind, wins, updated_at), функции `tourney_win`, `tourney_claim` (гость при входе переносит победы), `tourney_award(t, places, days)` — одна транзакция, повторный вызов вернёт -1.
 - Приз: каждую минуту после конца сервер вызывает `tourney_award('2026-11',50,30)`. Каждый приз — строка `premium_contracts` со status 'manual' и contract_id `tourney:2026-11:<uid>`. Ничья — у кого раньше набрано.
 - Гости копят победы на устройстве, но в таблице и при выдаче только аккаунты. Флагнутые исключены.
+- Пуш 21.11: CAMPAIGN = 'premium-themes-2026-11' (Premium в $, темы, турнир до 25.11), всем один раз через announceNow, ссылка /?premium=1.
 - Пуш о турнире (15.11): `CAMPAIGN` в server/push.js = 'tourney-2026-11', `announceNow()` каждые 10 мин шлёт всем, у кого местное время 09–22, один раз на устройство (push_subs.campaign_sent); ссылка `/?tourney=1` открывает вкладку турнира.
 - Для следующего турнира: поменять `TOURNEY` в server/tourney.js и `TN` в app.js (новый id).
 

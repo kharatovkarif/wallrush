@@ -306,18 +306,20 @@ export const PREMIUM_CAMPAIGN = {
   },
 };
 
+/* 21 Nov 2026: Premium in dollars with three plans, board and piece themes,
+   and the tournament's last days. Everyone, once (announceNow). */
 export const CAMPAIGN = {
-  id: 'tourney-2026-11',
+  id: 'premium-themes-2026-11',
   until: Date.parse('2026-11-25T09:00:00Z'),
-  url: '/?tourney=1',
-  everyone: true,      // Premium owners can win it too
+  url: '/?premium=1',
+  everyone: true,
   text: {
-    ru: { title: '🏆 Турнир в WallRush!', body: 'Больше всех побед до 25 ноября — топ-50 получат 💎 Premium на месяц бесплатно. Вперёд!' },
-    en: { title: '🏆 WallRush tournament!', body: 'Most wins by 25 November — the top 50 get 💎 Premium for a month, free. Go!' },
-    es: { title: '🏆 ¡Torneo en WallRush!', body: 'Más victorias hasta el 25 de noviembre: el top 50 gana 💎 Premium un mes gratis. ¡Vamos!' },
-    fr: { title: '🏆 Tournoi WallRush !', body: 'Le plus de victoires d’ici le 25 novembre : le top 50 gagne 💎 Premium un mois offert. À toi !' },
-    tr: { title: '🏆 WallRush turnuvası!', body: '25 Kasım’a kadar en çok galibiyet — ilk 50 bir ay ücretsiz 💎 Premium kazanır. Hadi!' },
-    fa: { title: '🏆 مسابقهٔ WallRush!', body: 'بیشترین برد تا ۲۵ نوامبر — ۵۰ نفر برتر یک ماه 💎 Premium رایگان می‌گیرند. برو!' },
+    ru: { title: '💎 Новое в WallRush Premium', body: '7 тем доски, 5 стилей фишек, 3D и без рекламы. Теперь в $: от $3.32 в месяц. И турнир: топ-50 получат Premium — до 25 ноября!' },
+    en: { title: '💎 New in WallRush Premium', body: '7 board themes, 5 piece styles, 3D and no ads. Now in $: from $3.32 a month. Plus the tournament: top 50 win Premium — ends 25 Nov!' },
+    es: { title: '💎 Novedades en WallRush Premium', body: '7 temas de tablero, 5 estilos de fichas, 3D y sin anuncios. Ahora en $: desde $3.32 al mes. ¡Y el torneo: el top 50 gana Premium, hasta el 25 nov!' },
+    fr: { title: '💎 Nouveau dans WallRush Premium', body: '7 thèmes de plateau, 5 styles de pions, 3D et zéro pub. En $ : dès $3.32 par mois. Et le tournoi : le top 50 gagne Premium, jusqu’au 25 nov. !' },
+    tr: { title: '💎 WallRush Premium’da yeni', body: '7 tahta teması, 5 taş stili, 3D ve reklamsız. Artık $ ile: ayda $3.32’den başlayan fiyat. Turnuva: ilk 50 Premium kazanır — 25 Kasım’a kadar!' },
+    fa: { title: '💎 تازه در WallRush Premium', body: '۷ تم صفحه، ۵ سبک مهره، سه‌بعدی و بدون تبلیغ. حالا به دلار: از ماهی $3.32. و مسابقه: ۵۰ نفر برتر Premium می‌برند — تا ۲۵ نوامبر!' },
   },
 };
 
