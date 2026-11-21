@@ -83,7 +83,7 @@
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
   <!-- Opens the connection to the ad host early. Costs one handshake and no
        download, and takes that handshake off the wait once Support is tapped. -->
-  <link rel="stylesheet" href="css/style.css?v=198">
+  <link rel="stylesheet" href="css/style.css?v=199">
   <!-- Are we inside somebody else's page? Every game portal forbids running
        your own ads inside theirs, and the ad scripts below start the moment
        the parser reaches them — long before any module could stop one. So the
@@ -718,6 +718,11 @@
             <b data-i18n="pm_year"></b><span class="pm-price" id="pm-price-year"></span><small class="pm-charge" id="pm-charge-year" hidden></small>
             <small id="pm-per-month"></small>
           </button>
+          <button class="pm-plan" data-plan="half" id="pm-plan-half" hidden>
+            <span class="pm-tag soft" id="pm-save-half"></span>
+            <b data-i18n="pm_half"></b><span class="pm-price" id="pm-price-half"></span><small class="pm-charge" id="pm-charge-half" hidden></small>
+            <small id="pm-per-month-half"></small>
+          </button>
           <button class="pm-plan" data-plan="month">
             <b data-i18n="pm_month"></b><span class="pm-price" id="pm-price-month"></span><small class="pm-charge" id="pm-charge-month" hidden></small>
             <small data-i18n="pm_cancel_any"></small>
@@ -1139,7 +1144,7 @@
     <div id="toast" hidden></div>
   </div>
 
-  <script src="vendor/supabase.js?v=198" defer></script>
-  <script type="module" src="js/app.js?v=198"></script>
+  <script src="vendor/supabase.js?v=199" defer></script>
+  <script type="module" src="js/app.js?v=199"></script>
 </body>
 </html>

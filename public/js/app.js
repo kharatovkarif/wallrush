@@ -1,16 +1,16 @@
 // WallRush client app: screens, board UI, online play (WebSocket), AI mode, auth.
-import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, wallBetween, N } from './engine.js?v=198';
-import { scheduleTick } from './sfx.js?v=198';
-import { aiMove } from './ai.js?v=198';
-import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=198';
-import { rankOf, nextRank } from './ranks.js?v=198';
-import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=198';
-import { checkNick, nickOk, randomNick } from './nick.js?v=198';
+import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, wallBetween, N } from './engine.js?v=199';
+import { scheduleTick } from './sfx.js?v=199';
+import { aiMove } from './ai.js?v=199';
+import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=199';
+import { rankOf, nextRank } from './ranks.js?v=199';
+import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=199';
+import { checkNick, nickOk, randomNick } from './nick.js?v=199';
 import {
   embedded, initPortal, inPortal, portalAd, portalPlaying, portalHappy,
   portalLoaded, portalInviteCode, portalShowInvite, portalHideInvite, portalInstant,
   portalRoom, portalOnJoin, portalInviteLink, portalMuted, portalOnMute, portalUserName,
-} from './portal.js?v=198';
+} from './portal.js?v=199';
 
 /* ================= state ================= */
 const $ = (id) => document.getElementById(id);
@@ -266,7 +266,7 @@ function getAiWorker() {
   if (aiWorker === false) return null;
   if (!aiWorker) {
     try {
-      aiWorker = new Worker('js/ai-worker.js?v=198', { type: 'module' });
+      aiWorker = new Worker('js/ai-worker.js?v=199', { type: 'module' });
       aiWorker.onmessage = (e) => {
         const cb = aiPending.get(e.data.id);
         aiPending.delete(e.data.id);
@@ -2643,7 +2643,7 @@ $('rp-clip').addEventListener('click', async () => {
   playReplay(false);                       // one thing on the screen at a time
   clipLabel(t('clip_making').replace('%n', '0'), { busy: true });
   try {
-    const { makeClip } = await import('./clip.js?v=198');
+    const { makeClip } = await import('./clip.js?v=199');
     const last = game.history[game.history.length - 1];
     const winner = last?.winner ?? game.state?.winner ?? null;
     const quad = isQuad();
@@ -4454,15 +4454,13 @@ async function loadPremiumInfo() {
    dollars abroad, and the rouble price is the one set for them. Decided by the
    phone's timezone, the same hint the language guess uses — never the IP, so a
    VPN changes nothing. Everyone else pays in dollars. */
-function premiumCurrency() {
-  let tz = '';
-  try { tz = Intl.DateTimeFormat().resolvedOptions().timeZone || ''; } catch { /* old browser */ }
-  return CIS_TZ.test(tz) ? 'RUB' : 'USD';
-}
+// Dollars for everyone since 21 Nov 2026 (the owner: roubles did not work out).
+function premiumCurrency() { return 'USD'; }
 const money = (n, cur = premiumInfo?.prices?.currency || 'USD') => {
   const v = Math.round(Number(n) * 100) / 100;
   // 149.99 stays 149.99 — rounding it to 150 would show a price nobody is charged
-  return cur === 'RUB' ? `${v.toLocaleString('ru', { maximumFractionDigits: 2 })} ₽` : '$' + v.toString();
+  // $39.90, not $39.9; a whole $5 stays $5
+  return cur === 'RUB' ? `${v.toLocaleString('ru', { maximumFractionDigits: 2 })} ₽` : '$' + (Number.isInteger(v) ? String(v) : v.toFixed(2));
 };
 
 /* The player's own currency, guessed from the phone's timezone (never the IP,
@@ -4506,15 +4504,29 @@ function approxLocal(usd) {
 function fillPremiumModal() {
   const on = premiumNow();
   const logged = Boolean(session && profile);
-  const prices = premiumInfo?.prices || { currency: 'USD', month: 5, year: 39.99 };
+  const prices = premiumInfo?.prices || { currency: 'USD', month: 5, half: 24.9, year: 39.9 };
+  /* Six months, when the lava.top offer has that period: the same card as the
+     others, its per-month price and its saving against paying monthly. */
+  const half = Number(prices.half) || 0;
+  $('pm-plan-half').hidden = !half;
+  if (half) {
+    $('pm-price-half').textContent = money(half);
+    const lineH = approxLocal(prices.currency === 'USD' ? half : 0);
+    $('pm-charge-half').textContent = lineH;
+    $('pm-charge-half').hidden = !lineH || premiumInfo?.local?.code === 'USD';
+    $('pm-per-month-half').textContent = t('pm_per_month').replace('%p', money(Math.floor(half / 6 * 100) / 100));
+    const saveH = Math.round((1 - half / (6 * prices.month)) * 100);
+    $('pm-save-half').textContent = '−' + saveH + '%';
+    $('pm-save-half').hidden = !(saveH >= 5);
+  }
   /* Everything on screen in dollars. Roubles are what a Russian card is
      charged, so their dollar value at today's rate is the big number and the
      rouble amount sits under it — the payment page then shows no surprise. */
   const asUsd = prices.currency === 'RUB' && prices.usdMonth && prices.usdYear;
   const usdM = asUsd ? prices.usdMonth : prices.currency === 'USD' ? prices.month : null;
   const usdY = asUsd ? prices.usdYear : prices.currency === 'USD' ? prices.year : null;
-  $('pm-price-month').textContent = usdM ? '$' + usdM : money(prices.month);
-  $('pm-price-year').textContent = usdY ? '$' + usdY : money(prices.year);
+  $('pm-price-month').textContent = usdM ? money(usdM, 'USD') : money(prices.month);
+  $('pm-price-year').textContent = usdY ? money(usdY, 'USD') : money(prices.year);
   /* Under the dollars: what it is in the player's own money. A player charged
      in roubles who lives in Russia sees the exact rouble price (that is what
      the bank will show); anyone else sees an "≈" in their own currency. */

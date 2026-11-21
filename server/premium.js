@@ -21,7 +21,9 @@ import { supa, dbEnabled } from './db.js';
 import { sendUserPush } from './push.js';
 
 const GATE = 'https://gate.lava.top';
-const PERIOD = { month: 'MONTHLY', year: 'PERIOD_YEAR' };
+// lava.top's names; the six-month one is read off the offer itself (pricesIn)
+const PERIOD = { month: 'MONTHLY', half: 'PERIOD_180_DAYS', year: 'PERIOD_YEAR' };
+export const PLANS = ['month', 'half', 'year'];
 // A renewal is charged on the day the period ends and can take a while to
 // clear; two days of slack keeps a paying player from flickering out of
 // premium overnight.
@@ -36,6 +38,7 @@ export const premiumConfigured = () => Boolean(apiKey());
 export function addPeriod(from, plan) {
   const d = new Date(from);
   if (plan === 'year') d.setUTCFullYear(d.getUTCFullYear() + 1);
+  else if (plan === 'half') d.setUTCMonth(d.getUTCMonth() + 6);
   else d.setUTCMonth(d.getUTCMonth() + 1);
   return d;
 }
@@ -45,8 +48,9 @@ export function addPeriod(from, plan) {
 // several months, so anything well above one month's price is a year.
 export function planFromAmount(amount, currency) {
   const n = Number(amount) || 0;
-  const month = currency === 'RUB' ? 400 : 7;
-  return n > month * 2 ? 'year' : 'month';
+  // dollars since 21 Nov 2026: $5 a month, $24.90 for six, $39.90 a year
+  if (currency === 'RUB') return n > 800 ? 'year' : 'month';
+  return n > 32 ? 'year' : n > 12 ? 'half' : 'month';
 }
 
 /* What an event does, decided without the database:
@@ -106,18 +110,26 @@ async function premiumOffers() {
   return offers;
 }
 
-// {month, year} in one currency, plus which offer carries each
+// {month, half, year} in one currency, plus which offer and periodicity carry each
+export function planOfPeriod(per) {
+  const p = String(per || '').toUpperCase();
+  if (p === 'MONTHLY' || p === 'PERIOD_30_DAYS') return 'month';
+  if (p === 'PERIOD_YEAR' || p === 'YEARLY' || p.includes('365')) return 'year';
+  if (p.includes('180') || p.includes('HALF') || p.includes('SIX')) return 'half';
+  return null;
+}
 export function pricesIn(offers, currency) {
   const out = {};
   for (const o of offers) for (const p of o.prices || []) {
     if (p.currency !== currency) continue;
-    const plan = p.periodicity === 'MONTHLY' ? 'month' : p.periodicity === 'PERIOD_YEAR' ? 'year' : null;
-    if (plan && out[plan] === undefined) { out[plan] = p.amount; out[plan + 'Offer'] = o.id; }
+    const plan = planOfPeriod(p.periodicity);
+    if (plan && out[plan] === undefined) { out[plan] = p.amount; out[plan + 'Offer'] = o.id; out[plan + 'Period'] = p.periodicity; }
   }
   return out;
 }
 
-export const CURRENCIES = ['USD', 'RUB'];
+// dollars only since 21 Nov 2026 (owner: roubles did not work out)
+export const CURRENCIES = ['USD'];
 
 /* Roubles shown as dollars. The owner wants every price on screen in $,
    while a Russian card can only be charged in roubles — so the dollar figure
@@ -154,13 +166,13 @@ export const rubToUsd = (rub, rate) => rate ? Math.round(rub / rate * 100) / 100
 export async function offerPrices(currency = 'USD') {
   const offers = await premiumOffers();
   const want = pricesIn(offers, currency);
-  if (want.month !== undefined || want.year !== undefined) return { currency, month: want.month, year: want.year };
+  if (want.month !== undefined || want.year !== undefined) return { currency, month: want.month, half: want.half, year: want.year };
   const usd = pricesIn(offers, 'USD');
-  return { currency: 'USD', month: usd.month, year: usd.year };
+  return { currency: 'USD', month: usd.month, half: usd.half, year: usd.year };
 }
 
 export async function createCheckout({ userId, email, plan, currency = 'USD' }) {
-  if (!PERIOD[plan]) return { error: 'bad_plan' };
+  if (!PLANS.includes(plan)) return { error: 'bad_plan' };
   const offers = await premiumOffers();
   let cur = CURRENCIES.includes(currency) ? currency : 'USD';
   let pr = pricesIn(offers, cur);
@@ -170,7 +182,7 @@ export async function createCheckout({ userId, email, plan, currency = 'USD' }) 
     email,
     offerId: pr[plan + 'Offer'],
     currency: cur,
-    periodicity: PERIOD[plan],
+    periodicity: pr[plan + 'Period'] || PERIOD[plan],
     // the owner wants the payment page in English for everyone
     buyerLanguage: 'EN',
   };
@@ -525,7 +537,7 @@ export function stopPremiumSync() { syncStopped = true; clearInterval(syncTimer)
 export const REMIND_AHEAD = 7 * 86400_000;
 
 export function needsReminder(c, now = Date.now()) {
-  if (!c || c.plan !== 'year') return false;
+  if (!c || (c.plan !== 'year' && c.plan !== 'half')) return false;
   if (c.status !== 'active' && c.status !== 'past_due') return false;
   const end = new Date(c.paid_until).getTime();
   if (!(end > now) || end - now > REMIND_AHEAD) return false;
@@ -556,7 +568,7 @@ export async function remindRenewals() {
   const soon = new Date(Date.now() + REMIND_AHEAD).toISOString();
   const { data } = await supa.from('premium_contracts')
     .select('contract_id, user_id, email, plan, status, paid_until, reminded_for')
-    .eq('plan', 'year').in('status', ['active', 'past_due']).lte('paid_until', soon).limit(100);
+    .in('plan', ['year', 'half']).in('status', ['active', 'past_due']).lte('paid_until', soon).limit(100);
   for (const c of (data || []).filter(x => needsReminder(x))) {
     const days = Math.max(1, Math.ceil((new Date(c.paid_until).getTime() - Date.now()) / 86400_000));
     const price = chargeText(await lastCharge(c.email)) || 'the yearly price';

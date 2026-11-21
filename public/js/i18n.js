@@ -117,6 +117,7 @@ export const I18N = {
     pm_save: '−50%',
     pm_year: 'Год',
     pm_month: 'Месяц',
+    pm_half: '6 месяцев',
     pm_cancel_any: 'отменить можно в любой момент',
     pm_per_month: '%p в месяц',
     pm_signup: 'Создать аккаунт и получить Premium',
@@ -560,6 +561,7 @@ export const I18N = {
     pm_save: '−50%',
     pm_year: 'Year',
     pm_month: 'Month',
+    pm_half: '6 months',
     pm_cancel_any: 'cancel any time',
     pm_per_month: '%p a month',
     pm_signup: 'Create an account to get Premium',
@@ -902,7 +904,7 @@ export const LANGS = [
 export const LANG_CODES = LANGS.map((l) => l.code);
 export const RTL = new Set(['fa']);
 
-const V = '198';
+const V = '199';
 
 // Loads a translation file on demand. Safe to call repeatedly and safe to fail:
 // if the request never lands, makeT keeps falling back to English.

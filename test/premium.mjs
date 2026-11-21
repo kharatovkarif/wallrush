@@ -10,7 +10,10 @@ assert.equal(addPeriod(t0, 'year').toISOString(), '2027-11-13T10:00:00.000Z');
 
 // a payment from lava.top's own page: the amount tells the plan
 assert.equal(planFromAmount(5, 'USD'), 'month');
-assert.equal(planFromAmount(29.99, 'USD'), 'year');
+assert.equal(planFromAmount(39.9, 'USD'), 'year');
+assert.equal(planFromAmount(24.9, 'USD'), 'half');
+assert.equal(planFromAmount(1.81, 'USD'), 'month');
+assert.equal(addPeriod(t0, 'half').toISOString(), '2027-05-13T10:00:00.000Z');
 assert.equal(planFromAmount(414, 'RUB'), 'month');
 assert.equal(planFromAmount(2490, 'RUB'), 'year');
 assert.equal(planFromAmount(990, 'RUB'), 'year');
@@ -54,8 +57,11 @@ const offers = [
   { id: 'A', prices: [{ currency: 'USD', periodicity: 'MONTHLY', amount: 5 }, { currency: 'USD', periodicity: 'PERIOD_YEAR', amount: 39.99 }] },
   { id: 'B', prices: [{ currency: 'RUB', periodicity: 'MONTHLY', amount: 149 }, { currency: 'RUB', periodicity: 'PERIOD_YEAR', amount: 990 }] },
 ];
-assert.deepEqual(pricesIn(offers, 'RUB'), { month: 149, monthOffer: 'B', year: 990, yearOffer: 'B' });
-assert.deepEqual(pricesIn(offers, 'USD'), { month: 5, monthOffer: 'A', year: 39.99, yearOffer: 'A' });
+assert.deepEqual(pricesIn(offers, 'RUB'), { month: 149, monthOffer: 'B', monthPeriod: 'MONTHLY', year: 990, yearOffer: 'B', yearPeriod: 'PERIOD_YEAR' });
+assert.deepEqual(pricesIn(offers, 'USD'), { month: 5, monthOffer: 'A', monthPeriod: 'MONTHLY', year: 39.99, yearOffer: 'A', yearPeriod: 'PERIOD_YEAR' });
+// six months, whatever lava.top calls the period
+assert.deepEqual(pricesIn([{ id: 'H', prices: [{ currency: 'USD', amount: 24.9, periodicity: 'PERIOD_180_DAYS' }] }], 'USD'),
+  { half: 24.9, halfOffer: 'H', halfPeriod: 'PERIOD_180_DAYS' });
 assert.deepEqual(pricesIn(offers, 'EUR'), {});
 console.log('premium prices: ok');
 import { hookKeyFrom, hookBody } from '../server/premium.js';

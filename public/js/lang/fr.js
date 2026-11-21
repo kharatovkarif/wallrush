@@ -116,6 +116,7 @@ export default {
   pm_save: '−50 %',
   pm_year: 'Année',
   pm_month: 'Mois',
+  pm_half: '6 mois',
   pm_cancel_any: 'résiliable à tout moment',
   pm_per_month: '%p par mois',
   pm_signup: 'Crée un compte pour obtenir Premium',

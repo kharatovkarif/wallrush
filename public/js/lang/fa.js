@@ -116,6 +116,7 @@ export default {
   pm_save: '٪۵۰−',
   pm_year: 'سالانه',
   pm_month: 'ماهانه',
+  pm_half: '۶ ماهه',
   pm_cancel_any: 'هر وقت خواستی لغو کن',
   pm_per_month: 'ماهی %p',
   pm_signup: 'برای گرفتن Premium حساب بساز',

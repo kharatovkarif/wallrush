@@ -243,14 +243,14 @@ app.post('/api/premium/lava', express.text({ type: () => true, limit: '200kb' })
 // the payment page then contradicts.
 const priceCache = new Map();   // currency -> {at, prices}
 app.get('/api/premium/info', async (req, res) => {
-  const fallback = { currency: 'USD', month: 5, year: 39.99 };
+  const fallback = { currency: 'USD', month: 5, half: 24.9, year: 39.9 };
   if (!premiumConfigured()) return res.json({ enabled: false, prices: fallback });
   const cur = CURRENCIES.includes(String(req.query.cur)) ? String(req.query.cur) : 'USD';
   let hit = priceCache.get(cur);
   if (!hit || Date.now() - hit.at > 3600_000) {
     try {
       const p = await offerPrices(cur);
-      hit = { at: Date.now(), prices: p.month || p.year ? { ...p, month: p.month ?? fallback.month, year: p.year ?? fallback.year } : fallback };
+      hit = { at: Date.now(), prices: p.month || p.year ? { ...p, month: p.month ?? fallback.month, half: p.half ?? null, year: p.year ?? fallback.year } : fallback };
     } catch (e) {
       console.error('[premium] prices', e.message);
       hit = { at: Date.now() - 3000_000, prices: fallback };
@@ -305,7 +305,7 @@ app.post('/api/premium/checkout', async (req, res) => {
   if (Date.now() - last < 5000) return res.status(429).json({ error: 'slow_down' });
   checkoutAt.set(user.id, Date.now());
   if (checkoutAt.size > 5000) checkoutAt.clear();
-  const plan = req.body?.plan === 'year' ? 'year' : 'month';
+  const plan = ['year', 'half'].includes(req.body?.plan) ? req.body.plan : 'month';
   try {
     const currency = CURRENCIES.includes(String(req.body?.currency)) ? String(req.body.currency) : 'USD';
     const r = await createCheckout({ userId: user.id, email: user.email, plan, currency });

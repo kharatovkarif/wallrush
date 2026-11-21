@@ -1622,3 +1622,7 @@ html.twa #btn-res-support, html.twa [data-support] { display: none !important; }
 .lb-badge.tn-prize { color: #c98a00; font-weight: 700; }
 .lb-tn-cut { margin: 6px 4px 10px; text-align: center; font-size: 12.5px; color: var(--muted, #8a8fa3);
   border-top: 2px dashed rgba(240, 169, 31, .55); padding-top: 8px; }
+
+/* three plans (21 Nov 2026): the year across the top, six months and a month side by side */
+.pm-plans .pm-plan.best { grid-column: 1 / -1; }
+.pm-tag.soft { background: #2f6df6; color: #fff; }

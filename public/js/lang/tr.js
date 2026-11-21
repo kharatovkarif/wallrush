@@ -116,6 +116,7 @@ export default {
   pm_save: '−%50',
   pm_year: 'Yıllık',
   pm_month: 'Aylık',
+  pm_half: '6 aylık',
   pm_cancel_any: 'istediğin zaman iptal',
   pm_per_month: 'ayda %p',
   pm_signup: 'Premium için hesap oluştur',
