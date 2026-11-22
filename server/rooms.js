@@ -586,6 +586,7 @@ export function grantedOf(before, delta, total) {
    it, which costs at most one more hour's allowance. */
 const SCORE_HOUR = 45;
 const SCORE_DAY = 350;
+const SCORE_HOURS_DAY = 18;   // different hours with scored games in the last 24
 const scoreLog = new Map();   // who -> timestamps of scored games, last 24 h
 const scoreKey = (pl) => pl.userId ? 'u:' + pl.userId : pl.deviceId ? 'd:' + pl.deviceId : null;
 export function mayScore(pl, now = Date.now()) {
@@ -596,7 +597,12 @@ export function mayScore(pl, now = Date.now()) {
   const list = (scoreLog.get(k) || []).filter(t => now - t < 86400_000);
   scoreLog.set(k, list);
   const lastHour = list.filter(t => now - t < 3600_000).length;
-  return lastHour < SCORE_HOUR && list.length < SCORE_DAY;
+  /* Round the clock (22 Nov 2026): RUSSIAN_AI kept just under both limits,
+     ~330 games a day at up to 25 an hour, but in every one of the 24 hours.
+     Nobody plays scored games in more than SCORE_HOURS_DAY different hours
+     of one day; past that the games stop counting. */
+  const hours = new Set(list.map(t => Math.floor(t / 3600_000))).size;
+  return lastHour < SCORE_HOUR && list.length < SCORE_DAY && hours < SCORE_HOURS_DAY;
 }
 function noteScored(room, now = Date.now()) {
   for (const pl of room.players) {
