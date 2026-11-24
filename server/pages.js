@@ -34,7 +34,9 @@ const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<
 // documents, and on a page they should be tappable.
 const linkify = (s) => s
   .replace(/@Karoboev/g, '<a href="https://t.me/Karoboev">@Karoboev</a>')
-  .replace(/ads@wallrush\.online/g, '<a href="mailto:ads@wallrush.online">ads@wallrush.online</a>');
+  .replace(/ads@wallrush\.online/g, '<a href="mailto:ads@wallrush.online">ads@wallrush.online</a>')
+  // our own pages named in the text, e.g. wallrush.online/delete-account
+  .replace(/(^|[\s(«])wallrush\.online(\/[a-z0-9/-]+)/g, '$1<a href="$2">wallrush.online$2</a>');
 
 /* The same three markers renderDoc() understands inside the app — "## " a
    heading, "• " a list item, a blank line a paragraph break — so a document
@@ -351,6 +353,20 @@ ${scoreBox(r, 'ru')}
    privacy policy at a public URL before it will take a submission. */
 
 const DOCS = [
+  // The public deletion page Google Play asks for (24 Nov 2026): it must be
+  // reachable without the app and say what is deleted and what is kept.
+  {
+    path: '/delete-account', lang: 'en', key: 'deletion',
+    title: 'Delete your WallRush account',
+    desc: 'How to delete a WallRush account on the website or in the Android app, what is deleted, what is kept, and what to do if you cannot sign in.',
+    alt: '/ru/udalenie-akkaunta',
+  },
+  {
+    path: '/ru/udalenie-akkaunta', lang: 'ru', key: 'deletion',
+    title: 'Удаление аккаунта WallRush',
+    desc: 'Как удалить аккаунт WallRush на сайте или в приложении для Android, что удаляется, что остаётся и что делать, если не получается войти.',
+    alt: '/delete-account',
+  },
   {
     path: '/rules', lang: 'en', key: 'rules',
     title: 'WallRush rules — how to play Quoridor online',
