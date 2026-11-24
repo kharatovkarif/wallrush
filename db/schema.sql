@@ -700,7 +700,7 @@ create table if not exists public.premium_contracts (
   parent_id   text,
   user_id     uuid references public.profiles(id) on delete set null,
   email       text not null,
-  plan        text not null check (plan in ('month','year')),
+  plan        text not null check (plan in ('month','half','year')),  -- 'half' added 24 Nov 2026
   status      text not null default 'new',
   paid_until  timestamptz,
   created_at  timestamptz not null default now(),
