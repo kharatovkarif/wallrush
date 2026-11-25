@@ -204,6 +204,10 @@ export const I18N = {
     tester_ok: '✅ Ты в списке: %e. Доступ откроем в течение 1–2 дней — тогда жми «Открыть тест».',
     tester_open: 'Открыть тест в Google Play',
     tester_err: 'Не получилось, попробуй ещё раз',
+    tester_ready_b1: '✅ Доступ к тесту открыт — скачай WallRush',
+    tester_ready_b2: 'Нажми и установи приложение из Google Play',
+    tester_ready: '✅ Доступ открыт! Нажми «Скачать WallRush» → «Стать тестировщиком» → «Установить». В приложении войди в этот же аккаунт.',
+    tester_dl: '📥 Скачать WallRush',
     tn_m_title: '🏆 Турнир побед',
     tn_m_lead: 'Топ-50 по победам получат 💎 Premium на месяц бесплатно!',
     tn_r1: 'Считаются только победы в онлайн-партиях с начала турнира',
@@ -713,6 +717,10 @@ export const I18N = {
     tester_ok: '✅ You are on the list: %e. Access opens within 1–2 days — then tap “Open the test”.',
     tester_open: 'Open the test on Google Play',
     tester_err: 'That did not work, try again',
+    tester_ready_b1: '✅ Your test access is open — get WallRush',
+    tester_ready_b2: 'Tap and install the app from Google Play',
+    tester_ready: '✅ Access is open! Tap “Download WallRush” → “Become a tester” → “Install”. Sign in to this same account in the app.',
+    tester_dl: '📥 Download WallRush',
     tn_m_title: '🏆 Wins tournament',
     tn_m_lead: 'The top 50 by wins get 💎 Premium for a month, free!',
     tn_r1: 'Only wins in online games since the start count',
@@ -1034,7 +1042,7 @@ export const LANGS = [
 export const LANG_CODES = LANGS.map((l) => l.code);
 export const RTL = new Set(['fa']);
 
-const V = '204';
+const V = '205';
 
 // Loads a translation file on demand. Safe to call repeatedly and safe to fail:
 // if the request never lands, makeT keeps falling back to English.

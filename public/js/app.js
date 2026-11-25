@@ -1,16 +1,16 @@
 // WallRush client app: screens, board UI, online play (WebSocket), AI mode, auth.
-import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, wallBetween, N } from './engine.js?v=204';
-import { scheduleTick } from './sfx.js?v=204';
-import { aiMove } from './ai.js?v=204';
-import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=204';
-import { rankOf, nextRank } from './ranks.js?v=204';
-import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=204';
-import { checkNick, nickOk, randomNick } from './nick.js?v=204';
+import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, wallBetween, N } from './engine.js?v=205';
+import { scheduleTick } from './sfx.js?v=205';
+import { aiMove } from './ai.js?v=205';
+import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=205';
+import { rankOf, nextRank } from './ranks.js?v=205';
+import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=205';
+import { checkNick, nickOk, randomNick } from './nick.js?v=205';
 import {
   embedded, initPortal, inPortal, portalAd, portalPlaying, portalHappy,
   portalLoaded, portalInviteCode, portalShowInvite, portalHideInvite, portalInstant,
   portalRoom, portalOnJoin, portalInviteLink, portalMuted, portalOnMute, portalUserName,
-} from './portal.js?v=204';
+} from './portal.js?v=205';
 
 /* ================= state ================= */
 const $ = (id) => document.getElementById(id);
@@ -266,7 +266,7 @@ function getAiWorker() {
   if (aiWorker === false) return null;
   if (!aiWorker) {
     try {
-      aiWorker = new Worker('js/ai-worker.js?v=204', { type: 'module' });
+      aiWorker = new Worker('js/ai-worker.js?v=205', { type: 'module' });
       aiWorker.onmessage = (e) => {
         const cb = aiPending.get(e.data.id);
         aiPending.delete(e.data.id);
@@ -2643,7 +2643,7 @@ $('rp-clip').addEventListener('click', async () => {
   playReplay(false);                       // one thing on the screen at a time
   clipLabel(t('clip_making').replace('%n', '0'), { busy: true });
   try {
-    const { makeClip } = await import('./clip.js?v=204');
+    const { makeClip } = await import('./clip.js?v=205');
     const last = game.history[game.history.length - 1];
     const winner = last?.winner ?? game.state?.winner ?? null;
     const quad = isQuad();
@@ -2897,7 +2897,12 @@ async function openTester() {
     const auth = await authHeaders();
     const res = await fetch('/api/tester/status', { method: 'POST', headers: { 'Content-Type': 'application/json', ...auth } });
     const st = await res.json();
-    if (st.joined) {
+    testerReady(st);
+    if (st.added) {
+      $('ts-form').hidden = true;
+      testerNote(t('tester_ready'));
+      $('ts-open').hidden = false;
+    } else if (st.joined) {
       $('ts-email').value = st.gmail;
       testerNote(t('tester_ok').replace('%e', st.gmail));
       $('ts-open').hidden = false;
@@ -2935,6 +2940,29 @@ $('ts-send').addEventListener('click', async () => {
   btn.disabled = false;
 });
 $('tester-banner').hidden = !testerShown();
+/* Once the owner has added the player in Play Console, the banner and the
+   button turn into a plain "download": that is the only step left. */
+function testerReady(st) {
+  const ready = Boolean(st && st.added);
+  $('tester-banner').classList.toggle('ready', ready);
+  $('tester-banner').querySelector('b').textContent = t(ready ? 'tester_ready_b1' : 'tester_b1');
+  $('tester-banner').querySelector('small').textContent = t(ready ? 'tester_ready_b2' : 'tester_b2');
+  const o = $('ts-open');
+  o.textContent = t(ready ? 'tester_dl' : 'tester_open');
+  o.classList.toggle('btn-ghost', !ready);
+  o.classList.toggle('tn-buy', ready);
+}
+async function testerCheck() {
+  if (!testerShown() || !session) return;
+  try {
+    const auth = await authHeaders();
+    const res = await fetch('/api/tester/status', { method: 'POST', headers: { 'Content-Type': 'application/json', ...auth } });
+    testerReady(await res.json());
+  } catch {}
+}
+setTimeout(testerCheck, 3000);
+// the notification "your access is open" lands here
+if (/[?&]tester=1/.test(location.search) && testerShown()) setTimeout(openTester, 1500);
 // Inside the app: one day of testing per date, counted on the account.
 async function testerPing() {
   if (!window.WR_TWA || !session) return;

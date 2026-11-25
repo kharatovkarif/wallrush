@@ -14,7 +14,7 @@ import { RANKS } from '../public/js/ranks.js';
 import { checkNick } from '../public/js/nick.js';
 import { localDay } from '../public/js/streak.js';
 import { taskForDay } from '../public/js/daily.js';
-import { initPush, pushPublicKey, saveSub, dropSub, pushTick, sendTestPush, announceNow } from './push.js';
+import { initPush, pushPublicKey, saveSub, dropSub, pushTick, sendTestPush, announceNow, sendUserPush } from './push.js';
 import { mountPages } from './pages.js';
 import { premiumConfigured, createCheckout, handleWebhook, claimByEmail, offerPrices, premiumState, cancelRenewal, CURRENCIES, syncFromLava, syncState, startPremiumSync, resumeRenewal, REMIND_AHEAD, lastCharge, chargeText, usdRub, rubToUsd, usdRates, stopPremiumSync } from './premium.js';
 import { logVisitLater, startWriteQueue, queueStatus, flushWrites } from './queue.js';
@@ -352,10 +352,18 @@ app.post('/api/nick-notice/ack', async (req, res) => {
    players for that address. Only a signed-in player can join: the reward, a
    month of Premium for the first 50 to play 14 days in the app, goes on the
    account. */
+const TESTER_PUSH = {
+  ru: { title: '📱 Доступ к тесту WallRush открыт!', body: 'Нажми, чтобы скачать WallRush для Android', url: '/?tester=1' },
+  en: { title: '📱 Your WallRush test access is open!', body: 'Tap to download WallRush for Android', url: '/?tester=1' },
+  es: { title: '📱 ¡Tu acceso a la prueba de WallRush está abierto!', body: 'Toca para descargar WallRush para Android', url: '/?tester=1' },
+  fr: { title: '📱 Ton accès au test WallRush est ouvert !', body: 'Touche pour télécharger WallRush pour Android', url: '/?tester=1' },
+  tr: { title: '📱 WallRush test erişimin açıldı!', body: 'Android için WallRush’ı indirmek için dokun', url: '/?tester=1' },
+  fa: { title: '📱 دسترسی تست WallRush باز شد!', body: 'برای دانلود WallRush اندروید بزن', url: '/?tester=1' },
+};
 const TESTER_EMAIL = /^[^\s@,;<>"']{1,64}@[a-z0-9.-]{1,190}\.[a-z]{2,}$/i;
 async function testerRow(userId) {
   const { data } = await supa.from('android_testers')
-    .select('gmail, app_days').eq('user_id', userId).maybeSingle();
+    .select('gmail, app_days, added_at').eq('user_id', userId).maybeSingle();
   return data || null;
 }
 app.post('/api/tester/status', async (req, res) => {
@@ -363,7 +371,7 @@ app.post('/api/tester/status', async (req, res) => {
   const user = await verifyUser(bearer(req));
   if (!user) return res.status(401).json({ error: 'unauthorized' });
   const row = await testerRow(user.id);
-  res.json({ joined: Boolean(row?.gmail), gmail: row?.gmail || null, days: row?.app_days || 0 });
+  res.json({ joined: Boolean(row?.gmail), gmail: row?.gmail || null, days: row?.app_days || 0, added: Boolean(row?.added_at) });
 });
 app.post('/api/tester/join', async (req, res) => {
   if (!dbEnabled) return res.status(503).json({ error: 'db_off' });
@@ -1305,7 +1313,7 @@ const NAV_ITEMS = [
   ['watch', 'Честность', '<path d="M12 3l7 3v5c0 4.5-3 8.3-7 10-4-1.7-7-5.5-7-10V6z"/>'],
 ];
 // Sections that are not on the menu light up the one they belong to.
-const NAV_PARENT = { days: 'obzor', audience: 'sources', premium: 'obzor' };
+const NAV_PARENT = { days: 'obzor', audience: 'sources', premium: 'obzor', testers: 'obzor' };
 /* Живы ли боты — так, чтобы это было видно сразу, а не пришлось искать.
 
    Они существуют внутри процесса и не оставляют следов, пока их партия не
@@ -1805,7 +1813,7 @@ app.get('/admin', async (req, res) => {
   const cnt = async (q) => (await q).count || 0;
   const today = mskDayStart(Date.now());
   const todayStartIso = new Date(today * dayMs - 3 * 3600e3).toISOString();
-  const view = ['obzor', 'people', 'audience', 'sources', 'days', 'reviews', 'watch', 'premium'].includes(String(req.query.view))
+  const view = ['obzor', 'people', 'audience', 'sources', 'days', 'reviews', 'watch', 'premium', 'testers'].includes(String(req.query.view))
     ? String(req.query.view) : 'obzor';
 
 
@@ -1843,6 +1851,22 @@ app.get('/admin', async (req, res) => {
       await supa.from('reviews').update({ hidden: Boolean(hideId) }).eq('id', hideId || showId);
     } catch (e) { console.error('review moderation failed:', e.message); }
     return res.redirect(`/admin?key=${ADMIN_KEY}&view=reviews`);
+  }
+
+  /* The owner has put these testers' addresses into the list in Play Console:
+     mark them, and tell each one on their phone that the test is open. */
+  if (req.query.tester_add) {
+    const ids = String(req.query.tester_add).split(',').filter(x => /^[0-9a-f-]{36}$/.test(x)).slice(0, 200);
+    try {
+      if (ids.length) {
+        const { data: fresh } = await supa.from('android_testers').update({ added_at: new Date().toISOString() })
+          .in('user_id', ids).is('added_at', null).select('user_id');
+        for (const r of fresh || []) {
+          sendUserPush(r.user_id, (l) => (TESTER_PUSH[l] || TESTER_PUSH.en)).catch(() => {});
+        }
+      }
+    } catch (e) { console.error('tester add failed:', e.message); }
+    return res.redirect(`/admin?key=${ADMIN_KEY}&view=testers`);
   }
 
   let content = '';
@@ -2161,6 +2185,45 @@ ${(contracts || []).map(buyer).join('') || '<p class="note">Пока никто 
 <div class="adreq">${stops.map(evRow).join('') || '<p class="note">Ни одной.</p>'}</div>
 <p class="sect" style="margin-top:22px">Все события от lava.top — последние 200</p>
 <div class="adreq">${(events || []).map(evRow).join('') || '<p class="note">Пока ни одного.</p>'}</div>`;
+  } else if (view === 'testers') {
+    /* ----- testers of the Google Play app -----
+       New requests on top. The owner copies the addresses into Play Console
+       (Closed testing → Testers → the list → paste, comma-separated), then
+       taps "Добавил", and the player gets a notification that the test is open. */
+    const { data: rows } = await supa.from('android_testers')
+      .select('user_id, gmail, created_at, added_at, app_days, app_last, premium_given_at')
+      .not('gmail', 'is', null).order('created_at', { ascending: false }).limit(500);
+    const list = rows || [];
+    const nicks = new Map();
+    const uids = list.map(r => r.user_id);
+    if (uids.length) {
+      const { data: ps } = await supa.from('profiles').select('id, nick').in('id', uids);
+      for (const p of ps || []) nicks.set(p.id, p.nick);
+    }
+    const waiting = list.filter(r => !r.added_at);
+    const added = list.filter(r => r.added_at);
+    const playing = list.filter(r => r.app_days > 0);
+    const done14 = list.filter(r => r.app_days >= 14);
+    const row = (r) => `<div class="ar-line" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <b>${esc(nicks.get(r.user_id) || '—')}</b> <span style="user-select:all">${esc(r.gmail)}</span>
+      <small>· заявка ${mskDdMm(r.created_at.slice(0, 10))}${r.added_at ? ` · добавлен ${mskDdMm(r.added_at.slice(0, 10))}` : ''} · дней в приложении: <b>${r.app_days}</b>${r.premium_given_at ? ' · 💎 выдан' : ''}</small>
+      ${r.added_at ? '' : `<a style="margin-left:auto;padding:8px 12px;border-radius:10px;background:#1a73e8;color:#fff;text-decoration:none;font-weight:700;display:inline-block" href="/admin?key=${ADMIN_KEY}&view=testers&tester_add=${r.user_id}">✅ Добавил</a>`}
+    </div>`;
+    content = `<h2>📱 Тестировщики Android</h2>
+<div class="grid2">
+  ${statCard('🆕', 'Ждут добавления', num(waiting.length))}
+  ${statCard('✅', 'Добавлены', num(added.length))}
+  ${statCard('📲', 'Играли в приложении', num(playing.length))}
+  ${statCard('🏁', '14 дней и больше', num(done14.length))}
+</div>
+<p class="note" style="margin:6px 0 14px">Как добавить: скопируй почты ниже → Play Console → ракета → «Закрытое тестирование» → alpha → «Количество тестировщиков» → стрелка → у «WallRush testers» → вставь в поле → Enter → «Сохранить изменения». Потом нажми здесь «✅ Добавил» — игрокам придёт уведомление, что можно скачивать.</p>
+${waiting.length ? `<p class="sect">Почты всех, кто ждёт (скопируй разом)</p>
+<textarea readonly style="width:100%;min-height:70px;box-sizing:border-box;font:inherit;padding:10px;border-radius:10px" onclick="this.select()">${esc(waiting.map(r => r.gmail).join(', '))}</textarea>
+<p style="margin:8px 0 18px"><a style="padding:8px 12px;border-radius:10px;background:#1a73e8;color:#fff;text-decoration:none;font-weight:700;display:inline-block" href="/admin?key=${ADMIN_KEY}&view=testers&tester_add=${waiting.map(r => r.user_id).join(',')}">✅ Добавил всех (${num(waiting.length)})</a></p>` : ''}
+<p class="sect">Ждут добавления</p>
+<div class="adreq">${waiting.map(row).join('') || '<p class="note">Новых заявок нет.</p>'}</div>
+<p class="sect" style="margin-top:22px">Добавлены</p>
+<div class="adreq">${added.map(row).join('') || '<p class="note">Пока никого.</p>'}</div>`;
   } else if (view === 'watch') {
     /* ----- fair play -----
        Half of all players finish six games a day and ninety-nine in a hundred
@@ -2354,6 +2417,8 @@ ${blocks.join('') || '<p class="note">Подневная история пише
     const returningPrev = Math.max(0, prev.active - prev.newPeople);
     const taskPct = dailyTook ? Math.round(100 * dailyDone / dailyTook) : 0;
     // one head-count, only when this page is opened
+    const testersWaiting = await cnt(supa.from('android_testers').select('user_id', { count: 'exact', head: true })
+      .not('gmail', 'is', null).is('added_at', null));
     const premiumNow = await cnt(supa.from('profiles').select('id', { count: 'exact', head: true })
       .gt('premium_until', new Date().toISOString()));
 
@@ -2397,6 +2462,7 @@ ${period === 'today' && !short ? `<p class="cmp-note" style="margin-top:12px">Д
 <p class="h">Подробнее</p>
 <div class="list">
   <a class="li" href="/admin?key=${ADMIN_KEY}&view=premium"><div class="ic">💎</div><div class="t"><b>Premium</b><small>кто купил, когда, сколько, отмены и возвраты</small></div><div class="n">${num(premiumNow)}</div><span class="go">›</span></a>
+  <a class="li" href="/admin?key=${ADMIN_KEY}&view=testers"><div class="ic">📱</div><div class="t"><b>Тестировщики Android</b><small>заявки в тест Google Play: добавить и уведомить</small></div><div class="n">${num(testersWaiting)}</div><span class="go">›</span></a>
   <a class="li" href="/admin?key=${ADMIN_KEY}&view=days"><div class="ic">📅</div><div class="t"><b>По дням</b><small>две недели: новые, заходы, партии, по часам</small></div><span class="go">›</span></a>
 </div>
 
