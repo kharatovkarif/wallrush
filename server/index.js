@@ -346,6 +346,58 @@ app.post('/api/nick-notice/ack', async (req, res) => {
   res.json({ ok: true });
 });
 
+/* The closed test of the Google Play app. Play Console lets the app go public
+   only after 12 testers have had it for 14 days, and testers are added by the
+   Google address they use in the Play Store — so the site asks Android
+   players for that address. Only a signed-in player can join: the reward, a
+   month of Premium for the first 50 to play 14 days in the app, goes on the
+   account. */
+const TESTER_EMAIL = /^[^\s@,;<>"']{1,64}@[a-z0-9.-]{1,190}\.[a-z]{2,}$/i;
+async function testerRow(userId) {
+  const { data } = await supa.from('android_testers')
+    .select('gmail, app_days').eq('user_id', userId).maybeSingle();
+  return data || null;
+}
+app.post('/api/tester/status', async (req, res) => {
+  if (!dbEnabled) return res.status(503).json({ error: 'db_off' });
+  const user = await verifyUser(bearer(req));
+  if (!user) return res.status(401).json({ error: 'unauthorized' });
+  const row = await testerRow(user.id);
+  res.json({ joined: Boolean(row?.gmail), gmail: row?.gmail || null, days: row?.app_days || 0 });
+});
+app.post('/api/tester/join', async (req, res) => {
+  if (!dbEnabled) return res.status(503).json({ error: 'db_off' });
+  const user = await verifyUser(bearer(req));
+  if (!user) return res.status(401).json({ error: 'unauthorized' });
+  const gmail = String(req.body?.gmail || '').trim().toLowerCase();
+  if (!TESTER_EMAIL.test(gmail)) return res.status(400).json({ error: 'bad_email' });
+  const { error } = await supa.from('android_testers')
+    .upsert({ user_id: user.id, gmail }, { onConflict: 'user_id' });
+  if (error) { console.error('tester join failed:', error.message); return res.status(500).json({ error: 'failed' }); }
+  res.json({ ok: true, gmail });
+});
+// Sent by the app itself (the TWA) once per launch: one day counted per date.
+app.post('/api/tester/ping', async (req, res) => {
+  res.json({ ok: true });
+  if (!dbEnabled) return;
+  try {
+    const user = await verifyUser(bearer(req));
+    if (!user) return;
+    const today = new Date().toISOString().slice(0, 10);
+    const { data: row } = await supa.from('android_testers')
+      .select('app_days, app_last, app_first').eq('user_id', user.id).maybeSingle();
+    if (row?.app_last === today) return;
+    await supa.from('android_testers').upsert({
+      user_id: user.id,
+      app_days: (row?.app_days || 0) + 1,
+      app_last: today,
+      app_first: row?.app_first || new Date().toISOString(),
+    }, { onConflict: 'user_id' });
+  } catch (e) {
+    console.error('tester ping failed:', e.message);
+  }
+});
+
 /* Delete my account, and mean it.
 
    Asked for twice, because it cannot be taken back: the client confirms, and

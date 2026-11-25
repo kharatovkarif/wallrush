@@ -720,3 +720,20 @@ revoke all on public.premium_contracts, public.premium_events from public, anon,
 revoke all on sequence public.premium_events_id_seq from public, anon, authenticated;
 grant all on public.premium_contracts, public.premium_events to service_role;
 grant usage, select on sequence public.premium_events_id_seq to service_role;
+
+-- Closed test of the Google Play app (from 26 Nov 2026). Players on Android
+-- leave the Google address they use in the Play Store; the owner uploads the
+-- list to Play Console, which needs 12 testers for 14 days before the app can
+-- go public. Days are counted when the player opens the app itself (the TWA),
+-- and the first 50 to reach 14 get a month of Premium.
+create table if not exists public.android_testers (
+  user_id uuid primary key references public.profiles (id) on delete cascade,
+  gmail text,
+  created_at timestamptz not null default now(),
+  app_days integer not null default 0,
+  app_first timestamptz,
+  app_last date,
+  premium_given_at timestamptz
+);
+alter table public.android_testers enable row level security;
+revoke all on public.android_testers from anon, authenticated;

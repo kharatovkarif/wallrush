@@ -189,6 +189,21 @@ export const I18N = {
     tn_empty: 'Турнир только начался — выиграй первым!',
     tn_note: 'Топ-50 по победам получат 💎 Premium на месяц · осталось %s',
     tn_over: 'Турнир окончен · топ-50 получили 💎 Premium на месяц',
+    tester_b1: 'Стань тестировщиком WallRush для Android',
+    tester_b2: '50 мест · 💎 Premium на месяц бесплатно',
+    tester_title: 'Тест WallRush для Android',
+    tester_lead: 'Мы выпускаем WallRush в Google Play. Помоги проверить приложение: первые 50 участников, которые поиграют в нём 14 дней, получат 💎 Premium на месяц.',
+    tester_s1: 'Впиши почту Google, с которой вошёл в Play Маркет на этом телефоне.',
+    tester_s2: 'В течение 1–2 дней мы откроем тебе доступ. Потом нажми «Открыть тест» → «Стать тестировщиком» → установи WallRush.',
+    tester_s3: 'Войди в приложении в этот же аккаунт и заходи в игру 14 дней — тогда получишь Premium.',
+    tester_ph: 'имя@gmail.com',
+    tester_send: 'Участвовать',
+    tester_need_acc: 'Premium выдаётся на аккаунт — сначала войди или зарегистрируйся.',
+    tester_signin: 'Войти / регистрация',
+    tester_bad: 'Проверь почту — нужен адрес вида имя@gmail.com',
+    tester_ok: '✅ Ты в списке: %e. Доступ откроем в течение 1–2 дней — тогда жми «Открыть тест».',
+    tester_open: 'Открыть тест в Google Play',
+    tester_err: 'Не получилось, попробуй ещё раз',
     tn_m_title: '🏆 Турнир побед',
     tn_m_lead: 'Топ-50 по победам получат 💎 Premium на месяц бесплатно!',
     tn_r1: 'Считаются только победы в онлайн-партиях с начала турнира',
@@ -683,6 +698,21 @@ export const I18N = {
     tn_empty: 'The tournament has just started — be the first to win!',
     tn_note: 'The top 50 by wins get 💎 Premium for a month · %s left',
     tn_over: 'The tournament is over · the top 50 got 💎 Premium for a month',
+    tester_b1: 'Become a WallRush for Android tester',
+    tester_b2: '50 places · 💎 Premium for a month, free',
+    tester_title: 'Test WallRush for Android',
+    tester_lead: 'WallRush is coming to Google Play. Help us test the app: the first 50 testers to play it for 14 days get 💎 Premium for a month.',
+    tester_s1: 'Enter the Google address you use in the Play Store on this phone.',
+    tester_s2: 'We give you access within 1–2 days. Then tap “Open the test” → “Become a tester” → install WallRush.',
+    tester_s3: 'Sign in to this same account in the app and play on 14 days to get Premium.',
+    tester_ph: 'name@gmail.com',
+    tester_send: 'Join the test',
+    tester_need_acc: 'Premium goes on an account — sign in or sign up first.',
+    tester_signin: 'Sign in / sign up',
+    tester_bad: 'Check the address — it should look like name@gmail.com',
+    tester_ok: '✅ You are on the list: %e. Access opens within 1–2 days — then tap “Open the test”.',
+    tester_open: 'Open the test on Google Play',
+    tester_err: 'That did not work, try again',
     tn_m_title: '🏆 Wins tournament',
     tn_m_lead: 'The top 50 by wins get 💎 Premium for a month, free!',
     tn_r1: 'Only wins in online games since the start count',
@@ -1004,7 +1034,7 @@ export const LANGS = [
 export const LANG_CODES = LANGS.map((l) => l.code);
 export const RTL = new Set(['fa']);
 
-const V = '203';
+const V = '204';
 
 // Loads a translation file on demand. Safe to call repeatedly and safe to fail:
 // if the request never lands, makeT keeps falling back to English.

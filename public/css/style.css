@@ -1769,3 +1769,14 @@ html[data-pt="gem"] #board .pawn::before, .pt-gem i::before {
 .pm-show { padding-bottom: 24px; }
 .pm-buy { padding: 11px 14px; }
 .pm-buy b { font-size: 17px; }
+
+/* Closed test of the Google Play app: same banner, green, so it is not read
+   as the tournament again. */
+.tester-banner { background: linear-gradient(120deg, #0f9d58, #1a73e8 60%, #7b3df0); box-shadow: var(--shadow), 0 6px 22px rgba(26, 115, 232, .35); }
+.ts-input {
+  width: 100%; box-sizing: border-box; margin: 6px 0 10px; padding: 13px 14px;
+  border-radius: 12px; border: 1px solid var(--line, rgba(255,255,255,.18));
+  background: rgba(255,255,255,.06); color: inherit; font: inherit; font-size: 16px;
+}
+.ts-note { margin: 8px 0; }
+.ts-open { margin-top: 8px; text-align: center; }

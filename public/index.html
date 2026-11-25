@@ -83,7 +83,7 @@
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
   <!-- Opens the connection to the ad host early. Costs one handshake and no
        download, and takes that handshake off the wait once Support is tapped. -->
-  <link rel="stylesheet" href="css/style.css?v=203">
+  <link rel="stylesheet" href="css/style.css?v=204">
   <!-- Are we inside somebody else's page? Every game portal forbids running
        your own ads inside theirs, and the ad scripts below start the moment
        the parser reaches them — long before any module could stop one. So the
@@ -172,6 +172,15 @@
       <button class="tn-banner" id="tn-banner" hidden>
         <span class="tn-cup">🏆</span>
         <span class="tn-mid"><b id="tn-line"></b><small id="tn-left"></small></span>
+        <span class="tn-go">›</span>
+      </button>
+
+      <!-- Closed test of the Google Play app (from 26 Nov 2026): Android
+           players in the browser are asked to join. Takes the tournament
+           banner's place on Android, and the ad's place in the menu. -->
+      <button class="tn-banner tester-banner" id="tester-banner" hidden>
+        <span class="tn-cup">📱</span>
+        <span class="tn-mid"><b data-i18n="tester_b1"></b><small data-i18n="tester_b2"></small></span>
         <span class="tn-go">›</span>
       </button>
 
@@ -268,7 +277,8 @@
            in the menu only and is never present on the game screen. -->
       <div class="hta" id="hta-home">
         <script>
-        if (!window.WR_NOADS) (function(zone){
+        // on Android the call for app testers takes this place (26 Nov 2026)
+        if (!window.WR_NOADS && !/Android/i.test(navigator.userAgent)) (function(zone){
         var d = document,
             s = d.createElement('script'),
             l = d.scripts[d.scripts.length - 1];
@@ -695,6 +705,30 @@
         </ul>
         <button class="btn-big tn-buy" id="tn-buy" data-i18n="tn_m_buy"></button>
         <button class="btn-link" id="tn-play" data-i18n="tn_m_play"></button>
+      </div>
+    </div>
+
+    <div class="overlay" id="overlay-tester" hidden>
+      <div class="modal pm-modal">
+        <button class="pl-close" id="ts-close" aria-label="close">✕</button>
+        <div class="pm-crown">📱</div>
+        <h2 data-i18n="tester_title"></h2>
+        <p class="tn-lead" data-i18n="tester_lead"></p>
+        <ul class="pm-list tn-rules">
+          <li><span>1️⃣</span><span data-i18n="tester_s1"></span></li>
+          <li><span>2️⃣</span><span data-i18n="tester_s2"></span></li>
+          <li><span>3️⃣</span><span data-i18n="tester_s3"></span></li>
+        </ul>
+        <div id="ts-form" hidden>
+          <input class="ts-input" id="ts-email" type="email" autocomplete="email" inputmode="email" maxlength="120">
+          <button class="btn-big tn-buy" id="ts-send" data-i18n="tester_send"></button>
+        </div>
+        <div id="ts-guest" hidden>
+          <p class="hint" data-i18n="tester_need_acc"></p>
+          <button class="btn-big tn-buy" id="ts-signin" data-i18n="tester_signin"></button>
+        </div>
+        <p class="hint ts-note" id="ts-note" hidden></p>
+        <a class="btn-big btn-ghost ts-open" id="ts-open" hidden href="https://play.google.com/apps/testing/online.wallrush.twa" target="_blank" rel="noopener" data-i18n="tester_open"></a>
       </div>
     </div>
 
@@ -1194,7 +1228,7 @@
     <div id="toast" hidden></div>
   </div>
 
-  <script src="vendor/supabase.js?v=203" defer></script>
-  <script type="module" src="js/app.js?v=203"></script>
+  <script src="vendor/supabase.js?v=204" defer></script>
+  <script type="module" src="js/app.js?v=204"></script>
 </body>
 </html>

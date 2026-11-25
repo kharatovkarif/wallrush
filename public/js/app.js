@@ -1,16 +1,16 @@
 // WallRush client app: screens, board UI, online play (WebSocket), AI mode, auth.
-import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, wallBetween, N } from './engine.js?v=203';
-import { scheduleTick } from './sfx.js?v=203';
-import { aiMove } from './ai.js?v=203';
-import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=203';
-import { rankOf, nextRank } from './ranks.js?v=203';
-import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=203';
-import { checkNick, nickOk, randomNick } from './nick.js?v=203';
+import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, wallBetween, N } from './engine.js?v=204';
+import { scheduleTick } from './sfx.js?v=204';
+import { aiMove } from './ai.js?v=204';
+import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=204';
+import { rankOf, nextRank } from './ranks.js?v=204';
+import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=204';
+import { checkNick, nickOk, randomNick } from './nick.js?v=204';
 import {
   embedded, initPortal, inPortal, portalAd, portalPlaying, portalHappy,
   portalLoaded, portalInviteCode, portalShowInvite, portalHideInvite, portalInstant,
   portalRoom, portalOnJoin, portalInviteLink, portalMuted, portalOnMute, portalUserName,
-} from './portal.js?v=203';
+} from './portal.js?v=204';
 
 /* ================= state ================= */
 const $ = (id) => document.getElementById(id);
@@ -266,7 +266,7 @@ function getAiWorker() {
   if (aiWorker === false) return null;
   if (!aiWorker) {
     try {
-      aiWorker = new Worker('js/ai-worker.js?v=203', { type: 'module' });
+      aiWorker = new Worker('js/ai-worker.js?v=204', { type: 'module' });
       aiWorker.onmessage = (e) => {
         const cb = aiPending.get(e.data.id);
         aiPending.delete(e.data.id);
@@ -2643,7 +2643,7 @@ $('rp-clip').addEventListener('click', async () => {
   playReplay(false);                       // one thing on the screen at a time
   clipLabel(t('clip_making').replace('%n', '0'), { busy: true });
   try {
-    const { makeClip } = await import('./clip.js?v=203');
+    const { makeClip } = await import('./clip.js?v=204');
     const last = game.history[game.history.length - 1];
     const winner = last?.winner ?? game.state?.winner ?? null;
     const quad = isQuad();
@@ -2821,7 +2821,7 @@ function tnLines() {
 
 function renderTourney() {
   const el = $('tn-banner');
-  el.hidden = !tnShown();
+  el.hidden = !tnShown() || testerShown();
   if (el.hidden) { clearInterval(tnTimer); tnTimer = 0; return; }
   const lines = tnLines();
   tnLine %= lines.length;
@@ -2869,6 +2869,82 @@ $('tn-banner').addEventListener('click', () => {
   show('screen-leaderboard');
 });
 setTimeout(loadTourney, 800);
+
+/* ---- Closed test of the Google Play app (from 26 Nov 2026) ----
+   Play Console lets the app go public only after 12 testers have had it for 14
+   days, and a tester is added by the Google address they use in the Play
+   Store. Android players in the browser get a banner asking for it; the app
+   itself reports one day per date, and the first 50 to reach 14 get a month
+   of Premium on the account. */
+function testerShown() {
+  return /Android/i.test(navigator.userAgent) && !window.WR_TWA && !window.WR_EMBED;
+}
+function testerNote(text) {
+  const n = $('ts-note');
+  n.textContent = text || '';
+  n.hidden = !text;
+}
+async function openTester() {
+  testerNote('');
+  $('ts-open').hidden = true;
+  $('ts-email').placeholder = t('tester_ph');
+  const signed = Boolean(session);
+  $('ts-form').hidden = !signed;
+  $('ts-guest').hidden = signed;
+  $('overlay-tester').hidden = false;
+  if (!signed) return;
+  try {
+    const auth = await authHeaders();
+    const res = await fetch('/api/tester/status', { method: 'POST', headers: { 'Content-Type': 'application/json', ...auth } });
+    const st = await res.json();
+    if (st.joined) {
+      $('ts-email').value = st.gmail;
+      testerNote(t('tester_ok').replace('%e', st.gmail));
+      $('ts-open').hidden = false;
+    } else if (!$('ts-email').value && session?.user?.email) {
+      $('ts-email').value = session.user.email;
+    }
+  } catch { /* the form works without it */ }
+}
+const closeTester = () => { $('overlay-tester').hidden = true; };
+$('tester-banner').addEventListener('click', openTester);
+$('ts-close').addEventListener('click', closeTester);
+$('overlay-tester').addEventListener('click', (e) => { if (e.target.id === 'overlay-tester') closeTester(); });
+$('ts-signin').addEventListener('click', () => {
+  closeTester();
+  show('screen-profile');
+  if (ensureAuthAvailable()) openAuthForm('register');
+});
+$('ts-send').addEventListener('click', async () => {
+  const gmail = $('ts-email').value.trim();
+  if (!/^[^\s@]+@[^\s@]+\.[a-z]{2,}$/i.test(gmail)) { testerNote(t('tester_bad')); return; }
+  const btn = $('ts-send');
+  btn.disabled = true;
+  try {
+    const auth = await authHeaders();
+    const res = await fetch('/api/tester/join', {
+      method: 'POST', headers: { 'Content-Type': 'application/json', ...auth },
+      body: JSON.stringify({ gmail }),
+    });
+    const out = await res.json().catch(() => ({}));
+    if (res.ok && out.ok) {
+      testerNote(t('tester_ok').replace('%e', out.gmail));
+      $('ts-open').hidden = false;
+    } else testerNote(out.error === 'bad_email' ? t('tester_bad') : t('tester_err'));
+  } catch { testerNote(t('tester_err')); }
+  btn.disabled = false;
+});
+$('tester-banner').hidden = !testerShown();
+// Inside the app: one day of testing per date, counted on the account.
+async function testerPing() {
+  if (!window.WR_TWA || !session) return;
+  try {
+    const auth = await authHeaders();
+    fetch('/api/tester/ping', { method: 'POST', headers: { 'Content-Type': 'application/json', ...auth }, body: '{}' }).catch(() => {});
+  } catch {}
+}
+setTimeout(testerPing, 6000);
+setInterval(testerPing, 30 * 60_000);
 
 /* One row of the board. Used for the fifty on the list and for the one pinned
    underneath it, because a player looking for themselves should find the same
