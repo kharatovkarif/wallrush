@@ -360,7 +360,9 @@ const TESTER_PUSH = {
   tr: { title: '📱 WallRush test erişimin açıldı!', body: 'Android için WallRush’ı indirmek için dokun', url: '/?tester=1' },
   fa: { title: '📱 دسترسی تست WallRush باز شد!', body: 'برای دانلود WallRush اندروید بزن', url: '/?tester=1' },
 };
-const TESTER_EMAIL = /^[^\s@,;<>"']{1,64}@[a-z0-9.-]{1,190}\.[a-z]{2,}$/i;
+// Play Console accepts only Google addresses here: on 26 Nov it turned down
+// every ya.ru, mail.ru, ukr.net, yahoo and hotmail one in the list.
+const TESTER_EMAIL = /^[^\s@,;<>"']{1,64}@(gmail|googlemail)\.com$/i;
 async function testerRow(userId) {
   const { data } = await supa.from('android_testers')
     .select('gmail, app_days, added_at').eq('user_id', userId).maybeSingle();

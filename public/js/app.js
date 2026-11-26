@@ -1,16 +1,16 @@
 // WallRush client app: screens, board UI, online play (WebSocket), AI mode, auth.
-import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, wallBetween, N } from './engine.js?v=205';
-import { scheduleTick } from './sfx.js?v=205';
-import { aiMove } from './ai.js?v=205';
-import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=205';
-import { rankOf, nextRank } from './ranks.js?v=205';
-import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=205';
-import { checkNick, nickOk, randomNick } from './nick.js?v=205';
+import { initialState, applyMove, pawnMoves, canPlaceWall, goalRow, cloneState, wallBetween, N } from './engine.js?v=206';
+import { scheduleTick } from './sfx.js?v=206';
+import { aiMove } from './ai.js?v=206';
+import { makeT, LANGS, LANG_CODES, RTL, loadLang } from './i18n.js?v=206';
+import { rankOf, nextRank } from './ranks.js?v=206';
+import { flameClass, isMilestone, FLAMES, MILESTONES } from './streak.js?v=206';
+import { checkNick, nickOk, randomNick } from './nick.js?v=206';
 import {
   embedded, initPortal, inPortal, portalAd, portalPlaying, portalHappy,
   portalLoaded, portalInviteCode, portalShowInvite, portalHideInvite, portalInstant,
   portalRoom, portalOnJoin, portalInviteLink, portalMuted, portalOnMute, portalUserName,
-} from './portal.js?v=205';
+} from './portal.js?v=206';
 
 /* ================= state ================= */
 const $ = (id) => document.getElementById(id);
@@ -266,7 +266,7 @@ function getAiWorker() {
   if (aiWorker === false) return null;
   if (!aiWorker) {
     try {
-      aiWorker = new Worker('js/ai-worker.js?v=205', { type: 'module' });
+      aiWorker = new Worker('js/ai-worker.js?v=206', { type: 'module' });
       aiWorker.onmessage = (e) => {
         const cb = aiPending.get(e.data.id);
         aiPending.delete(e.data.id);
@@ -2643,7 +2643,7 @@ $('rp-clip').addEventListener('click', async () => {
   playReplay(false);                       // one thing on the screen at a time
   clipLabel(t('clip_making').replace('%n', '0'), { busy: true });
   try {
-    const { makeClip } = await import('./clip.js?v=205');
+    const { makeClip } = await import('./clip.js?v=206');
     const last = game.history[game.history.length - 1];
     const winner = last?.winner ?? game.state?.winner ?? null;
     const quad = isQuad();
@@ -2922,7 +2922,7 @@ $('ts-signin').addEventListener('click', () => {
 });
 $('ts-send').addEventListener('click', async () => {
   const gmail = $('ts-email').value.trim();
-  if (!/^[^\s@]+@[^\s@]+\.[a-z]{2,}$/i.test(gmail)) { testerNote(t('tester_bad')); return; }
+  if (!/^[^\s@]+@(gmail|googlemail)\.com$/i.test(gmail)) { testerNote(t('tester_bad')); return; }
   const btn = $('ts-send');
   btn.disabled = true;
   try {
